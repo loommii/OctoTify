@@ -47,7 +47,7 @@ func main() {
 	}
 
 	addr := fmt.Sprintf(":%d", cfg.Server.Port)
-	srv := server.New(addr, cfg.Server.Mode, logger)
+	srv := server.New(addr, cfg.Server.Mode, cfg.Server.Name, logger)
 
 	if err := srv.Run(); err != nil {
 		logger.Fatal("server run failed", zap.Error(err))

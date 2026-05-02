@@ -1,5 +1,6 @@
 server:
-  port: 8080
+  name: OctoTify
+  port: 34123
   mode: debug
 
 database:
