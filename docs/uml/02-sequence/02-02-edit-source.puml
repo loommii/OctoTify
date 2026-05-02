@@ -1,0 +1,93 @@
+@startuml OctoTify_Sequence_EditSource
+
+skinparam sequenceStyle svg
+skinparam linetype ortho
+
+title 编辑消息来源 (PUT /api/sources/:id)
+
+actor "用户" as User
+participant "前端" as Frontend
+participant "HTTPServer" as Server
+participant "SourceHandler" as Handler
+participant "SourceService" as Service
+database "SQLite" as DB
+
+User -> Frontend: 修改名称、描述、绑定渠道
+Frontend -> Server: PUT /api/sources/:id {name, description, channelIds}
+note right: Header: Authorization Bearer {accessToken}
+activate Server
+Server -> Handler: updateSource(userId, sourceId, req)
+activate Handler
+
+== 查询来源 ==
+
+Handler -> Service: getSourceById(sourceId, userId)
+activate Service
+Service -> DB: SELECT * FROM sources WHERE id = ? AND user_id = ?
+activate DB
+
+alt 来源不存在
+    DB --> Service: nil
+    deactivate DB
+    Service --> Handler: ErrSourceNotFound (110503)
+    Handler --> Server: {code: 110503, msg: "来源不存在"}
+    Server --> Frontend: {code: 110503, msg: "来源不存在"}
+    Frontend --> User: 显示错误提示
+else 来源已删除
+    DB --> Service: source (status = -1)
+    deactivate DB
+    Service --> Handler: ErrSourceAlreadyDeleted (110509)
+    Handler --> Server: {code: 110509, msg: "来源已删除"}
+    Server --> Frontend: {code: 110509, msg: "来源已删除"}
+    Frontend --> User: 显示错误提示
+else 来源存在且有效
+    DB --> Service: source
+    deactivate DB
+    Service --> Handler: source
+    deactivate Service
+
+    == 更新来源 ==
+
+    Handler -> Service: updateSource(sourceId, name, description, userId)
+    activate Service
+
+    alt 数据库更新失败
+        Service -> DB: UPDATE sources SET name = ?, description = ? WHERE id = ? AND user_id = ?
+        activate DB
+        DB --> Service: 更新失败
+        deactivate DB
+        Service --> Handler: ErrSourceQueryFailed (110505)
+        Handler --> Server: {code: 110505, msg: "查询来源失败"}
+        Server --> Frontend: {code: 110505, msg: "查询来源失败"}
+        Frontend --> User: 显示错误提示
+    else 数据库更新成功
+        Service -> DB: UPDATE sources SET name = ?, description = ? WHERE id = ? AND user_id = ?
+        activate DB
+        DB --> Service: 成功
+        deactivate DB
+        Service --> Handler: 成功
+        deactivate Service
+
+        == 同步渠道绑定 ==
+
+        Handler -> Service: syncSourceChannels(sourceId, channelIds, userId)
+        activate Service
+        Service -> DB: DELETE FROM source_channels WHERE source_id = ?
+        activate DB
+        DB --> Service: 成功
+        deactivate DB
+        Service -> DB: INSERT INTO source_channels (source_id, channel_id) VALUES ...
+        activate DB
+        DB --> Service: 成功
+        deactivate DB
+        Service --> Handler: 成功
+        deactivate Service
+        Handler --> Server: {code: 0}
+        deactivate Handler
+        Server --> Frontend: {code: 0, msg: "更新成功"}
+        deactivate Server
+        Frontend --> User: 编辑成功
+    end
+end
+
+@enduml

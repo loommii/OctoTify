@@ -1,0 +1,36 @@
+@startuml OctoTify_Sequence_RecordStatus
+
+skinparam sequenceStyle svg
+skinparam linetype ortho
+
+title 更新推送状态（通用）
+
+participant "MessageService" as Service
+participant "MessageRepo" as Repo
+database "SQLite" as DB
+
+note over Service: 推送完成后更新消息状态\n100（待推送）→ 200（成功）/ 300（失败）\n或重试场景：300 → 100 → 200/300
+
+== 更新状态 ==
+
+Service -> Repo: updateMessageStatus(messageId, status)
+activate Repo
+
+alt 数据库更新失败
+    Repo -> DB: UPDATE messages SET status = ?, updated_at = ? WHERE id = ?
+    activate DB
+    DB --> Repo: 更新失败
+    deactivate DB
+    Repo --> Service: ErrMessageRecordFailed (110704)
+    deactivate Repo
+    Service -> Service: 记录状态更新失败日志
+else 数据库更新成功
+    Repo -> DB: UPDATE messages SET status = ?, updated_at = ? WHERE id = ?
+    activate DB
+    DB --> Repo: 成功
+    deactivate DB
+    Repo --> Service: 成功
+    deactivate Repo
+end
+
+@enduml

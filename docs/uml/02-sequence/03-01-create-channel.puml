@@ -1,0 +1,63 @@
+@startuml OctoTify_Sequence_CreateChannel
+
+skinparam sequenceStyle svg
+skinparam linetype ortho
+
+title 创建推送渠道 (POST /api/channels)
+
+actor "用户" as User
+participant "前端" as Frontend
+participant "HTTPServer" as Server
+participant "ChannelHandler" as Handler
+participant "ChannelService" as Service
+database "SQLite" as DB
+
+User -> Frontend: 选择渠道类型、输入名称、配置
+Frontend -> Server: POST /api/channels {type, name, config}
+note right: Header: Authorization Bearer {accessToken}
+activate Server
+Server -> Handler: createChannel(userId, req)
+activate Handler
+
+== 参数校验 ==
+
+alt 渠道类型无效
+    Handler -> Handler: 验证渠道类型
+    Handler --> Server: ErrChannelInvalidType (110601)
+    Server --> Frontend: {code: 110601, msg: "无效的渠道类型"}
+    Frontend --> User: 显示错误提示
+else 名称为空
+    Handler -> Handler: 验证渠道类型
+    Handler --> Server: ErrChannelParamNameEmpty (110600)
+    Server --> Frontend: {code: 110600, msg: "渠道名称不能为空"}
+    Frontend --> User: 显示错误提示
+else 参数校验通过
+    Handler -> Handler: 验证渠道类型通过
+    Handler -> Service: createChannel(userId, type, name, config)
+    activate Service
+
+    alt 数据库插入失败
+        Service -> DB: INSERT INTO channels (user_id, type, name, config, status)
+        activate DB
+        DB --> Service: 插入失败
+        deactivate DB
+        Service --> Handler: ErrChannelInsertFailed (110602)
+        Handler --> Server: {code: 110602, msg: "创建渠道失败"}
+        Server --> Frontend: {code: 110602, msg: "创建渠道失败"}
+        Frontend --> User: 显示错误提示
+    else 数据库插入成功
+        Service -> DB: INSERT INTO channels (user_id, type, name, config, status)
+        activate DB
+        DB --> Service: channelId
+        deactivate DB
+        Service --> Handler: channel
+        deactivate Service
+        Handler --> Server: {code: 0, data: channel}
+        deactivate Handler
+        Server --> Frontend: {code: 0, data: channel}
+        deactivate Server
+        Frontend --> User: 创建成功
+    end
+end
+
+@enduml

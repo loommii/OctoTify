@@ -1,0 +1,81 @@
+@startuml OctoTify_Sequence_DeleteMessage
+
+skinparam sequenceStyle svg
+skinparam linetype ortho
+
+title 删除消息记录 (DELETE /api/messages/:id)
+
+actor "用户" as User
+participant "前端" as Frontend
+participant "HTTPServer" as Server
+participant "MessageHandler" as Handler
+participant "MessageService" as Service
+database "SQLite" as DB
+
+User -> Frontend: 点击删除
+Frontend -> Server: DELETE /api/messages/:id
+note right: Header: Authorization Bearer {accessToken}
+activate Server
+Server -> Handler: deleteMessage(userId, messageId)
+activate Handler
+
+== 查询消息 ==
+
+Handler -> Service: getMessageById(messageId, userId)
+activate Service
+Service -> DB: SELECT * FROM messages WHERE id = ? AND source_id IN (SELECT id FROM sources WHERE user_id = ?)
+activate DB
+
+alt 消息不存在
+    DB --> Service: nil
+    deactivate DB
+    Service --> Handler: {code: 100000, msg: "消息不存在"}
+    Handler --> Server: {code: 100000, msg: "消息不存在"}
+    Server --> Frontend: {code: 100000, msg: "消息不存在"}
+    Frontend --> User: 显示错误提示
+else 消息已删除
+    DB --> Service: message (status = -1)
+    deactivate DB
+    Service --> Handler: message
+    deactivate Service
+    Handler -> Handler: 校验状态（status == -1，返回 ErrMessageAlreadyDeleted）
+    Handler --> Server: ErrMessageAlreadyDeleted (110705)
+    Server --> Frontend: {code: 110705, msg: "消息已删除"}
+    Frontend --> User: 提示消息已删除
+else 消息存在
+    DB --> Service: message
+    deactivate DB
+    Service --> Handler: message
+    deactivate Service
+    Handler -> Handler: 校验状态（status != -1，通过）
+
+    == 软删除消息 ==
+
+    Handler -> Service: softDeleteMessage(messageId, userId)
+    activate Service
+
+    alt 数据库更新失败
+        Service -> DB: UPDATE messages SET status = -1 WHERE id = ? AND source_id IN (SELECT id FROM sources WHERE user_id = ?)
+        activate DB
+        DB --> Service: 更新失败
+        deactivate DB
+        Service --> Handler: ErrMessageRecordFailed (110704)
+        Handler --> Server: {code: 110704, msg: "记录消息状态失败"}
+        Server --> Frontend: {code: 110704, msg: "记录消息状态失败"}
+        Frontend --> User: 显示错误提示
+    else 数据库更新成功
+        Service -> DB: UPDATE messages SET status = -1 WHERE id = ? AND source_id IN (SELECT id FROM sources WHERE user_id = ?)
+        activate DB
+        DB --> Service: 成功
+        deactivate DB
+        Service --> Handler: 成功
+        deactivate Service
+        Handler --> Server: {code: 0}
+        deactivate Handler
+        Server --> Frontend: {code: 0, msg: "已删除"}
+        deactivate Server
+        Frontend --> User: 消息已删除
+    end
+end
+
+@enduml

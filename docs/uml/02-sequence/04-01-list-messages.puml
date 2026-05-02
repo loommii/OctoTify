@@ -1,0 +1,52 @@
+@startuml OctoTify_Sequence_ListMessages
+
+skinparam sequenceStyle svg
+skinparam linetype ortho
+
+title 查看消息记录列表 (GET /api/messages)
+
+actor "用户" as User
+participant "前端" as Frontend
+participant "HTTPServer" as Server
+participant "MessageHandler" as Handler
+participant "MessageService" as Service
+database "SQLite" as DB
+
+User -> Frontend: 访问消息记录页面
+Frontend -> Server: GET /api/messages?page=1&pageSize=20
+note right: Header: Authorization Bearer {accessToken}
+activate Server
+Server -> Handler: listMessages(userId, page, pageSize)
+activate Handler
+Handler -> Service: getMessages(userId, page, pageSize)
+activate Service
+
+== 查询列表 ==
+
+Service -> DB: SELECT m.*, s.name as source_name, c.name as channel_name FROM messages m LEFT JOIN sources s ON m.source_id = s.id LEFT JOIN channels c ON m.channel_id = c.id WHERE s.user_id = ? AND m.status != -1 ORDER BY m.created_at DESC LIMIT ? OFFSET ?
+activate DB
+
+alt 查询失败
+    DB --> Service: 查询错误
+    deactivate DB
+    Service --> Handler: ErrMessageRecordFailed (110704)
+    Handler --> Server: {code: 110704, msg: "记录消息状态失败"}
+    Server --> Frontend: {code: 110704, msg: "记录消息状态失败"}
+    Frontend --> User: 显示错误提示
+else 查询成功
+    DB --> Service: messages[]
+    deactivate DB
+    Service -> DB: SELECT COUNT(*) FROM messages m LEFT JOIN sources s ON m.source_id = s.id WHERE s.user_id = ? AND m.status != -1
+    activate DB
+    DB --> Service: total
+    deactivate DB
+    Service --> Handler: {list, total}
+    deactivate Service
+    Handler --> Server: {code: 0, data: {list, total}}
+    deactivate Handler
+    Server --> Frontend: {code: 0, data: {list, total}}
+    deactivate Server
+    Frontend --> User: 显示消息记录列表
+end
+
+@enduml

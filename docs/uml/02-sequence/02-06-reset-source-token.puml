@@ -1,0 +1,82 @@
+@startuml OctoTify_Sequence_ResetSourceToken
+
+skinparam sequenceStyle svg
+skinparam linetype ortho
+
+title 重置来源令牌 (PUT /api/sources/:id/token)
+
+actor "用户" as User
+participant "前端" as Frontend
+participant "HTTPServer" as Server
+participant "SourceHandler" as Handler
+participant "SourceService" as Service
+database "SQLite" as DB
+
+User -> Frontend: 点击重置令牌
+Frontend -> Server: PUT /api/sources/:id/token
+note right: Header: Authorization Bearer {accessToken}
+activate Server
+Server -> Handler: resetSourceToken(userId, sourceId)
+activate Handler
+
+== 查询来源 ==
+
+Handler -> Service: resetSourceToken(sourceId, userId)
+activate Service
+
+alt 来源不存在
+    Service -> DB: SELECT * FROM sources WHERE id = ? AND user_id = ?
+    activate DB
+    DB --> Service: nil
+    deactivate DB
+    Service --> Handler: ErrSourceNotFound (110503)
+    Handler --> Server: {code: 110503, msg: "来源不存在"}
+    Server --> Frontend: {code: 110503, msg: "来源不存在"}
+    Frontend --> User: 显示错误提示
+else 来源已删除
+    Service -> DB: SELECT * FROM sources WHERE id = ? AND user_id = ?
+    activate DB
+    DB --> Service: source (status = -1)
+    deactivate DB
+    Service --> Handler: ErrSourceAlreadyDeleted (110509)
+    Handler --> Server: {code: 110509, msg: "来源已删除"}
+    Server --> Frontend: {code: 110509, msg: "来源已删除"}
+    Frontend --> User: 显示错误提示
+else 来源存在
+    Service -> DB: SELECT * FROM sources WHERE id = ? AND user_id = ?
+    activate DB
+    DB --> Service: source
+    deactivate DB
+
+    == 生成新令牌（事务） ==
+
+    note over Service, DB: BEGIN TRANSACTION
+    Service -> Service: 生成新 Token（前缀 src + UUIDv4 无连字符）
+
+    alt 数据库更新失败
+        Service -> DB: UPDATE sources SET token = ? WHERE id = ? AND user_id = ?
+        activate DB
+        DB --> Service: 更新失败
+        deactivate DB
+        note over Service, DB: ROLLBACK
+        Service --> Handler: ErrSourceTokenFailed (110502)
+        Handler --> Server: {code: 110502, msg: "生成来源Token失败"}
+        Server --> Frontend: {code: 110502, msg: "生成来源Token失败"}
+        Frontend --> User: 显示错误提示
+    else 数据库更新成功
+        Service -> DB: UPDATE sources SET token = ? WHERE id = ? AND user_id = ?
+        activate DB
+        DB --> Service: 成功
+        deactivate DB
+        note over Service, DB: COMMIT
+        Service --> Handler: newToken
+        deactivate Service
+        Handler --> Server: {code: 0, data: {newToken}}
+        deactivate Handler
+        Server --> Frontend: {code: 0, data: {newToken}}
+        deactivate Server
+        Frontend --> User: 显示新令牌
+    end
+end
+
+@enduml

@@ -1,0 +1,55 @@
+@startuml OctoTify_Sequence_ViewMessageDetail
+
+skinparam sequenceStyle svg
+skinparam linetype ortho
+
+title 查看消息详情 (GET /api/messages/:id)
+
+actor "用户" as User
+participant "前端" as Frontend
+participant "HTTPServer" as Server
+participant "MessageHandler" as Handler
+participant "MessageService" as Service
+database "SQLite" as DB
+
+User -> Frontend: 点击某条消息
+Frontend -> Server: GET /api/messages/:id
+note right: Header: Authorization Bearer {accessToken}
+activate Server
+Server -> Handler: getMessageDetail(userId, messageId)
+activate Handler
+
+== 查询消息 ==
+
+Handler -> Service: getMessageById(messageId)
+activate Service
+Service -> DB: SELECT m.*, s.name as source_name, c.name as channel_name, c.type as channel_type FROM messages m LEFT JOIN sources s ON m.source_id = s.id LEFT JOIN channels c ON m.channel_id = c.id WHERE m.id = ? AND s.user_id = ?
+activate DB
+
+alt 消息不存在
+    DB --> Service: nil
+    deactivate DB
+    Service --> Handler: {code: 100000, msg: "消息不存在"}
+    Handler --> Server: {code: 100000, msg: "消息不存在"}
+    Server --> Frontend: {code: 100000, msg: "消息不存在"}
+    Frontend --> User: 显示错误提示
+else 消息已删除
+    DB --> Service: message (status = -1)
+    deactivate DB
+    Service --> Handler: ErrMessageAlreadyDeleted (110705)
+    Handler --> Server: {code: 110705, msg: "消息已删除"}
+    Server --> Frontend: {code: 110705, msg: "消息已删除"}
+    Frontend --> User: 显示错误提示
+else 消息存在
+    DB --> Service: message
+    deactivate DB
+    Service --> Handler: message
+    deactivate Service
+    Handler --> Server: {code: 0, data: message}
+    deactivate Handler
+    Server --> Frontend: {code: 0, data: message}
+    deactivate Server
+    Frontend --> User: 显示消息详情
+end
+
+@enduml

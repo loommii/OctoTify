@@ -1,0 +1,52 @@
+@startuml OctoTify_Sequence_ListSources
+
+skinparam sequenceStyle svg
+skinparam linetype ortho
+
+title 查看消息来源列表 (GET /api/sources)
+
+actor "用户" as User
+participant "前端" as Frontend
+participant "HTTPServer" as Server
+participant "SourceHandler" as Handler
+participant "SourceService" as Service
+database "SQLite" as DB
+
+User -> Frontend: 访问消息来源页面
+Frontend -> Server: GET /api/sources?page=1&pageSize=20
+note right: Header: Authorization Bearer {accessToken}
+activate Server
+Server -> Handler: listSources(userId, page, pageSize)
+activate Handler
+Handler -> Service: getSources(userId, page, pageSize)
+activate Service
+
+== 查询列表 ==
+
+Service -> DB: SELECT * FROM sources WHERE user_id = ? AND status != -1 LIMIT ? OFFSET ?
+activate DB
+
+alt 查询失败
+    DB --> Service: 查询错误
+    deactivate DB
+    Service --> Handler: ErrSourceQueryFailed (110505)
+    Handler --> Server: {code: 110505, msg: "查询来源失败"}
+    Server --> Frontend: {code: 110505, msg: "查询来源失败"}
+    Frontend --> User: 显示错误提示
+else 查询成功
+    DB --> Service: sources[]
+    deactivate DB
+    Service -> DB: SELECT COUNT(*) FROM sources WHERE user_id = ? AND status != -1
+    activate DB
+    DB --> Service: total
+    deactivate DB
+    Service --> Handler: {list, total}
+    deactivate Service
+    Handler --> Server: {code: 0, data: {list, total}}
+    deactivate Handler
+    Server --> Frontend: {code: 0, data: {list, total}}
+    deactivate Server
+    Frontend --> User: 显示来源列表
+end
+
+@enduml

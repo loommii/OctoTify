@@ -1,0 +1,55 @@
+@startuml OctoTify_Sequence_FilterMessages
+
+skinparam sequenceStyle svg
+skinparam linetype ortho
+
+title 筛选消息记录 (GET /api/messages?filters...)
+
+actor "用户" as User
+participant "前端" as Frontend
+participant "HTTPServer" as Server
+participant "MessageHandler" as Handler
+participant "MessageService" as Service
+database "SQLite" as DB
+
+User -> Frontend: 选择筛选条件
+Frontend -> Server: GET /api/messages?sourceId=1&channelId=2&status=200&startDate=xxx&endDate=xxx&keyword=xxx
+note right: Header: Authorization Bearer {accessToken}
+activate Server
+Server -> Handler: filterMessages(userId, filters)
+activate Handler
+Handler -> Service: getMessagesWithFilters(userId, filters)
+activate Service
+
+== 构建查询 ==
+
+Service -> Service: 构建动态查询条件
+
+alt 查询失败
+    Service -> DB: SELECT m.*, s.name, c.name FROM messages m LEFT JOIN sources s ON m.source_id = s.id LEFT JOIN channels c ON m.channel_id = c.id WHERE s.user_id = ? AND m.status != -1 AND ...
+    activate DB
+    DB --> Service: 查询错误
+    deactivate DB
+    Service --> Handler: ErrMessageRecordFailed (110704)
+    Handler --> Server: {code: 110704, msg: "记录消息状态失败"}
+    Server --> Frontend: {code: 110704, msg: "记录消息状态失败"}
+    Frontend --> User: 显示错误提示
+else 查询成功
+    Service -> DB: SELECT m.*, s.name, c.name FROM messages m LEFT JOIN sources s ON m.source_id = s.id LEFT JOIN channels c ON m.channel_id = c.id WHERE s.user_id = ? AND m.status != -1 AND (source_id = ?) AND (channel_id = ?) AND (status = ?) AND (created_at BETWEEN ? AND ?) AND (title LIKE ? OR content LIKE ?) ORDER BY m.created_at DESC LIMIT ? OFFSET ?
+    activate DB
+    DB --> Service: messages[]
+    deactivate DB
+    Service -> DB: SELECT COUNT(*) FROM messages m LEFT JOIN sources s ON m.source_id = s.id WHERE s.user_id = ? AND m.status != -1 AND ...
+    activate DB
+    DB --> Service: total
+    deactivate DB
+    Service --> Handler: {list, total}
+    deactivate Service
+    Handler --> Server: {code: 0, data: {list, total}}
+    deactivate Handler
+    Server --> Frontend: {code: 0, data: {list, total}}
+    deactivate Server
+    Frontend --> User: 显示筛选结果
+end
+
+@enduml

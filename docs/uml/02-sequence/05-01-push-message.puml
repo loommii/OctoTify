@@ -1,0 +1,110 @@
+@startuml OctoTify_Sequence_PushMessage
+
+skinparam sequenceStyle svg
+skinparam linetype ortho
+
+title 推送消息 (POST /api/message/push)
+
+actor "外部系统" as External
+participant "HTTPServer" as Server
+participant "MessageHandler" as Handler
+participant "MessageService" as Service
+participant "SourceRepo" as SourceRepo
+participant "ChannelRepo" as ChannelRepo
+database "SQLite" as DB
+
+External -> Server: POST /api/message/push {title, message}
+note right: Header: Authorization Bearer {sourceToken}
+activate Server
+Server -> Handler: pushMessage(sourceToken, req)
+activate Handler
+
+== 参数校验 ==
+
+alt 消息标题为空
+    Handler -> Handler: 参数校验
+    Handler --> Server: ErrMessageParamTitleEmpty (110700)
+    Server --> External: {code: 110700, msg: "消息标题不能为空"}
+else 消息内容为空
+    Handler -> Handler: 参数校验
+    Handler --> Server: ErrMessageParamContentEmpty (110701)
+    Server --> External: {code: 110701, msg: "消息内容不能为空"}
+else 参数校验通过
+    Handler -> Handler: 参数校验通过
+
+    == 验证来源 ==
+
+    Handler -> SourceRepo: findByToken(sourceToken)
+    activate SourceRepo
+    SourceRepo -> DB: SELECT * FROM sources WHERE token = ? AND status = 1
+    activate DB
+
+    alt 数据库查询失败
+        DB --> SourceRepo: 查询错误
+        deactivate DB
+        SourceRepo --> Handler: ErrSourceQueryFailed (110505)
+        Handler --> Server: {code: 110505, msg: "查询来源失败"}
+        Server --> External: {code: 110505, msg: "查询来源失败"}
+    else Source 不存在或已禁用
+        DB --> SourceRepo: nil
+        deactivate DB
+        SourceRepo --> Handler: source = nil
+        deactivate SourceRepo
+        Handler --> Server: {code: 110503, msg: "来源不存在或已禁用"}
+        Server --> External: {code: 110503, msg: "来源不存在或已禁用"}
+    else Source 有效
+        DB --> SourceRepo: source
+        deactivate DB
+        SourceRepo --> Handler: source
+        deactivate SourceRepo
+
+        == 查询渠道 ==
+
+        Handler -> ChannelRepo: findBySourceId(source.id)
+        activate ChannelRepo
+        ChannelRepo -> DB: SELECT c.* FROM channels c INNER JOIN source_channels sc ON c.id = sc.channel_id WHERE sc.source_id = ? AND c.status = 1
+        activate DB
+
+        alt 数据库查询失败
+            DB --> ChannelRepo: 查询错误
+            deactivate DB
+            ChannelRepo --> Handler: ErrChannelQueryFailed (110605)
+            Handler --> Server: {code: 110605, msg: "查询渠道失败"}
+            Server --> External: {code: 110605, msg: "查询渠道失败"}
+        else 无可用渠道
+            DB --> ChannelRepo: channels[] (empty)
+            deactivate DB
+            ChannelRepo --> Handler: channels[]
+            deactivate ChannelRepo
+            Handler --> Server: {code: 110703, msg: "来源未绑定任何渠道"}
+            Server --> External: {code: 110703, msg: "来源未绑定任何渠道"}
+        else 有可用渠道
+            DB --> ChannelRepo: channels[]
+            deactivate DB
+            ChannelRepo --> Handler: channels[]
+            deactivate ChannelRepo
+
+            == 并发推送 ==
+
+            Handler -> Service: pushToChannels(source, channels, req)
+            activate Service
+            Service -> Service: 并发推送到各渠道
+
+            alt 部分渠道推送失败
+                Service --> Handler: 推送结果 (部分失败)
+                deactivate Service
+                Handler --> Server: {code: 0, data: results (含失败记录)}
+                Server --> External: {code: 0, data: results (含失败记录)}
+            else 全部推送成功
+                Service --> Handler: 推送结果 (全部成功)
+                deactivate Service
+                Handler --> Server: {code: 0, data: results}
+                Server --> External: {code: 0, data: results}
+            end
+        end
+    end
+end
+deactivate Handler
+deactivate Server
+
+@enduml

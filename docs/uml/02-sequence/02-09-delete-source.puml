@@ -1,0 +1,99 @@
+@startuml OctoTify_Sequence_DeleteSource
+
+skinparam sequenceStyle svg
+skinparam linetype ortho
+
+title 删除消息来源 (DELETE /api/sources/:id)
+
+actor "用户" as User
+participant "前端" as Frontend
+participant "HTTPServer" as Server
+participant "SourceHandler" as Handler
+participant "SourceService" as Service
+database "SQLite" as DB
+
+User -> Frontend: 点击删除
+Frontend -> Server: DELETE /api/sources/:id
+note right: Header: Authorization Bearer {accessToken}
+activate Server
+Server -> Handler: deleteSource(userId, sourceId)
+activate Handler
+
+== 查询来源 ==
+
+Handler -> Service: getSourceById(sourceId, userId)
+activate Service
+Service -> DB: SELECT * FROM sources WHERE id = ? AND user_id = ?
+activate DB
+
+alt 来源不存在
+    DB --> Service: nil
+    deactivate DB
+    Service --> Handler: ErrSourceNotFound (110503)
+    Handler --> Server: {code: 110503, msg: "来源不存在"}
+    Server --> Frontend: {code: 110503, msg: "来源不存在"}
+    Frontend --> User: 显示错误提示
+else 来源已删除
+    DB --> Service: source (status = -1)
+    deactivate DB
+    Service --> Handler: source
+    deactivate Service
+    Handler -> Handler: 校验状态（status == -1，返回 ErrSourceAlreadyDeleted）
+    Handler --> Server: ErrSourceAlreadyDeleted (110509)
+    Server --> Frontend: {code: 110509, msg: "来源已删除"}
+    Frontend --> User: 提示来源已删除
+else 来源存在
+    DB --> Service: source
+    deactivate DB
+    Service --> Handler: source
+    deactivate Service
+    Handler -> Handler: 校验状态（status != -1，通过）
+
+    == 软删除来源（事务） ==
+
+    Handler -> Service: softDeleteSource(sourceId, userId)
+    activate Service
+    note over Service, DB: BEGIN TRANSACTION
+
+    alt 数据库更新失败
+        Service -> DB: UPDATE sources SET status = -1 WHERE id = ? AND user_id = ?
+        activate DB
+        DB --> Service: 更新失败
+        deactivate DB
+        note over Service, DB: ROLLBACK
+        Service --> Handler: ErrSourceDeleteFailed (110506)
+        Handler --> Server: {code: 110506, msg: "删除来源失败"}
+        Server --> Frontend: {code: 110506, msg: "删除来源失败"}
+        Frontend --> User: 显示错误提示
+    else 数据库更新成功
+        Service -> DB: UPDATE sources SET status = -1 WHERE id = ? AND user_id = ?
+        activate DB
+        DB --> Service: 成功
+        deactivate DB
+        Service -> DB: DELETE FROM source_channels WHERE source_id = ?
+        activate DB
+
+        alt 删除关联渠道失败
+            DB --> Service: 删除失败
+            deactivate DB
+            note over Service, DB: ROLLBACK
+            Service --> Handler: ErrSourceDeleteFailed (110506)
+            Handler --> Server: {code: 110506, msg: "删除来源失败"}
+            Server --> Frontend: {code: 110506, msg: "删除来源失败"}
+            Frontend --> User: 显示错误提示
+        else 删除关联渠道成功
+            DB --> Service: 成功
+            deactivate DB
+            note over Service, DB: COMMIT
+            Service --> Handler: 成功
+            deactivate Service
+            Handler --> Server: {code: 0}
+            deactivate Handler
+            Server --> Frontend: {code: 0, msg: "已删除"}
+            deactivate Server
+            Frontend --> User: 来源已删除
+        end
+    end
+end
+
+@enduml

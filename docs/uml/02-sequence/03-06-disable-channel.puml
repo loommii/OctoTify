@@ -1,0 +1,88 @@
+@startuml OctoTify_Sequence_DisableChannel
+
+skinparam sequenceStyle svg
+skinparam linetype ortho
+
+title 停用推送渠道 (PUT /api/channels/:id/disable)
+
+actor "用户" as User
+participant "前端" as Frontend
+participant "HTTPServer" as Server
+participant "ChannelHandler" as Handler
+participant "ChannelService" as Service
+database "SQLite" as DB
+
+User -> Frontend: 点击停用
+Frontend -> Server: PUT /api/channels/:id/disable
+note right: Header: Authorization Bearer {accessToken}
+activate Server
+Server -> Handler: disableChannel(userId, channelId)
+activate Handler
+
+== 查询渠道 ==
+
+Handler -> Service: getChannelById(channelId, userId)
+activate Service
+Service -> DB: SELECT * FROM channels WHERE id = ? AND user_id = ?
+activate DB
+
+alt 渠道不存在
+    DB --> Service: nil
+    deactivate DB
+    Service --> Handler: ErrChannelNotFound (110603)
+    Handler --> Server: {code: 110603, msg: "渠道不存在"}
+    Server --> Frontend: {code: 110603, msg: "渠道不存在"}
+    Frontend --> User: 显示错误提示
+else 渠道已删除
+    DB --> Service: channel (status = -1)
+    deactivate DB
+    Service --> Handler: ErrChannelAlreadyDeleted (110609)
+    Handler --> Server: {code: 110609, msg: "渠道已删除"}
+    Server --> Frontend: {code: 110609, msg: "渠道已删除"}
+    Frontend --> User: 显示错误提示
+else 渠道已停用
+    DB --> Service: channel (status = 2)
+    deactivate DB
+    Service --> Handler: channel
+    deactivate Service
+    Handler -> Handler: 校验状态（status == 2，返回 ErrChannelAlreadyDisabled）
+    Handler --> Server: ErrChannelAlreadyDisabled (110607)
+    Server --> Frontend: {code: 110607, msg: "渠道已停用"}
+    Frontend --> User: 提示渠道已停用
+else 渠道正常
+    DB --> Service: channel (status = 1)
+    deactivate DB
+    Service --> Handler: channel
+    deactivate Service
+    Handler -> Handler: 校验状态（status != 2，通过）
+
+    == 更新状态 ==
+
+    Handler -> Service: updateChannelStatus(channelId, 2, userId)
+    activate Service
+
+    alt 数据库更新失败
+        Service -> DB: UPDATE channels SET status = 2 WHERE id = ? AND user_id = ?
+        activate DB
+        DB --> Service: 更新失败
+        deactivate DB
+        Service --> Handler: ErrChannelQueryFailed (110605)
+        Handler --> Server: {code: 110605, msg: "查询渠道失败"}
+        Server --> Frontend: {code: 110605, msg: "查询渠道失败"}
+        Frontend --> User: 显示错误提示
+    else 数据库更新成功
+        Service -> DB: UPDATE channels SET status = 2 WHERE id = ? AND user_id = ?
+        activate DB
+        DB --> Service: 成功
+        deactivate DB
+        Service --> Handler: 成功
+        deactivate Service
+        Handler --> Server: {code: 0}
+        deactivate Handler
+        Server --> Frontend: {code: 0, msg: "已停用"}
+        deactivate Server
+        Frontend --> User: 渠道已停用
+    end
+end
+
+@enduml
