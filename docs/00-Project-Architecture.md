@@ -191,11 +191,17 @@ Content-Type: application/json
 OctoTify/
 ├── docs/                     # 项目文档
 ├── backend/                  # Go 后端
-│   ├── cmd/server/main.go    # 入口
+│   ├── cmd/server/main.go    # 服务入口
+│   ├── tools/generate/       # GORM Gen 代码生成工具
 │   ├── internal/             # 私有代码
+│   │   ├── config/           # 配置加载（Viper）
+│   │   ├── log/              # 日志初始化（zap）
+│   │   ├── database/         # 数据库初始化（GORM + SQLite）
+│   │   ├── model/            # 数据模型
+│   │   ├── query/            # GORM Gen 生成的查询代码
+│   │   ├── server/           # HTTP Server（Gin）
 │   │   ├── handler/          # HTTP 处理器
 │   │   ├── service/          # 业务逻辑
-│   │   ├── model/            # 数据模型
 │   │   ├── repository/       # 数据访问
 │   │   ├── sender/           # 推送策略层
 │   │   │   ├── sender.go     # Sender 接口
@@ -210,8 +216,12 @@ OctoTify/
 │   │   ├── errors/           # 错误码
 │   │   ├── i18n/             # 多语言
 │   │   └── jwt/              # JWT 工具
-│   ├── configs/              # 配置文件
-│   └── go.mod
+│   ├── config/               # 配置文件
+│   ├── data/                 # SQLite 数据库文件
+│   ├── go.mod
+│   └── go.sum
+├── go.work                   # Go 工作区配置
+├── go.work.sum
 ├── frontend/                 # Vue 3 前端
 │   ├── src/
 │   │   ├── api/              # API 请求封装
