@@ -8,10 +8,12 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/spf13/viper v1.21.0
 	go.uber.org/zap v1.28.0
+	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	gorm.io/datatypes v1.2.7
 	gorm.io/driver/sqlite v1.6.0
 	gorm.io/gen v0.3.27
 	gorm.io/gorm v1.31.1
+	gorm.io/plugin/dbresolver v1.6.2
 )
 
 require (
@@ -61,8 +63,6 @@ require (
 	golang.org/x/text v0.36.0 // indirect
 	golang.org/x/tools v0.44.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
-	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gorm.io/driver/mysql v1.6.0 // indirect
 	gorm.io/hints v1.1.2 // indirect
-	gorm.io/plugin/dbresolver v1.6.2 // indirect
 )
