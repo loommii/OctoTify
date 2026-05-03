@@ -163,7 +163,7 @@ func (s *Server) setupSourceRoutes(api *gin.RouterGroup) {
 	{
 		source.POST("", s.sourceHandler.CreateSource)
 		source.PUT("/:id", s.sourceHandler.UpdateSource)
-		source.GET("", func(c *gin.Context) {})
+		source.GET("", s.sourceHandler.ListSources)
 		source.GET("/:id", func(c *gin.Context) {})
 		source.GET("/:id/token", func(c *gin.Context) {})
 		source.POST("/:id/reset-token", func(c *gin.Context) {})

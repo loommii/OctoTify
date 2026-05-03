@@ -83,6 +83,69 @@ func (s *SourceService) CreateSource(ctx context.Context, userID int64, req *dto
 	}, nil
 }
 
+// ListSources 分页查询消息来源列表
+func (s *SourceService) ListSources(ctx context.Context, userID int64, pageReq *dto.PageReq) ([]*dto.SourceDTO, int64, error) {
+	q := query.Use(s.db)
+
+	pageReq.Normalize()
+	offset := (pageReq.Page - 1) * pageReq.PageSize
+
+	// 查询总数
+	total, err := q.Source.WithContext(ctx).
+		Where(
+			q.Source.UserID.Eq(userID),
+			q.Source.Status.Neq(model.SourceStatusDeleted),
+		).
+		Count()
+	if err != nil {
+		s.logger.Error("查询来源总数失败",
+			zap.Error(err),
+			zap.Int64("user_id", userID),
+		)
+		return nil, 0, xerr.ErrSourceQueryFailed.WithInternal(err)
+	}
+
+	// 查询列表，按创建时间降序（最新优先）
+	sources, err := q.Source.WithContext(ctx).
+		Where(
+			q.Source.UserID.Eq(userID),
+			q.Source.Status.Neq(model.SourceStatusDeleted),
+		).
+		Order(q.Source.CreatedAt.Desc()).
+		Offset(offset).
+		Limit(pageReq.PageSize).
+		Find()
+	if err != nil {
+		s.logger.Error("查询来源列表失败",
+			zap.Error(err),
+			zap.Int64("user_id", userID),
+		)
+		return nil, 0, xerr.ErrSourceQueryFailed.WithInternal(err)
+	}
+
+	// 转换为 DTO
+	list := make([]*dto.SourceDTO, 0, len(sources))
+	for _, src := range sources {
+		list = append(list, &dto.SourceDTO{
+			ID:          src.ID,
+			UserID:      src.UserID,
+			Name:        src.Name,
+			Description: src.Description,
+			Status:      src.Status,
+			CreatedAt:   src.CreatedAt.UnixMilli(),
+		})
+	}
+
+	s.logger.Info("查询来源列表成功",
+		zap.Int64("user_id", userID),
+		zap.Int("page", pageReq.Page),
+		zap.Int("page_size", pageReq.PageSize),
+		zap.Int64("total", total),
+	)
+
+	return list, total, nil
+}
+
 // generateUniqueToken 生成唯一的 Source Token（前缀 src + UUIDv4 无连字符，共 35 位）
 // 最多重试 3 次，防止极端碰撞情况
 func (s *SourceService) generateUniqueToken(q *query.Query, ctx context.Context) (string, error) {

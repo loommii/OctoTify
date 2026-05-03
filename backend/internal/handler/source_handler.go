@@ -68,7 +68,45 @@ func (h *SourceHandler) CreateSource(c *gin.Context) {
 	response.Success(c, source)
 }
 
-// UpdateSource godoc
+// ListSources godoc
+// @Summary      查看消息来源列表
+// @Description  分页查询当前用户的所有消息来源列表
+// @Tags         消息来源管理
+// @Accept       json
+// @Produce      json
+// @Param        page       query     int  false  "页码，从 1 开始"  default(1)  minimum(1)
+// @Param        page_size  query     int  false  "每页条数，最大 100"  default(20)  minimum(1)  maximum(100)
+// @Success      200   {object}  response.Response{data=response.PageResult{list=[]dto.SourceDTO}}  "成功"
+// @Failure      200   {object}  response.Response  "业务错误（code != 0）"
+// @Router       /api/sources [get]
+// @Security     BearerAuth
+func (h *SourceHandler) ListSources(c *gin.Context) {
+	userIDStr, exists := c.Get(middleware.ContextKeyUserID)
+	if !exists {
+		response.Fail(c, xerr.ErrUnauthorized.Code, "未提供认证令牌")
+		return
+	}
+
+	userID, err := strconv.ParseInt(userIDStr.(string), 10, 64)
+	if err != nil {
+		response.Fail(c, xerr.ErrUnauthorized.Code, "无效的认证信息")
+		return
+	}
+
+	var pageReq dto.PageReq
+	if err := c.ShouldBindQuery(&pageReq); err != nil {
+		response.HandleValidationError(c, err)
+		return
+	}
+
+	list, total, err := h.sourceService.ListSources(c.Request.Context(), userID, &pageReq)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	response.SuccessWithPage(c, list, total, pageReq.Page, pageReq.PageSize)
+}
 // @Summary      编辑消息来源
 // @Description  编辑消息来源的名称和描述
 // @Tags         消息来源管理
