@@ -10,10 +10,10 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 
-	pkgjwtx "octotify/pkg/jwtx"
 	"octotify/internal/handler/dto"
 	"octotify/internal/model"
 	"octotify/internal/query"
+	pkgjwtx "octotify/pkg/jwtx"
 	"octotify/pkg/xerr"
 )
 
@@ -111,6 +111,24 @@ func (s *AuthService) Login(ctx context.Context, req *dto.LoginReq) (*dto.AuthRe
 			CreatedAt: user.CreatedAt.UnixMilli(),
 		},
 	}, nil
+}
+
+// Logout 退出登录
+// 流程：撤销该用户所有 Refresh Token
+func (s *AuthService) Logout(ctx context.Context, userID int64) error {
+	q := query.Use(s.db)
+
+	_, err := q.RefreshToken.WithContext(ctx).Where(q.RefreshToken.UserID.Eq(userID)).Update(q.RefreshToken.Revoked, model.RefreshTokenRevoked)
+	if err != nil {
+		s.logger.Error("revoke all refresh tokens failed", zap.Error(err))
+		return xerr.ErrLogoutFailed.WithInternal(err)
+	}
+
+	s.logger.Info("user logged out",
+		zap.Int64("user_id", userID),
+	)
+
+	return nil
 }
 
 // RefreshAccessToken 刷新访问令牌

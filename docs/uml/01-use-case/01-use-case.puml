@@ -18,6 +18,7 @@ rectangle "OctoTify 消息总线" {
     usecase "刷新令牌" as UC_RefreshToken
     usecase "修改密码" as UC_ChangePassword
     usecase "查询用户信息" as UC_GetUserProfile
+    usecase "退出登录" as UC_Logout
   }
 
   package "消息来源模块" {
@@ -62,6 +63,7 @@ User --> UC_Login
 User --> UC_RefreshToken
 User --> UC_ChangePassword
 User --> UC_GetUserProfile
+User --> UC_Logout
 
 User --> UC_CreateSource
 User --> UC_EditSource

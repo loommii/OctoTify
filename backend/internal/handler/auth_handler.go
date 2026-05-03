@@ -2,10 +2,12 @@ package handler
 
 import (
 	"encoding/json"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 
 	"octotify/internal/handler/dto"
+	"octotify/internal/middleware"
 	"octotify/internal/service"
 	"octotify/pkg/response"
 	"octotify/pkg/xerr"
@@ -52,6 +54,37 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	}
 
 	response.Success(c, resp)
+}
+
+// Logout godoc
+// @Summary      退出登录
+// @Description  撤销当前用户的所有 Refresh Token，Access Token 在过期前仍有效
+// @Tags         用户认证
+// @Accept       json
+// @Produce      json
+// @Success      200   {object}  response.Response  "成功"
+// @Failure      200   {object}  response.Response  "业务错误（code != 0）"
+// @Router       /api/auth/logout [post]
+// @Security     BearerAuth
+func (h *AuthHandler) Logout(c *gin.Context) {
+	userIDStr, exists := c.Get(middleware.ContextKeyUserID)
+	if !exists {
+		response.Fail(c, xerr.ErrUnauthorized.Code, "未提供认证令牌")
+		return
+	}
+
+	userID, err := strconv.ParseInt(userIDStr.(string), 10, 64)
+	if err != nil {
+		response.Fail(c, xerr.ErrUnauthorized.Code, "无效的认证信息")
+		return
+	}
+
+	if err := h.authService.Logout(c.Request.Context(), userID); err != nil {
+		c.Error(err)
+		return
+	}
+
+	response.Success(c, nil)
 }
 
 // RefreshToken godoc

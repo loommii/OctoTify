@@ -33,6 +33,7 @@ var (
 	ErrRefreshTokenRevoked = New(110301, "刷新令牌已撤销")
 	ErrRefreshTokenExpired = New(110302, "刷新令牌已过期")
 	ErrRefreshTokenFailed  = New(110303, "刷新令牌失败")
+	ErrLogoutFailed        = New(110304, "退出登录失败")
 )
 
 // 密码管理模块错误 1104XX

@@ -140,6 +140,7 @@ func (s *Server) setupAuthRoutes(api *gin.RouterGroup) {
 	{
 		auth.POST("/login", s.authHandler.Login)
 		auth.POST("/refresh", s.authHandler.RefreshToken)
+		auth.POST("/logout", middleware.JWTAuth(s.accessJWTHelper), s.authHandler.Logout)
 	}
 }
 

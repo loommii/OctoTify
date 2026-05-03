@@ -2,6 +2,12 @@ package model
 
 import "time"
 
+// RefreshToken 撤销状态
+const (
+	RefreshTokenRevoked   = true  // 已撤销
+	RefreshTokenNotRevoked = false // 未撤销
+)
+
 // RefreshToken 刷新令牌表（用于JWT令牌续期）
 type RefreshToken struct {
 	ID        int64     `gorm:"primaryKey;autoIncrement" json:"id"`      // 主键ID
