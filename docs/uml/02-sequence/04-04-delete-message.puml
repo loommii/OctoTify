@@ -8,6 +8,7 @@ title 删除消息记录 (DELETE /api/messages/:id)
 actor "用户" as User
 participant "前端" as Frontend
 participant "HTTPServer" as Server
+participant "JWTAuth 中间件" as JWT
 participant "MessageHandler" as Handler
 participant "MessageService" as Service
 database "SQLite" as DB
@@ -16,8 +17,27 @@ User -> Frontend: 点击删除
 Frontend -> Server: DELETE /api/messages/:id
 note right: Header: Authorization Bearer {accessToken}
 activate Server
-Server -> Handler: deleteMessage(userId, messageId)
-activate Handler
+
+== JWT 认证中间件拦截 ==
+
+Server -> JWT: JWTAuth(accessToken)
+activate JWT
+
+alt 未提供认证令牌
+    JWT --> Server: {code: 100001, msg: "未提供认证令牌"}
+    deactivate JWT
+    Server --> Frontend: {code: 100001, msg: "未提供认证令牌"}
+    Frontend --> Frontend: 使用 Refresh Token 调用刷新接口 (POST /api/auth/refresh)
+else 令牌无效或已过期
+    JWT --> Server: {code: 100001, msg: "认证令牌无效或已过期"}
+    deactivate JWT
+    Server --> Frontend: {code: 100001, msg: "认证令牌无效或已过期"}
+    Frontend --> Frontend: 使用 Refresh Token 调用刷新接口 (POST /api/auth/refresh)
+else 令牌有效
+    JWT --> Server: userId (从 claims 中提取)
+    deactivate JWT
+    Server -> Handler: deleteMessage(userId, messageId)
+    activate Handler
 
 == 查询消息 ==
 

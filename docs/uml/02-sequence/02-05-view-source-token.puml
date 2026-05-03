@@ -8,48 +8,69 @@ title 查看来源令牌 (GET /api/sources/:id/token)
 actor "用户" as User
 participant "前端" as Frontend
 participant "HTTPServer" as Server
+participant "JWTAuth 中间件" as JWT
 participant "SourceHandler" as Handler
 participant "SourceService" as Service
 database "SQLite" as DB
 
 User -> Frontend: 点击查看令牌
 Frontend -> Server: GET /api/sources/:id/token
-note right: Header: Authorization Bearer {accessToken}
+note right: Header: Authorization Bearer {accessToken}\nX-Request-ID: {request_id}
 activate Server
-Server -> Handler: getSourceToken(userId, sourceId)
-activate Handler
 
-== 查询来源 ==
+== JWT 认证中间件拦截 ==
 
-Handler -> Service: getSourceById(sourceId)
-activate Service
-Service -> DB: SELECT token FROM sources WHERE id = ? AND user_id = ?
-activate DB
+Server -> JWT: JWTAuth(accessToken)
+activate JWT
 
-alt 来源不存在
-    DB --> Service: nil
-    deactivate DB
-    Service --> Handler: ErrSourceNotFound (110503)
-    Handler --> Server: {code: 110503, msg: "来源不存在"}
-    Server --> Frontend: {code: 110503, msg: "来源不存在"}
-    Frontend --> User: 显示错误提示
-else 来源已删除
-    DB --> Service: source (status = -1)
-    deactivate DB
-    Service --> Handler: ErrSourceAlreadyDeleted (110509)
-    Handler --> Server: {code: 110509, msg: "来源已删除"}
-    Server --> Frontend: {code: 110509, msg: "来源已删除"}
-    Frontend --> User: 显示错误提示
-else 来源存在
-    DB --> Service: token
-    deactivate DB
-    Service --> Handler: token
-    deactivate Service
-    Handler --> Server: {code: 0, data: {token}}
-    deactivate Handler
-    Server --> Frontend: {code: 0, data: {token}}
-    deactivate Server
-    Frontend --> User: 显示令牌值
+alt 未提供认证令牌
+    JWT --> Server: {code: 100001, msg: "未提供认证令牌"}
+    deactivate JWT
+    Server --> Frontend: {code: 100001, msg: "未提供认证令牌"}
+    Frontend --> Frontend: 使用 Refresh Token 调用刷新接口 (POST /api/auth/refresh)
+else 令牌无效或已过期
+    JWT --> Server: {code: 100001, msg: "认证令牌无效或已过期"}
+    deactivate JWT
+    Server --> Frontend: {code: 100001, msg: "认证令牌无效或已过期"}
+    Frontend --> Frontend: 使用 Refresh Token 调用刷新接口 (POST /api/auth/refresh)
+else 令牌有效
+    JWT --> Server: userId (从 claims 中提取)
+    deactivate JWT
+    Server -> Handler: getSourceToken(userId, sourceId)
+    activate Handler
+
+    == 查询来源 ==
+
+    Handler -> Service: getSourceById(sourceId)
+    activate Service
+    Service -> DB: SELECT token FROM sources WHERE id = ? AND user_id = ?
+    activate DB
+
+    alt 来源不存在
+        DB --> Service: nil
+        deactivate DB
+        Service --> Handler: ErrSourceNotFound (110503)
+        Handler --> Server: {code: 110503, msg: "来源不存在"}
+        Server --> Frontend: {code: 110503, msg: "来源不存在"}
+        Frontend --> User: 显示错误提示
+    else 来源已删除
+        DB --> Service: source (status = -1)
+        deactivate DB
+        Service --> Handler: ErrSourceAlreadyDeleted (110509)
+        Handler --> Server: {code: 110509, msg: "来源已删除"}
+        Server --> Frontend: {code: 110509, msg: "来源已删除"}
+        Frontend --> User: 显示错误提示
+    else 来源存在
+        DB --> Service: token
+        deactivate DB
+        Service --> Handler: token
+        deactivate Service
+        Handler --> Server: {code: 0, data: {token}}
+        deactivate Handler
+        Server --> Frontend: {code: 0, data: {token}}
+        deactivate Server
+        Frontend --> User: 显示令牌值
+    end
 end
 
 @enduml
