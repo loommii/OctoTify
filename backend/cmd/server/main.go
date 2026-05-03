@@ -2,6 +2,13 @@ package main
 
 //go:generate go run ../../tools/generate/main.go
 
+// @title        OctoTify API
+// @version      1.0
+// @description  OctoTify 消息总线系统 API 文档
+// @host          localhost:34123
+// @BasePath      /api
+// @Schemes       http https
+
 import (
 	"flag"
 	"fmt"
@@ -44,12 +51,13 @@ func main() {
 		&model.Channel{},
 		&model.Message{},
 		&model.SourceChannel{},
+		&model.RefreshToken{},
 	); err != nil {
 		logger.Fatal("auto migrate failed", zap.Error(err))
 	}
 
 	addr := fmt.Sprintf(":%d", cfg.Server.Port)
-	srv := server.New(addr, cfg.Server.Mode, cfg.Server.Name, logger)
+	srv := server.New(addr, cfg, db, logger)
 
 	if err := srv.Run(); err != nil {
 		logger.Fatal("server run failed", zap.Error(err))
