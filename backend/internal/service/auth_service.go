@@ -186,6 +186,64 @@ func (s *AuthService) RefreshAccessToken(ctx context.Context, refreshTokenStr st
 	}, nil
 }
 
+// ChangePassword 修改密码
+// 流程：查询用户 -> 验证旧密码 -> 哈希新密码 -> 更新密码 -> 撤销所有 Refresh Token
+func (s *AuthService) ChangePassword(ctx context.Context, userID int64, oldPassword, newPassword string) error {
+	q := query.Use(s.db)
+
+	// 查询用户
+	user, err := q.User.WithContext(ctx).Where(q.User.ID.Eq(userID)).First()
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return xerr.ErrChangePasswordFailed
+		}
+		s.logger.Error("query user by id failed", zap.Error(err))
+		return xerr.ErrChangePasswordFailed.WithInternal(err)
+	}
+
+	// 验证旧密码
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(oldPassword)); err != nil {
+		return xerr.ErrChangePasswordOldIncorrect
+	}
+
+	// 对新密码进行 bcrypt 哈希
+	newHash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		s.logger.Error("bcrypt hash new password failed", zap.Error(err))
+		return xerr.ErrChangePasswordFailed.WithInternal(err)
+	}
+
+	// 使用事务确保数据一致性
+	err = q.Transaction(func(tx *query.Query) error {
+		// 更新密码
+		_, err := tx.User.WithContext(ctx).Where(tx.User.ID.Eq(userID)).Update(tx.User.PasswordHash, string(newHash))
+		if err != nil {
+			s.logger.Error("update password failed", zap.Error(err))
+			return err
+		}
+
+		// 撤销该用户所有 Refresh Token
+		_, err = tx.RefreshToken.WithContext(ctx).Where(tx.RefreshToken.UserID.Eq(userID)).Update(tx.RefreshToken.Revoked, true)
+		if err != nil {
+			s.logger.Error("revoke all refresh tokens failed", zap.Error(err))
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		s.logger.Error("change password transaction failed", zap.Error(err))
+		return xerr.ErrChangePasswordFailed.WithInternal(err)
+	}
+
+	s.logger.Info("user password changed",
+		zap.Int64("user_id", userID),
+		zap.String("username", user.Username),
+	)
+
+	return nil
+}
+
 // Register 用户注册
 // 流程：检查用户名是否已存在 -> 密码哈希 -> 创建用户 -> 生成令牌对 -> 保存刷新令牌
 func (s *AuthService) Register(ctx context.Context, req *dto.RegisterReq) (*dto.AuthResp, error) {

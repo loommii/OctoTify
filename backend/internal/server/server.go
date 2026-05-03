@@ -28,7 +28,8 @@ type Server struct {
 	serverName string
 	logger     *zap.Logger
 
-	authHandler *handler.AuthHandler
+	authHandler     *handler.AuthHandler
+	accessJWTHelper *jwtx.JWTHelper
 }
 
 func New(addr string, cfg *config.Config, db *gorm.DB, logger *zap.Logger) *Server {
@@ -94,6 +95,7 @@ func (s *Server) initDependencies(cfg *config.Config, db *gorm.DB, logger *zap.L
 
 	authService := service.NewAuthService(db, accessJWTHelper, refreshJWTHelper, logger)
 	s.authHandler = handler.NewAuthHandler(authService)
+	s.accessJWTHelper = accessJWTHelper
 }
 
 func (s *Server) setupMiddleware() {
@@ -140,7 +142,7 @@ func (s *Server) setupUserRoutes(api *gin.RouterGroup) {
 	user := api.Group("/user")
 	{
 		user.POST("/register", s.authHandler.Register)
-		user.POST("/change-password", func(c *gin.Context) {})
+		user.PUT("/password", middleware.JWTAuth(s.accessJWTHelper), s.authHandler.ChangePassword)
 		user.GET("/profile", func(c *gin.Context) {})
 	}
 }

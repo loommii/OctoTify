@@ -2,10 +2,12 @@ package handler
 
 import (
 	"encoding/json"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 
 	"octotify/internal/handler/dto"
+	"octotify/internal/middleware"
 	"octotify/internal/service"
 	"octotify/pkg/response"
 	"octotify/pkg/xerr"
@@ -52,6 +54,53 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	}
 
 	response.Success(c, resp)
+}
+
+// ChangePassword godoc
+// @Summary      修改密码
+// @Description  修改当前用户的登录密码，修改成功后所有 Refresh Token 将被撤销
+// @Description  新密码要求：8-128 个字符，必须包含小写字母、大写字母和数字
+// @Tags         用户管理
+// @Accept       json
+// @Produce      json
+// @Param        body  body      dto.ChangePasswordReq  true  "修改密码请求"
+// @Success      200   {object}  response.Response  "成功"
+// @Failure      200   {object}  response.Response  "业务错误（code != 0）"
+// @Router       /api/user/password [put]
+// @Security     BearerAuth
+func (h *AuthHandler) ChangePassword(c *gin.Context) {
+	userIDStr, exists := c.Get(middleware.ContextKeyUserID)
+	if !exists {
+		response.Fail(c, xerr.ErrUnauthorized.Code, "未提供认证令牌")
+		return
+	}
+
+	userID, err := strconv.ParseInt(userIDStr.(string), 10, 64)
+	if err != nil {
+		response.Fail(c, xerr.ErrUnauthorized.Code, "无效的认证信息")
+		return
+	}
+
+	var req dto.ChangePasswordReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		if _, ok := err.(*json.SyntaxError); ok {
+			response.Fail(c, xerr.ErrBadRequest.Code, "请求参数格式错误")
+			return
+		}
+		if _, ok := err.(*json.UnmarshalTypeError); ok {
+			response.Fail(c, xerr.ErrBadRequest.Code, "请求参数类型错误")
+			return
+		}
+		response.Fail(c, xerr.ErrBadRequest.Code, "请求参数格式错误")
+		return
+	}
+
+	if err := h.authService.ChangePassword(c.Request.Context(), userID, req.OldPassword, req.NewPassword); err != nil {
+		c.Error(err)
+		return
+	}
+
+	response.Success(c, nil)
 }
 
 // RefreshToken godoc

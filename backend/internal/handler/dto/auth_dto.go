@@ -28,6 +28,12 @@ type RefreshReq struct {
 	RefreshToken string `json:"refresh_token" binding:"required" example:"eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."`
 }
 
+// ChangePasswordReq 修改密码请求
+type ChangePasswordReq struct {
+	OldPassword string `json:"old_password" binding:"required,password" example:"OldP@ssw0rd123"` // 旧密码
+	NewPassword string `json:"new_password" binding:"required,password" example:"NewP@ssw0rd123"` // 新密码，8-128 个字符，需包含大小写字母和数字
+}
+
 // AuthResp 认证响应（登录/注册/刷新令牌）
 type AuthResp struct {
 	AccessToken  string  `json:"access_token" example:"eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."`  // 访问令牌
