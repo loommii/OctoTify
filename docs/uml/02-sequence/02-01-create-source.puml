@@ -14,56 +14,58 @@ database "SQLite" as DB
 
 User -> Frontend: 输入名称、描述
 Frontend -> Server: POST /api/sources {name, description}
-note right: Header: Authorization Bearer {accessToken}
+note right: Header: Authorization Bearer {accessToken}\nX-Request-ID: {request_id}
 activate Server
-Server -> Handler: createSource(userId, req)
+Server -> Handler: createSource(req)
 activate Handler
 
-== 参数校验 ==
+== 参数校验（gin binding + 自定义 validator） ==
 
-alt 名称为空
-    Handler -> Handler: 参数校验
-    Handler --> Server: ErrSourceParamNameEmpty (110500)
+alt 参数校验失败
+    Handler --> Server: {code: 110500, msg: "来源名称不能为空"}
     Server --> Frontend: {code: 110500, msg: "来源名称不能为空"}
     Frontend --> User: 显示错误提示
 else 参数校验通过
-    Handler -> Handler: 参数校验通过
     Handler -> Service: createSource(userId, name, description)
     activate Service
 
-    == 创建来源（事务） ==
+    == 生成 Token ==
 
-    note over Service, DB: BEGIN TRANSACTION
-
-    Service -> Service: 生成 Token（前缀 src + UUIDv4 无连字符）
+    Service -> Service: 生成 Token（前缀 src + UUIDv4 无连字符，共 35 位）
     Service -> DB: SELECT COUNT(*) FROM sources WHERE token = ?
     activate DB
     DB --> Service: 0（Token 唯一）
     deactivate DB
 
-    alt 数据库插入失败
-        Service -> DB: INSERT INTO sources (user_id, name, description, token, status)
+    == 创建来源（事务） ==
+
+    alt 创建失败
+        Service -> DB: BEGIN TRANSACTION
         activate DB
+        Service -> DB: INSERT INTO sources (user_id, name, description, token, status)
         DB --> Service: 插入失败
+        Service -> DB: ROLLBACK
         deactivate DB
-        note over Service, DB: ROLLBACK
         Service --> Handler: ErrSourceInsertFailed (110501)
         Handler --> Server: {code: 110501, msg: "创建来源失败"}
+        note right: 日志：创建来源失败\nerror_code=110501, request_id={request_id}
         Server --> Frontend: {code: 110501, msg: "创建来源失败"}
         Frontend --> User: 显示错误提示
-    else 数据库插入成功
-        Service -> DB: INSERT INTO sources (user_id, name, description, token, status)
+    else 创建成功
+        Service -> DB: BEGIN TRANSACTION
         activate DB
+        Service -> DB: INSERT INTO sources (user_id, name, description, token, status)
         DB --> Service: sourceId
+        Service -> DB: COMMIT
         deactivate DB
-        note over Service, DB: COMMIT
-        Service --> Handler: source
+        note right: 日志：创建来源成功\nsourceId=1, name=xxx, request_id={request_id}
+        Service --> Handler: {id, user_id, name, token, description, status, created_at}
         deactivate Service
-        Handler --> Server: {code: 0, data: source}
+        Handler --> Server: {code: 0, data: {id, user_id, name, token, description, status, created_at}}
         deactivate Handler
-        Server --> Frontend: {code: 0, data: source}
+        Server --> Frontend: {code: 0, data: {id, user_id, name, token, description, status, created_at}}
         deactivate Server
-        Frontend --> User: 创建成功
+        Frontend --> User: 创建成功，显示 Source Token
     end
 end
 
