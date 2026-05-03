@@ -81,6 +81,12 @@ var (
 	ErrMessageAlreadyDeleted    = New(110705, "消息已删除")
 )
 
+// 用户管理模块错误 1108XX
+var (
+	ErrUserProfileNotFound    = New(110800, "用户不存在")
+	ErrUserProfileQueryFailed = New(110801, "查询用户信息失败")
+)
+
 // 第三方服务错误 2000XX
 var (
 	ErrThirdPartyCallFailed = New(200000, "第三方接口调用失败")
