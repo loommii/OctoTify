@@ -1,6 +1,8 @@
 package config
 
 import (
+	"time"
+
 	"github.com/spf13/viper"
 )
 
@@ -8,6 +10,7 @@ type Config struct {
 	Server   ServerConfig   `mapstructure:"server"`
 	Database DatabaseConfig `mapstructure:"database"`
 	Log      LogConfig      `mapstructure:"log"`
+	JWT      JWTConfig      `mapstructure:"jwt"`
 }
 
 type ServerConfig struct {
@@ -26,6 +29,13 @@ type LogConfig struct {
 	Output    string `mapstructure:"output"`
 	LogFile   string `mapstructure:"log_file"`
 	ErrorFile string `mapstructure:"error_file"`
+}
+
+type JWTConfig struct {
+	PrivateKeyPath string        `mapstructure:"private_key_path"` // RSA 私钥文件路径
+	PublicKeyPath  string        `mapstructure:"public_key_path"`  // RSA 公钥文件路径
+	AccessTTL      time.Duration `mapstructure:"access_ttl"`       // Access Token 有效期
+	RefreshTTL     time.Duration `mapstructure:"refresh_ttl"`      // Refresh Token 有效期
 }
 
 func LoadConfig(path string) (*Config, error) {

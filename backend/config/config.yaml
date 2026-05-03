@@ -26,3 +26,13 @@ log:
   log_file: /var/log/octotify/app.log
   # 错误日志文件路径，仅在 output=file 时生效，仅记录 ERROR 及以上级别
   error_file: /var/log/octotify/error.log
+
+jwt:
+  # RSA 私钥路径（用于签名）
+  private_key_path: ./config/keys/private.pem
+  # RSA 公钥路径（用于验证）
+  public_key_path: ./config/keys/public.pem
+  # Access Token 有效期（Go time.Duration 格式）
+  access_ttl: 1h
+  # Refresh Token 有效期（Go time.Duration 格式）
+  refresh_ttl: 168h

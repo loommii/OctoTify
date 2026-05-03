@@ -3,11 +3,10 @@ package response
 import (
 	"errors"
 	"net/http"
+	"octotify/pkg/xerr"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
-
-	apperrors "octotify/pkg/errors"
 )
 
 // Response 统一响应结构
@@ -88,7 +87,7 @@ type FieldError struct {
 func HandleValidationError(c *gin.Context, err error) {
 	var validationErrors validator.ValidationErrors
 	if ok := errors.As(err, &validationErrors); !ok {
-		c.Error(apperrors.ErrBadRequest.WithInternal(err))
+		c.Error(xerr.ErrBadRequest.WithInternal(err))
 		return
 	}
 
@@ -101,7 +100,7 @@ func HandleValidationError(c *gin.Context, err error) {
 	}
 
 	c.AbortWithStatusJSON(http.StatusOK, Response{
-		Code: apperrors.ErrBadRequest.Code,
+		Code: xerr.ErrBadRequest.Code,
 		Msg:  "请求参数校验失败",
 		Data: fieldErrors,
 	})

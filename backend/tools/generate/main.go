@@ -30,6 +30,7 @@ func main() {
 		model.Channel{},
 		model.Message{},
 		model.SourceChannel{},
+		model.RefreshToken{},
 	)
 
 	g.Execute()

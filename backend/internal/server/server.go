@@ -1,13 +1,25 @@
 package server
 
 import (
+	"os"
+
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
+	"gorm.io/gorm"
 
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
+
+	"octotify/internal/config"
 	"octotify/internal/handler"
 	"octotify/internal/middleware"
-	apperrors "octotify/pkg/errors"
+	"octotify/internal/repository"
+	"octotify/internal/service"
+	pkgjwtx "octotify/pkg/jwtx"
 	"octotify/pkg/response"
+	"octotify/pkg/xerr"
+
+	_ "octotify/docs"
 )
 
 type Server struct {
@@ -15,22 +27,64 @@ type Server struct {
 	addr       string
 	serverName string
 	logger     *zap.Logger
+
+	authHandler *handler.AuthHandler
 }
 
-func New(addr, mode, serverName string, logger *zap.Logger) *Server {
-	gin.SetMode(mode)
+func New(addr string, cfg *config.Config, db *gorm.DB, logger *zap.Logger) *Server {
+	gin.SetMode(cfg.Server.Mode)
 	s := &Server{
 		engine:     gin.New(),
 		addr:       addr,
-		serverName: serverName,
+		serverName: cfg.Server.Name,
 		logger:     logger,
 	}
 
+	s.initDependencies(cfg, db, logger)
 	s.setupMiddleware()
 	s.setupNoRoute()
 	s.setupRoutes()
 
 	return s
+}
+
+func (s *Server) initDependencies(cfg *config.Config, db *gorm.DB, logger *zap.Logger) {
+	// 检查并生成 RSA 密钥对（如果不存在）
+	if err := pkgjwtx.EnsureRSAKeyPair(cfg.JWT.PrivateKeyPath, cfg.JWT.PublicKeyPath); err != nil {
+		logger.Fatal("failed to ensure RSA key pair", zap.Error(err))
+	}
+
+	// 加载 RSA 私钥
+	privateKeyPEM, err := os.ReadFile(cfg.JWT.PrivateKeyPath)
+	if err != nil {
+		logger.Fatal("failed to read private key", zap.Error(err))
+	}
+	privateKey, err := pkgjwtx.ParseRSAPrivateKeyFromPEM(privateKeyPEM)
+	if err != nil {
+		logger.Fatal("failed to parse private key", zap.Error(err))
+	}
+
+	// 加载 RSA 公钥
+	publicKeyPEM, err := os.ReadFile(cfg.JWT.PublicKeyPath)
+	if err != nil {
+		logger.Fatal("failed to read public key", zap.Error(err))
+	}
+	publicKey, err := pkgjwtx.ParseRSAPublicKeyFromPEM(publicKeyPEM)
+	if err != nil {
+		logger.Fatal("failed to parse public key", zap.Error(err))
+	}
+
+	// 初始化 JWT 辅助工具（函数选项模式）
+	jwtHelper := pkgjwtx.NewJWTHelper(
+		pkgjwtx.WithPrivateKey(privateKey),
+		pkgjwtx.WithPublicKey(publicKey),
+		pkgjwtx.WithExpiredTime(cfg.JWT.AccessTTL),
+	)
+
+	userRepo := repository.NewUserRepository(db)
+	tokenRepo := repository.NewRefreshTokenRepository(db)
+	authService := service.NewAuthService(db, userRepo, tokenRepo, jwtHelper, logger)
+	s.authHandler = handler.NewAuthHandler(authService)
 }
 
 func (s *Server) setupMiddleware() {
@@ -40,23 +94,20 @@ func (s *Server) setupMiddleware() {
 	s.engine.Use(middleware.ErrorHandler(s.logger))
 }
 
-// setupNoRoute 注册 404/405 处理，覆盖 Gin 默认的纯文本响应
 func (s *Server) setupNoRoute() {
-	// 路由不存在时返回统一格式
 	s.engine.NoRoute(func(c *gin.Context) {
-		response.Fail(c, apperrors.ErrNotFound.Code, "接口不存在")
+		response.Fail(c, xerr.ErrNotFound.Code, "接口不存在")
 	})
 
-	// 启用 405 检测并返回统一格式
 	s.engine.HandleMethodNotAllowed = true
 	s.engine.NoMethod(func(c *gin.Context) {
-		response.Fail(c, apperrors.ErrMethodNotAllowed.Code, "请求方法不允许")
+		response.Fail(c, xerr.ErrMethodNotAllowed.Code, "请求方法不允许")
 	})
 }
 
 func (s *Server) setupRoutes() {
-	// 健康检查，无需鉴权
 	s.engine.GET("/ping", handler.Ping(s.serverName))
+	s.engine.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	api := s.engine.Group("/api")
 
@@ -70,7 +121,7 @@ func (s *Server) setupRoutes() {
 func (s *Server) setupUserRoutes(api *gin.RouterGroup) {
 	user := api.Group("/user")
 	{
-		user.POST("/register", func(c *gin.Context) {})
+		user.POST("/register", s.authHandler.Register)
 		user.POST("/login", func(c *gin.Context) {})
 		user.POST("/refresh-token", func(c *gin.Context) {})
 		user.POST("/change-password", func(c *gin.Context) {})

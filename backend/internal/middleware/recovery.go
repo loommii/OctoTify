@@ -6,8 +6,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 
-	apperrors "octotify/pkg/errors"
 	"octotify/pkg/response"
+	"octotify/pkg/xerr"
 )
 
 // CustomRecovery Panic 恢复中间件，捕获运行时 panic，记录包含请求 ID 的堆栈日志，
@@ -24,8 +24,8 @@ func CustomRecovery(logger *zap.Logger) gin.HandlerFunc {
 				)
 
 				response.Fail(c,
-					apperrors.ErrInternalServer.Code,
-					apperrors.ErrInternalServer.Msg,
+					xerr.ErrInternalServer.Code,
+					xerr.ErrInternalServer.Msg,
 				)
 				c.Abort()
 			}

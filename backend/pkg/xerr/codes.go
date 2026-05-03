@@ -1,24 +1,24 @@
-package errors
+package xerr
 
 // 通用错误 1000XX
 var (
-	ErrBadRequest     = New(100000, "请求参数错误")
-	ErrUnauthorized   = New(100001, "未登录或Token已过期")
-	ErrForbidden      = New(100002, "权限不足")
-	ErrNotFound       = New(100003, "资源不存在")
-	ErrInternalServer = New(100004, "服务器内部错误")
-	ErrTooManyRequest = New(100005, "请求过于频繁")
+	ErrBadRequest       = New(100000, "请求参数错误")
+	ErrUnauthorized     = New(100001, "未登录或Token已过期")
+	ErrForbidden        = New(100002, "权限不足")
+	ErrNotFound         = New(100003, "资源不存在")
+	ErrInternalServer   = New(100004, "服务器内部错误")
+	ErrTooManyRequest   = New(100005, "请求过于频繁")
 	ErrMethodNotAllowed = New(100006, "请求方法不允许")
 )
 
 // 注册模块错误 1101XX
 var (
-	ErrRegisterUsernameEmpty    = New(110100, "用户名不能为空")
-	ErrRegisterPasswordEmpty    = New(110101, "密码不能为空")
-	ErrRegisterUsernameInvalid  = New(110102, "用户名格式不合法")
-	ErrRegisterPasswordInvalid  = New(110103, "密码格式不合法")
-	ErrRegisterUsernameExists   = New(110104, "用户名已存在")
-	ErrRegisterFailed           = New(110105, "注册失败")
+	ErrRegisterUsernameEmpty   = New(110100, "用户名不能为空")
+	ErrRegisterPasswordEmpty   = New(110101, "密码不能为空")
+	ErrRegisterUsernameInvalid = New(110102, "用户名格式不合法")
+	ErrRegisterPasswordInvalid = New(110103, "密码格式不合法")
+	ErrRegisterUsernameExists  = New(110104, "用户名已存在")
+	ErrRegisterFailed          = New(110105, "注册失败")
 )
 
 // 登录模块错误 1102XX
@@ -59,16 +59,16 @@ var (
 
 // Channel 模块错误 1106XX
 var (
-	ErrChannelParamNameEmpty   = New(110600, "渠道名称不能为空")
-	ErrChannelInvalidType      = New(110601, "无效的渠道类型")
-	ErrChannelInsertFailed     = New(110602, "创建渠道失败")
-	ErrChannelNotFound         = New(110603, "渠道不存在")
-	ErrChannelNoPermission     = New(110604, "无权操作该渠道")
-	ErrChannelQueryFailed      = New(110605, "查询渠道失败")
-	ErrChannelDeleteFailed     = New(110606, "删除渠道失败")
-	ErrChannelAlreadyDisabled  = New(110607, "渠道已停用")
-	ErrChannelAlreadyEnabled   = New(110608, "渠道已启用")
-	ErrChannelAlreadyDeleted   = New(110609, "渠道已删除")
+	ErrChannelParamNameEmpty  = New(110600, "渠道名称不能为空")
+	ErrChannelInvalidType     = New(110601, "无效的渠道类型")
+	ErrChannelInsertFailed    = New(110602, "创建渠道失败")
+	ErrChannelNotFound        = New(110603, "渠道不存在")
+	ErrChannelNoPermission    = New(110604, "无权操作该渠道")
+	ErrChannelQueryFailed     = New(110605, "查询渠道失败")
+	ErrChannelDeleteFailed    = New(110606, "删除渠道失败")
+	ErrChannelAlreadyDisabled = New(110607, "渠道已停用")
+	ErrChannelAlreadyEnabled  = New(110608, "渠道已启用")
+	ErrChannelAlreadyDeleted  = New(110609, "渠道已删除")
 )
 
 // Message 模块错误 1107XX

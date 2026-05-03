@@ -6,8 +6,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 
-	apperrors "octotify/pkg/errors"
 	"octotify/pkg/response"
+	"octotify/pkg/xerr"
 )
 
 // ErrorHandler 统一错误处理中间件，捕获 c.Error() 挂起的错误并返回统一格式
@@ -21,7 +21,7 @@ func ErrorHandler(logger *zap.Logger) gin.HandlerFunc {
 
 		err := c.Errors.Last().Err
 
-		var appErr *apperrors.AppError
+		var appErr *xerr.AppError
 		if errors.As(err, &appErr) {
 			if appErr.Internal != "" {
 				rid, _ := c.Get("request_id")
@@ -43,6 +43,6 @@ func ErrorHandler(logger *zap.Logger) gin.HandlerFunc {
 			zap.Error(err),
 			zap.String("path", c.Request.URL.Path),
 		)
-		response.Fail(c, apperrors.ErrInternalServer.Code, apperrors.ErrInternalServer.Msg)
+		response.Fail(c, xerr.ErrInternalServer.Code, xerr.ErrInternalServer.Msg)
 	}
 }

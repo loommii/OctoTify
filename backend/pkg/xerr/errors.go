@@ -1,4 +1,4 @@
-package errors
+package xerr
 
 // AppError 应用级业务错误
 type AppError struct {

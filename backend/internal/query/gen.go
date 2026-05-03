@@ -19,6 +19,7 @@ var (
 	Q             = new(Query)
 	Channel       *channel
 	Message       *message
+	RefreshToken  *refreshToken
 	Source        *source
 	SourceChannel *sourceChannel
 	User          *user
@@ -28,6 +29,7 @@ func SetDefault(db *gorm.DB, opts ...gen.DOOption) {
 	*Q = *Use(db, opts...)
 	Channel = &Q.Channel
 	Message = &Q.Message
+	RefreshToken = &Q.RefreshToken
 	Source = &Q.Source
 	SourceChannel = &Q.SourceChannel
 	User = &Q.User
@@ -38,6 +40,7 @@ func Use(db *gorm.DB, opts ...gen.DOOption) *Query {
 		db:            db,
 		Channel:       newChannel(db, opts...),
 		Message:       newMessage(db, opts...),
+		RefreshToken:  newRefreshToken(db, opts...),
 		Source:        newSource(db, opts...),
 		SourceChannel: newSourceChannel(db, opts...),
 		User:          newUser(db, opts...),
@@ -49,6 +52,7 @@ type Query struct {
 
 	Channel       channel
 	Message       message
+	RefreshToken  refreshToken
 	Source        source
 	SourceChannel sourceChannel
 	User          user
@@ -61,6 +65,7 @@ func (q *Query) clone(db *gorm.DB) *Query {
 		db:            db,
 		Channel:       q.Channel.clone(db),
 		Message:       q.Message.clone(db),
+		RefreshToken:  q.RefreshToken.clone(db),
 		Source:        q.Source.clone(db),
 		SourceChannel: q.SourceChannel.clone(db),
 		User:          q.User.clone(db),
@@ -80,6 +85,7 @@ func (q *Query) ReplaceDB(db *gorm.DB) *Query {
 		db:            db,
 		Channel:       q.Channel.replaceDB(db),
 		Message:       q.Message.replaceDB(db),
+		RefreshToken:  q.RefreshToken.replaceDB(db),
 		Source:        q.Source.replaceDB(db),
 		SourceChannel: q.SourceChannel.replaceDB(db),
 		User:          q.User.replaceDB(db),
@@ -89,6 +95,7 @@ func (q *Query) ReplaceDB(db *gorm.DB) *Query {
 type queryCtx struct {
 	Channel       IChannelDo
 	Message       IMessageDo
+	RefreshToken  IRefreshTokenDo
 	Source        ISourceDo
 	SourceChannel ISourceChannelDo
 	User          IUserDo
@@ -98,6 +105,7 @@ func (q *Query) WithContext(ctx context.Context) *queryCtx {
 	return &queryCtx{
 		Channel:       q.Channel.WithContext(ctx),
 		Message:       q.Message.WithContext(ctx),
+		RefreshToken:  q.RefreshToken.WithContext(ctx),
 		Source:        q.Source.WithContext(ctx),
 		SourceChannel: q.SourceChannel.WithContext(ctx),
 		User:          q.User.WithContext(ctx),
