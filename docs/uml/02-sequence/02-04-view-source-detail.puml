@@ -11,6 +11,7 @@ participant "HTTPServer" as Server
 participant "JWTAuth 中间件" as JWT
 participant "SourceHandler" as Handler
 participant "SourceService" as Service
+participant "SourceRepository" as Repo
 database "SQLite" as DB
 
 User -> Frontend: 点击某个来源
@@ -27,69 +28,92 @@ alt 未提供认证令牌
     JWT --> Server: {code: 100001, msg: "未提供认证令牌"}
     deactivate JWT
     Server --> Frontend: {code: 100001, msg: "未提供认证令牌"}
-    Frontend --> Frontend: 使用 Refresh Token 调用刷新接口 (POST /api/auth/refresh)
+    Frontend --> Frontend: 使用 Refresh Token 调用刷新接口 (POST /api/auth/refresh)\n刷新成功后重试原请求
 else 令牌无效或已过期
     JWT --> Server: {code: 100001, msg: "认证令牌无效或已过期"}
     deactivate JWT
     Server --> Frontend: {code: 100001, msg: "认证令牌无效或已过期"}
-    Frontend --> Frontend: 使用 Refresh Token 调用刷新接口 (POST /api/auth/refresh)
+    Frontend --> Frontend: 使用 Refresh Token 调用刷新接口 (POST /api/auth/refresh)\n刷新成功后重试原请求
 else 令牌有效
     JWT --> Server: userId (从 claims 中提取)
     deactivate JWT
-    Server -> Handler: getSourceDetail(userId, sourceId)
+    Server -> Handler: GetSourceDetail(userId, sourceId)
     activate Handler
 
-    == 查询来源 ==
+    == 参数校验 ==
 
-    Handler -> Service: getSourceById(sourceId)
-    activate Service
-    Service -> DB: SELECT * FROM sources WHERE id = ? AND user_id = ?
-    activate DB
-
-    alt 来源不存在
-        DB --> Service: nil
-        deactivate DB
-        Service --> Handler: ErrSourceNotFound (110503)
-        Handler --> Server: {code: 110503, msg: "来源不存在"}
-        Server --> Frontend: {code: 110503, msg: "来源不存在"}
+    alt sourceId 格式错误
+        Handler --> Server: {code: 100000, msg: "来源ID格式错误"}
+        Server --> Frontend: {code: 100000, msg: "来源ID格式错误"}
         Frontend --> User: 显示错误提示
-    else 来源已删除
-        DB --> Service: source (status = -1)
-        deactivate DB
-        Service --> Handler: ErrSourceAlreadyDeleted (110509)
-        Handler --> Server: {code: 110509, msg: "来源已删除"}
-        Server --> Frontend: {code: 110509, msg: "来源已删除"}
-        Frontend --> User: 显示错误提示
-    else 来源存在
-        DB --> Service: source
-        deactivate DB
-        Service --> Handler: source
-        deactivate Service
+    else 参数校验通过
 
-        == 查询绑定渠道 ==
+        == 查询来源 ==
 
-        Handler -> Service: getBoundChannels(sourceId)
+        Handler -> Service: GetSourceDetail(ctx, sourceId, userId)
         activate Service
-        Service -> DB: SELECT c.* FROM channels c INNER JOIN source_channels sc ON c.id = sc.channel_id WHERE sc.source_id = ? AND c.status != -1
+        Service -> Repo: GetByID(ctx, sourceId, userId)
+        activate Repo
+        Repo -> DB: SELECT * FROM sources WHERE id = ? AND user_id = ? AND status != -1
         activate DB
 
-        alt 查询渠道失败
-            DB --> Service: 查询错误
+        alt 查询失败
+            DB --> Repo: 查询错误
             deactivate DB
-            Service --> Handler: ErrChannelQueryFailed (110605)
-            Handler --> Server: {code: 110605, msg: "查询渠道失败"}
-            Server --> Frontend: {code: 110605, msg: "查询渠道失败"}
+            Repo --> Service: error
+            deactivate Repo
+            Service --> Handler: ErrSourceQueryFailed (110505)
+            Handler --> Server: {code: 110505, msg: "查询来源失败"}
+            note right: 日志：查询来源详情失败\nerror_code=110505, request_id={request_id}, sourceId={sourceId}
+            Server --> Frontend: {code: 110505, msg: "查询来源失败"}
             Frontend --> User: 显示错误提示
-        else 查询成功
-            DB --> Service: channels[]
+        else 来源不存在或已删除
+            DB --> Repo: nil
             deactivate DB
-            Service --> Handler: channels[]
-            deactivate Service
-            Handler --> Server: {code: 0, data: {source, channels}}
-            deactivate Handler
-            Server --> Frontend: {code: 0, data: {source, channels}}
-            deactivate Server
-            Frontend --> User: 显示来源详情和已绑定渠道
+            Repo --> Service: nil
+            deactivate Repo
+            Service --> Handler: ErrSourceNotFound (110503)
+            Handler --> Server: {code: 110503, msg: "来源不存在"}
+            note right: 日志：来源不存在\nerror_code=110503, request_id={request_id}, sourceId={sourceId}
+            Server --> Frontend: {code: 110503, msg: "来源不存在"}
+            Frontend --> User: 显示错误提示
+        else 来源存在
+            DB --> Repo: source
+            deactivate DB
+            Repo --> Service: source
+            deactivate Repo
+
+            == 查询绑定渠道 ==
+
+            Service -> Repo: GetBoundChannels(ctx, sourceId)
+            activate Repo
+            Repo -> DB: SELECT c.* FROM channels c INNER JOIN source_channels sc ON c.id = sc.channel_id WHERE sc.source_id = ? AND c.status != -1
+            activate DB
+
+            alt 查询渠道失败
+                DB --> Repo: 查询错误
+                deactivate DB
+                Repo --> Service: error
+                deactivate Repo
+                Service --> Handler: ErrChannelQueryFailed (110605)
+                Handler --> Server: {code: 110605, msg: "查询渠道失败"}
+                note right: 日志：查询绑定渠道失败\nerror_code=110605, request_id={request_id}, sourceId={sourceId}
+                Server --> Frontend: {code: 110605, msg: "查询渠道失败"}
+                Frontend --> User: 显示错误提示
+            else 查询成功
+                DB --> Repo: channels[]
+                deactivate DB
+                Repo --> Service: channels[]
+                deactivate Repo
+                Service --> Handler: {source, channels}
+                deactivate Service
+                Handler --> Server: {code: 0, msg: "请求成功", data: {source, channels}}
+                note right: 日志：查询来源详情成功\nrequest_id={request_id}, sourceId={sourceId}
+                deactivate Handler
+                Server --> Frontend: {code: 0, msg: "请求成功", data: {source, channels}}
+                deactivate Server
+                Frontend --> User: 显示来源详情和已绑定渠道
+            end
         end
     end
 end

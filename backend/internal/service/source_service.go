@@ -229,3 +229,84 @@ func (s *SourceService) UpdateSource(ctx context.Context, sourceID int64, userID
 
 	return nil
 }
+
+// GetSourceDetail 查询消息来源详情（包含绑定的有效渠道列表）
+func (s *SourceService) GetSourceDetail(ctx context.Context, sourceID int64, userID int64) (*dto.SourceDetailResponse, error) {
+	q := query.Use(s.db)
+
+	// 查询来源，通过 id 和 user_id 联合查询确保权限隔离，过滤已删除记录
+	source, err := q.Source.WithContext(ctx).
+		Where(
+			q.Source.ID.Eq(sourceID),
+			q.Source.UserID.Eq(userID),
+			q.Source.Status.Neq(model.SourceStatusDeleted),
+		).
+		First()
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			s.logger.Error("来源不存在",
+				zap.Int64("source_id", sourceID),
+				zap.Int64("user_id", userID),
+			)
+			return nil, xerr.ErrSourceNotFound
+		}
+		s.logger.Error("查询来源详情失败",
+			zap.Error(err),
+			zap.Int64("source_id", sourceID),
+		)
+		return nil, xerr.ErrSourceQueryFailed.WithInternal(err)
+	}
+
+	// 查询绑定的有效渠道（通过 source_channels 关联表）
+	channels, err := q.Channel.WithContext(ctx).
+		Select(q.Channel.ID, q.Channel.UserID, q.Channel.Type, q.Channel.Name, q.Channel.Status, q.Channel.CreatedAt).
+		Join(q.SourceChannel, q.SourceChannel.ChannelID.EqCol(q.Channel.ID)).
+		Where(
+			q.SourceChannel.SourceID.Eq(sourceID),
+			q.Channel.Status.Neq(model.ChannelStatusDeleted),
+		).
+		Find()
+	if err != nil {
+		s.logger.Error("查询绑定渠道失败",
+			zap.Error(err),
+			zap.Int64("source_id", sourceID),
+		)
+		return nil, xerr.ErrChannelQueryFailed.WithInternal(err)
+	}
+
+	// 转换为 SourceDetailDTO（详情接口暴露 Token）
+	sourceDTO := &dto.SourceDetailDTO{
+		ID:          source.ID,
+		UserID:      source.UserID,
+		Name:        source.Name,
+		Token:       source.Token,
+		Description: source.Description,
+		Status:      source.Status,
+		CreatedAt:   source.CreatedAt.UnixMilli(),
+		UpdatedAt:   source.UpdatedAt.UnixMilli(),
+		LastUsedAt:  source.LastUsedAt.UnixMilli(),
+	}
+
+	// 转换为 ChannelDTO
+	channelDTOs := make([]*dto.ChannelDTO, 0, len(channels))
+	for _, ch := range channels {
+		channelDTOs = append(channelDTOs, &dto.ChannelDTO{
+			ID:        ch.ID,
+			UserID:    ch.UserID,
+			Type:      ch.Type,
+			Name:      ch.Name,
+			Status:    ch.Status,
+			CreatedAt: ch.CreatedAt.UnixMilli(),
+		})
+	}
+
+	s.logger.Info("查询来源详情成功",
+		zap.Int64("source_id", sourceID),
+		zap.Int("channel_count", len(channelDTOs)),
+	)
+
+	return &dto.SourceDetailResponse{
+		Source:   sourceDTO,
+		Channels: channelDTOs,
+	}, nil
+}

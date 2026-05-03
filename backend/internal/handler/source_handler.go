@@ -107,6 +107,7 @@ func (h *SourceHandler) ListSources(c *gin.Context) {
 
 	response.SuccessWithPage(c, list, total, pageReq.Page, pageReq.PageSize)
 }
+
 // @Summary      编辑消息来源
 // @Description  编辑消息来源的名称和描述
 // @Tags         消息来源管理
@@ -159,4 +160,44 @@ func (h *SourceHandler) UpdateSource(c *gin.Context) {
 	}
 
 	response.SuccessWithMsg(c, "更新成功", nil)
+}
+
+// GetSourceDetail godoc
+// @Summary      查看来源详情
+// @Description  查询指定消息来源的详细信息，包含已绑定的有效渠道列表
+// @Tags         消息来源管理
+// @Accept       json
+// @Produce      json
+// @Param        id    path      int64  true  "来源ID"
+// @Success      200   {object}  response.Response{data=dto.SourceDetailResponse}  "成功"
+// @Failure      200   {object}  response.Response  "业务错误（code != 0）"
+// @Router       /api/sources/{id} [get]
+// @Security     BearerAuth
+func (h *SourceHandler) GetSourceDetail(c *gin.Context) {
+	userIDStr, exists := c.Get(middleware.ContextKeyUserID)
+	if !exists {
+		response.Fail(c, xerr.ErrUnauthorized.Code, "未提供认证令牌")
+		return
+	}
+
+	userID, err := strconv.ParseInt(userIDStr.(string), 10, 64)
+	if err != nil {
+		response.Fail(c, xerr.ErrUnauthorized.Code, "无效的认证信息")
+		return
+	}
+
+	sourceIDStr := c.Param("id")
+	sourceID, err := strconv.ParseInt(sourceIDStr, 10, 64)
+	if err != nil {
+		response.Fail(c, xerr.ErrBadRequest.Code, "来源ID格式错误")
+		return
+	}
+
+	detail, err := h.sourceService.GetSourceDetail(c.Request.Context(), sourceID, userID)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	response.Success(c, detail)
 }
