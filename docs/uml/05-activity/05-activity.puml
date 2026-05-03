@@ -1,0 +1,124 @@
+@startuml OctoTify_ActivityDiagram
+
+title OctoTify 活动图 —— 消息推送完整流程
+
+|Client / 外部系统|
+start
+:构造推送请求\nPOST /api/message/push\n{title, message}\nHeader: Authorization Bearer {sourceToken}\nHeader: X-Request-ID (可选)\nHeader: Accept-Language;
+
+|Middleware|
+:RequestIDMiddleware\n检查 X-Request-ID;\nif 为空 → 生成 UUID v7\nif 已有 → 直接使用;
+:LoggingMiddleware\n记录请求入口日志\n{request_id, method, path};
+:I18nMiddleware\n解析 Accept-Language\n注入 context;
+:SourceTokenMiddleware\n解析 Bearer Token\n验证 src 前缀格式;
+
+|Handler (MessageHandler)|
+:pushMessage(ctx *gin.Context)\n从 ctx 获取 sourceToken, req;
+
+if (title 为空?) then (是)
+    :返回 ErrMessageParamTitleEmpty\n(110700)\ni18n 翻译 msg;
+    stop
+elseif (content 为空?) then (是)
+    :返回 ErrMessageParamContentEmpty\n(110701)\ni18n 翻译 msg;
+    stop
+else (否)
+endif
+
+|Service (MessageService)|
+:PushMessage(ctx, sourceToken, req);
+
+|Repository (SourceRepo)|
+:findByToken(ctx, sourceToken)\nSELECT * FROM sources\nWHERE token=? AND status=1;
+
+if (查询失败?) then (是)
+    |Service|
+    :返回 ErrSourceQueryFailed\n(110505);
+    stop
+elseif (source == nil?) then (是)
+    |Service|
+    :返回 ErrSourceNotFound\n(110503)\n"来源不存在或已禁用";
+    stop
+else (source 有效)
+endif
+
+|Repository (ChannelRepo)|
+:findBySourceID(ctx, source.ID)\nSELECT c.* FROM channels c\nINNER JOIN source_channels sc\nON c.id = sc.channel_id\nWHERE sc.source_id=? AND c.status=1;
+
+if (查询失败?) then (是)
+    |Service|
+    :返回 ErrChannelQueryFailed\n(110605);
+    stop
+elseif (channels 为空?) then (是)
+    |Service|
+    :返回 ErrMessageNoChannels\n(110703)\n"来源未绑定任何渠道";
+    stop
+else (有可用渠道)
+endif
+
+|Service (MessageService)|
+:PushToChannels(ctx, source, channels, req)\n初始化 errgroup\n设置 context.WithTimeout(30s);
+
+partition "并发推送 (goroutine pool, max=10)" {
+    fork
+        |Channel 1|
+        :创建消息记录\nINSERT messages (status=100);
+        if (插入失败?) then (是)
+            :记录 ErrMessageRecordFailed\n(110704);
+            :该渠道标记失败;
+        else (插入成功, 获得 messageId)
+        endif
+        |SenderFactory|
+        :Create(channel.Type);
+        if (不支持的渠道类型?) then (是)
+            |Repository (MessageRepo)|
+            :UPDATE status=300\n推送失败;
+        else (获得 sender)
+            |Sender (如 WechatSender)|
+            :Send(ctx, config, title, content)\n调用渠道 API;
+            if (推送失败?) then (是)
+                |Repository (MessageRepo)|
+                :UPDATE status=300\n推送失败;
+            else (推送成功)
+                |Repository (MessageRepo)|
+                :UPDATE status=200\n推送成功;
+            endif
+        endif
+    fork again
+        |Channel 2|
+        :创建消息记录\nINSERT messages (status=100);
+        if (插入失败?) then (是)
+            :记录 ErrMessageRecordFailed\n(110704);
+        else (插入成功)
+        endif
+        |SenderFactory|
+        :Create(channel.Type);
+        |Sender (如 TelegramSender)|
+        :Send(ctx, config, title, content);
+        if (推送失败?) then (是)
+            |Repository (MessageRepo)|
+            :UPDATE status=300;
+        else (推送成功)
+            |Repository (MessageRepo)|
+            :UPDATE status=200;
+        endif
+    fork again
+        |Channel N|
+        :... 同上流程 ...;
+    end fork
+}
+
+|Service (MessageService)|
+:汇总推送结果\n成功数 / 失败数;
+
+|Handler (MessageHandler)|
+:构造 Response\n{code: 0, data: results};
+
+|Middleware (LoggingMiddleware)|
+:记录请求出口日志\n{request_id, status, latency};
+
+|Client / 外部系统|
+:接收响应\nHeader: X-Request-ID\nBody: {code, msg, data};
+
+stop
+
+@enduml
