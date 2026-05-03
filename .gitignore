@@ -1,1 +1,5 @@
 tmp/
+backend/config/keys/
+backend/data/
+backend/server
+backend/docs/
