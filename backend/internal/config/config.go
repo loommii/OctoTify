@@ -21,9 +21,11 @@ type DatabaseConfig struct {
 }
 
 type LogConfig struct {
-	Level  string `mapstructure:"level"`
-	Format string `mapstructure:"format"`
-	Output string `mapstructure:"output"`
+	Level     string `mapstructure:"level"`
+	Format    string `mapstructure:"format"`
+	Output    string `mapstructure:"output"`
+	LogFile   string `mapstructure:"log_file"`
+	ErrorFile string `mapstructure:"error_file"`
 }
 
 func LoadConfig(path string) (*Config, error) {

@@ -13,8 +13,8 @@ func Ping(serverName string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		response.Success(c, gin.H{
 			"server_name": serverName,
-			"server_time": time.Now().Format("2006-01-02 15:04:05"),
-			"timestamp":   time.Now().Unix(),
+			"server_time": time.Now().Format(time.DateTime),
+			"timestamp":   time.Now().UnixMilli(),
 		})
 	}
 }

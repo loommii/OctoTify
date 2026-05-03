@@ -73,8 +73,8 @@ Message 1 ──── 1 Channel  (一条消息只属于一个渠道)
 | id | int64 | 主键 |
 | username | string | 用户名 |
 | password_hash | string | 密码哈希 |
-| created_at | time | 创建时间 |
-| updated_at | time | 更新时间 |
+| created_at | int64 | 创建时间（Unix 毫秒时间戳） |
+| updated_at | int64 | 更新时间（Unix 毫秒时间戳） |
 
 ### sources 表
 
@@ -86,9 +86,9 @@ Message 1 ──── 1 Channel  (一条消息只属于一个渠道)
 | token | string | 推送 Token（前缀 `src` + UUIDv4 无连字符，共 35 位） |
 | description | string | 描述 |
 | status | int | 1=正常, 2=禁用, -1=删除 |
-| created_at | time | 创建时间 |
-| updated_at | time | 更新时间 |
-| last_used_at | time | 最后使用时间 |
+| created_at | int64 | 创建时间（Unix 毫秒时间戳） |
+| updated_at | int64 | 更新时间（Unix 毫秒时间戳） |
+| last_used_at | int64 | 最后使用时间（Unix 毫秒时间戳） |
 
 ### channels 表
 
@@ -100,9 +100,9 @@ Message 1 ──── 1 Channel  (一条消息只属于一个渠道)
 | name | string | 渠道名称 |
 | config | JSON | 各渠道的配置信息 |
 | status | int | 1=正常, 2=禁用, -1=删除 |
-| created_at | time | 创建时间 |
-| updated_at | time | 更新时间 |
-| last_used_at | time | 最后使用时间 |
+| created_at | int64 | 创建时间（Unix 毫秒时间戳） |
+| updated_at | int64 | 更新时间（Unix 毫秒时间戳） |
+| last_used_at | int64 | 最后使用时间（Unix 毫秒时间戳） |
 
 ### source_channels 表（关联表）
 
@@ -111,7 +111,7 @@ Message 1 ──── 1 Channel  (一条消息只属于一个渠道)
 | id | int64 | 主键 |
 | source_id | int64 | 来源ID |
 | channel_id | int64 | 渠道ID |
-| created_at | time | 创建时间 |
+| created_at | int64 | 创建时间（Unix 毫秒时间戳） |
 
 ### messages 表
 
@@ -123,8 +123,8 @@ Message 1 ──── 1 Channel  (一条消息只属于一个渠道)
 | title | string | 消息标题 |
 | content | text | 消息内容 |
 | status | int | 100=待推送, 200=成功, 300=失败... |
-| created_at | time | 创建时间 |
-| updated_at | time | 更新时间 |
+| created_at | int64 | 创建时间（Unix 毫秒时间戳） |
+| updated_at | int64 | 更新时间（Unix 毫秒时间戳） |
 
 ### refresh_tokens 表
 
@@ -134,8 +134,8 @@ Message 1 ──── 1 Channel  (一条消息只属于一个渠道)
 | jti | string | JWT ID，令牌唯一标识 |
 | user_id | int64 | 用户ID |
 | revoked | bool | 是否已撤销 |
-| expires_at | time | 过期时间 |
-| created_at | time | 创建时间 |
+| expires_at | int64 | 过期时间（Unix 毫秒时间戳） |
+| created_at | int64 | 创建时间（Unix 毫秒时间戳） |
 
 ---
 

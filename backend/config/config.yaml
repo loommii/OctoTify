@@ -1,12 +1,28 @@
+# OctoTify 配置文件
+
 server:
+  # 服务名称，健康检查 /ping 接口返回
   name: OctoTify
+  # 服务监听端口
   port: 34123
+  # 运行模式：debug（开发）/ release（生产）
   mode: debug
 
 database:
+  # SQLite 数据库文件路径
   path: ./data/octotify.db
 
 log:
+  # 日志级别：debug / info / warn / error / fatal
   level: debug
-  format: console
+  # 日志格式：console（控制台，开发环境）/ json（结构化，生产环境）
+  format: json
+  # 输出目标：
+  #   - stdout：仅输出到标准输出（控制台）
+  #   - stderr：仅输出到标准错误
+  #   - file：同时输出到文件和控制台，并启用日志轮转
   output: stdout
+  # 日志文件路径，仅在 output=file 时生效
+  log_file: /var/log/octotify/app.log
+  # 错误日志文件路径，仅在 output=file 时生效，仅记录 ERROR 及以上级别
+  error_file: /var/log/octotify/error.log

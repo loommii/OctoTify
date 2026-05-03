@@ -35,8 +35,8 @@ func New(addr, mode, serverName string, logger *zap.Logger) *Server {
 
 func (s *Server) setupMiddleware() {
 	s.engine.Use(middleware.RequestID())
+	s.engine.Use(middleware.RequestLogger(s.logger))
 	s.engine.Use(middleware.CustomRecovery(s.logger))
-	s.engine.Use(gin.Logger())
 	s.engine.Use(middleware.ErrorHandler(s.logger))
 }
 

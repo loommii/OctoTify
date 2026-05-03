@@ -30,7 +30,7 @@
 | 字段 | 类型 | 说明 | 示例 |
 |------|------|------|------|
 | `level` | string | 日志级别 | `info`, `warn`, `error`, `fatal` |
-| `time` | string | Unix 时间戳 | `1714644600` |
+| `time` | int64 | Unix 毫秒时间戳 | `1714644600000` |
 | `message` | string | 日志描述信息 | `来源创建成功` |
 
 ### 2.3 业务日志字段
@@ -52,7 +52,7 @@ HTTP 请求相关的业务日志应额外包含：
 ```json
 {
   "level": "info",
-  "time": 1714644600,
+  "time": 1714644600000,
   "request_id": "0196a3b2c4d50000a1b2c3d4e5f67890",
   "method": "POST",
   "path": "/api/sources",
@@ -67,7 +67,7 @@ HTTP 请求相关的业务日志应额外包含：
 ```json
 {
   "level": "error",
-  "time": 1714644601,
+  "time": 1714644601000,
   "request_id": "0196a3b2c4d50000a1b2c3d4e5f67891",
   "method": "POST",
   "path": "/api/sources",
