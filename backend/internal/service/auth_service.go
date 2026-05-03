@@ -36,6 +36,62 @@ func NewAuthService(
 	}
 }
 
+// Login 用户登录
+// 流程：查询用户 -> 验证密码 -> 生成令牌对 -> 保存刷新令牌
+func (s *AuthService) Login(ctx context.Context, req *dto.LoginReq) (*dto.AuthResp, error) {
+	q := query.Use(s.db)
+
+	// 查询用户
+	user, err := q.WithContext(ctx).User.Where(q.User.Username.Eq(req.Username)).First()
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, xerr.ErrLoginInvalidCredentials
+		}
+		s.logger.Error("query user by username failed", zap.Error(err))
+		return nil, xerr.ErrLoginFailed.WithInternal(err)
+	}
+
+	// 验证密码
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
+		return nil, xerr.ErrLoginInvalidCredentials
+	}
+
+	// 生成令牌对
+	tokenPair, err := s.jwtHelper.GenerateTokenPair(strconv.FormatInt(user.ID, 10))
+	if err != nil {
+		s.logger.Error("generate token pair failed", zap.Error(err))
+		return nil, xerr.ErrLoginFailed.WithInternal(err)
+	}
+
+	// 保存刷新令牌
+	refreshToken := &model.RefreshToken{
+		JTI:       tokenPair.RefreshClaims.ID,
+		UserID:    user.ID,
+		Revoked:   false,
+		ExpiresAt: tokenPair.RefreshClaims.ExpiresAt.Time,
+	}
+	if err := q.RefreshToken.WithContext(ctx).Create(refreshToken); err != nil {
+		s.logger.Error("create refresh token failed", zap.Error(err))
+		return nil, xerr.ErrLoginFailed.WithInternal(err)
+	}
+
+	s.logger.Info("user logged in",
+		zap.Int64("user_id", user.ID),
+		zap.String("username", user.Username),
+	)
+
+	// 返回认证响应
+	return &dto.AuthResp{
+		AccessToken:  tokenPair.AccessToken,
+		RefreshToken: tokenPair.RefreshToken,
+		User: dto.UserDTO{
+			ID:        user.ID,
+			Username:  user.Username,
+			CreatedAt: user.CreatedAt.UnixMilli(),
+		},
+	}, nil
+}
+
 // Register 用户注册
 // 流程：检查用户名是否已存在 -> 密码哈希 -> 创建用户 -> 生成令牌对 -> 保存刷新令牌
 func (s *AuthService) Register(ctx context.Context, req *dto.RegisterReq) (*dto.AuthResp, error) {

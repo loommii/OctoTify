@@ -1,9 +1,19 @@
 package dto
 
-// RegisterReq 用户注册请求
-type RegisterReq struct {
+// AuthCredentials 认证凭据（注册/登录通用）
+type AuthCredentials struct {
 	Username string `json:"username" binding:"required,username" example:"octotify"`    // 用户名，3-64 个字符，仅允许字母、数字和下划线
 	Password string `json:"password" binding:"required,password" example:"P@ssw0rd123"` // 密码，8-128 个字符，需包含大小写字母和数字
+}
+
+// RegisterReq 用户注册请求
+type RegisterReq struct {
+	AuthCredentials
+}
+
+// LoginReq 用户登录请求
+type LoginReq struct {
+	AuthCredentials
 }
 
 // UserDTO 用户信息响应

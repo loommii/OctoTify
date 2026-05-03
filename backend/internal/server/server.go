@@ -114,6 +114,7 @@ func (s *Server) setupRoutes() {
 
 	api := s.engine.Group("/api")
 
+	s.setupAuthRoutes(api)
 	s.setupUserRoutes(api)
 	s.setupSourceRoutes(api)
 	s.setupChannelRoutes(api)
@@ -121,11 +122,17 @@ func (s *Server) setupRoutes() {
 	s.setupPushRoutes(api)
 }
 
+func (s *Server) setupAuthRoutes(api *gin.RouterGroup) {
+	auth := api.Group("/auth")
+	{
+		auth.POST("/login", s.authHandler.Login)
+	}
+}
+
 func (s *Server) setupUserRoutes(api *gin.RouterGroup) {
 	user := api.Group("/user")
 	{
 		user.POST("/register", s.authHandler.Register)
-		user.POST("/login", func(c *gin.Context) {})
 		user.POST("/refresh-token", func(c *gin.Context) {})
 		user.POST("/change-password", func(c *gin.Context) {})
 		user.GET("/profile", func(c *gin.Context) {})
