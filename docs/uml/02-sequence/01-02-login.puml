@@ -10,7 +10,8 @@ participant "前端" as Frontend
 participant "HTTPServer" as Server
 participant "AuthHandler" as Handler
 participant "AuthService" as Auth
-participant "JWT Helper" as JWT
+participant "Access JWT Helper" as AccessJWT
+participant "Refresh JWT Helper" as RefreshJWT
 database "SQLite" as DB
 
 User -> Frontend: 输入用户名、密码
@@ -22,12 +23,10 @@ activate Handler
 == 参数校验 ==
 
 alt 参数校验失败
-    Handler -> Handler: 参数校验（用户名/密码非空）
     Handler --> Server: {code: 110200, msg: "用户名或密码错误"}
     Server --> Frontend: {code: 110200, msg: "用户名或密码错误"}
     Frontend --> User: 显示错误提示
 else 参数校验通过
-    Handler -> Handler: 参数校验通过
     Handler -> Auth: login(username, password)
     activate Auth
 
@@ -39,7 +38,6 @@ else 参数校验通过
     deactivate DB
 
     alt 用户不存在或密码错误
-        Auth -> Auth: 验证密码失败
         Auth --> Handler: ErrLoginInvalidCredentials (110200)
         Handler --> Server: {code: 110200, msg: "用户名或密码错误"}
         Server --> Frontend: {code: 110200, msg: "用户名或密码错误"}
@@ -49,17 +47,17 @@ else 参数校验通过
 
         == 生成令牌 ==
 
-        Auth -> JWT: generateAccessToken(claims)
-        activate JWT
-        JWT --> Auth: accessToken
-        deactivate JWT
-        Auth -> JWT: generateRefreshToken(claims)
-        activate JWT
-        JWT --> Auth: refreshToken
-        deactivate JWT
+        Auth -> AccessJWT: generateToken(claims {uid, token_type: access})
+        activate AccessJWT
+        AccessJWT --> Auth: accessToken
+        deactivate AccessJWT
+        Auth -> RefreshJWT: generateToken(claims {uid, token_type: refresh, jti})
+        activate RefreshJWT
+        RefreshJWT --> Auth: refreshToken
+        deactivate RefreshJWT
 
         alt 刷新令牌记录失败
-            Auth -> DB: INSERT INTO refresh_tokens
+            Auth -> DB: INSERT INTO refresh_tokens (jti, user_id)
             activate DB
             DB --> Auth: 插入失败
             deactivate DB
@@ -68,15 +66,15 @@ else 参数校验通过
             Server --> Frontend: {code: 110201, msg: "登录失败"}
             Frontend --> User: 显示错误提示
         else 刷新令牌记录成功
-            Auth -> DB: INSERT INTO refresh_tokens
+            Auth -> DB: INSERT INTO refresh_tokens (jti, user_id)
             activate DB
             DB --> Auth: 成功
             deactivate DB
-            Auth --> Handler: TokenPair {accessToken, refreshToken}
+            Auth --> Handler: {accessToken, refreshToken}
             deactivate Auth
-            Handler --> Server: {code: 0, data: {token, refreshToken, user}}
+            Handler --> Server: {code: 0, data: {access_token, refresh_token, user}}
             deactivate Handler
-            Server --> Frontend: {code: 0, data: {token, refreshToken, user}}
+            Server --> Frontend: {code: 0, data: {access_token, refresh_token, user}}
             deactivate Server
             Frontend --> User: 登录成功，跳转首页
         end

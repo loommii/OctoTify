@@ -54,6 +54,40 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	response.Success(c, resp)
 }
 
+// RefreshToken godoc
+// @Summary      刷新令牌
+// @Description  使用 Refresh Token 获取新的 Access Token 和 Refresh Token
+// @Tags         用户认证
+// @Accept       json
+// @Produce      json
+// @Param        body  body      dto.RefreshReq  true  "刷新令牌请求"
+// @Success      200   {object}  response.Response{data=dto.AuthResp}  "成功"
+// @Failure      200   {object}  response.Response  "业务错误（code != 0）"
+// @Router       /api/auth/refresh [post]
+func (h *AuthHandler) RefreshToken(c *gin.Context) {
+	var req dto.RefreshReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		if _, ok := err.(*json.SyntaxError); ok {
+			response.Fail(c, xerr.ErrRefreshTokenInvalid.Code, "刷新令牌无效")
+			return
+		}
+		if _, ok := err.(*json.UnmarshalTypeError); ok {
+			response.Fail(c, xerr.ErrRefreshTokenInvalid.Code, "刷新令牌无效")
+			return
+		}
+		response.Fail(c, xerr.ErrRefreshTokenInvalid.Code, "刷新令牌无效")
+		return
+	}
+
+	resp, err := h.authService.RefreshAccessToken(c.Request.Context(), req.RefreshToken)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	response.Success(c, resp)
+}
+
 // Register godoc
 // @Summary      用户注册
 // @Description  注册新用户，返回 Access Token 和 Refresh Token

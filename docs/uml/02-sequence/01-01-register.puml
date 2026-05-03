@@ -10,7 +10,8 @@ participant "前端" as Frontend
 participant "HTTPServer" as Server
 participant "AuthHandler" as Handler
 participant "AuthService" as Auth
-participant "JWT Helper" as JWT
+participant "Access JWT Helper" as AccessJWT
+participant "Refresh JWT Helper" as RefreshJWT
 database "SQLite" as DB
 
 User -> Frontend: 输入用户名、密码
@@ -54,13 +55,18 @@ else 参数校验通过
             Auth -> DB: BEGIN TRANSACTION
             activate DB
             Auth -> DB: INSERT INTO users
-            DB --> Auth: 成功
-            Auth -> JWT: generateTokenPair(uid)
-            activate JWT
-            JWT --> Auth: TokenPair {accessToken, refreshToken, refreshClaims}
-            deactivate JWT
-            Auth -> DB: INSERT INTO refresh_tokens (jti, user_id, expires_at)
+            DB --> Auth: userId
+            Auth -> AccessJWT: generateToken(claims {uid, token_type: access})
+            activate AccessJWT
+            AccessJWT --> Auth: accessToken
+            deactivate AccessJWT
+            Auth -> RefreshJWT: generateToken(claims {uid, token_type: refresh, jti})
+            activate RefreshJWT
+            RefreshJWT --> Auth: refreshToken
+            deactivate RefreshJWT
+            Auth -> DB: INSERT INTO refresh_tokens (jti, user_id)
             DB --> Auth: 失败
+            Auth -> DB: ROLLBACK
             deactivate DB
             Auth --> Handler: ErrRegisterFailed (110105)
             Handler --> Server: {code: 110105, msg: "注册失败"}
@@ -71,15 +77,19 @@ else 参数校验通过
             activate DB
             Auth -> DB: INSERT INTO users
             DB --> Auth: userId
-            Auth -> JWT: generateTokenPair(uid)
-            activate JWT
-            JWT --> Auth: TokenPair {accessToken, refreshToken, refreshClaims}
-            deactivate JWT
-            Auth -> DB: INSERT INTO refresh_tokens (jti, user_id, expires_at)
+            Auth -> AccessJWT: generateToken(claims {uid, token_type: access})
+            activate AccessJWT
+            AccessJWT --> Auth: accessToken
+            deactivate AccessJWT
+            Auth -> RefreshJWT: generateToken(claims {uid, token_type: refresh, jti})
+            activate RefreshJWT
+            RefreshJWT --> Auth: refreshToken
+            deactivate RefreshJWT
+            Auth -> DB: INSERT INTO refresh_tokens (jti, user_id)
             DB --> Auth: 成功
             Auth -> DB: COMMIT
             deactivate DB
-            Auth --> Handler: TokenPair {accessToken, refreshToken}
+            Auth --> Handler: {accessToken, refreshToken}
             deactivate Auth
             Handler --> Server: {code: 0, data: {access_token, refresh_token, user}}
             deactivate Handler

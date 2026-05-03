@@ -8,7 +8,6 @@ type RefreshToken struct {
 	JTI       string    `gorm:"uniqueIndex;size:64;not null" json:"jti"` // 令牌唯一标识（JWT ID），唯一索引
 	UserID    int64     `gorm:"index;not null" json:"user_id"`           // 所属用户ID
 	Revoked   bool      `gorm:"default:false" json:"revoked"`            // 是否已撤销
-	ExpiresAt time.Time `gorm:"not null" json:"expires_at"`              // 过期时间
 	CreatedAt time.Time `json:"created_at"`                              // 创建时间
 }
 

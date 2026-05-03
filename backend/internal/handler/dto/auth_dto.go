@@ -23,6 +23,11 @@ type UserDTO struct {
 	CreatedAt int64  `json:"created_at" example:"1714636800"` // 创建时间（Unix 时间戳）
 }
 
+// RefreshReq 刷新令牌请求
+type RefreshReq struct {
+	RefreshToken string `json:"refresh_token" binding:"required" example:"eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."`
+}
+
 // AuthResp 认证响应（登录/注册/刷新令牌）
 type AuthResp struct {
 	AccessToken  string  `json:"access_token" example:"eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."`  // 访问令牌

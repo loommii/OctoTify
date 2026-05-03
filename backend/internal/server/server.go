@@ -79,14 +79,20 @@ func (s *Server) initDependencies(cfg *config.Config, db *gorm.DB, logger *zap.L
 		logger.Fatal("failed to parse public key", zap.Error(err))
 	}
 
-	// 初始化 JWT 辅助工具（函数选项模式）
-	jwtHelper := jwtx.NewJWTHelper(
+	// 初始化 JWT 辅助工具（双 Helper 实例，分别管理 access 和 refresh 的过期时间）
+	accessJWTHelper := jwtx.NewJWTHelper(
 		jwtx.WithPrivateKey(privateKey),
 		jwtx.WithPublicKey(publicKey),
 		jwtx.WithExpiredTime(cfg.JWT.AccessTTL),
 	)
 
-	authService := service.NewAuthService(db, jwtHelper, logger)
+	refreshJWTHelper := jwtx.NewJWTHelper(
+		jwtx.WithPrivateKey(privateKey),
+		jwtx.WithPublicKey(publicKey),
+		jwtx.WithExpiredTime(cfg.JWT.RefreshTTL),
+	)
+
+	authService := service.NewAuthService(db, accessJWTHelper, refreshJWTHelper, logger)
 	s.authHandler = handler.NewAuthHandler(authService)
 }
 
@@ -126,6 +132,7 @@ func (s *Server) setupAuthRoutes(api *gin.RouterGroup) {
 	auth := api.Group("/auth")
 	{
 		auth.POST("/login", s.authHandler.Login)
+		auth.POST("/refresh", s.authHandler.RefreshToken)
 	}
 }
 
@@ -133,7 +140,6 @@ func (s *Server) setupUserRoutes(api *gin.RouterGroup) {
 	user := api.Group("/user")
 	{
 		user.POST("/register", s.authHandler.Register)
-		user.POST("/refresh-token", func(c *gin.Context) {})
 		user.POST("/change-password", func(c *gin.Context) {})
 		user.GET("/profile", func(c *gin.Context) {})
 	}
