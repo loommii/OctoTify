@@ -56,6 +56,7 @@ var (
 	ErrSourceAlreadyDisabled = New(110507, "来源已停用")
 	ErrSourceAlreadyEnabled  = New(110508, "来源已启用")
 	ErrSourceAlreadyDeleted  = New(110509, "来源已删除")
+	ErrSourceUpdateFailed    = New(110510, "更新来源失败")
 )
 
 // Channel 模块错误 1106XX

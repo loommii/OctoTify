@@ -1,9 +1,19 @@
 package dto
 
+// SourceBaseReq 消息来源公共请求字段
+type SourceBaseReq struct {
+	Name        string `json:"name" binding:"required,min=1,max=128" example:"CI Pipeline"`           // 来源名称，1-128 个字符
+	Description string `json:"description" binding:"omitempty,max=512" example:"GitHub Actions 构建通知"` // 来源描述，最多 512 个字符
+}
+
 // CreateSourceReq 创建消息来源请求
 type CreateSourceReq struct {
-	Name        string `json:"name" binding:"required,max=128" example:"CI Pipeline"`                 // 来源名称，1-128 个字符
-	Description string `json:"description" binding:"omitempty,max=512" example:"GitHub Actions 构建通知"` // 来源描述，最多 512 个字符
+	SourceBaseReq
+}
+
+// UpdateSourceReq 编辑消息来源请求
+type UpdateSourceReq struct {
+	SourceBaseReq
 }
 
 // SourceDTO 消息来源信息响应

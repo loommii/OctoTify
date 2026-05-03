@@ -162,7 +162,7 @@ func (s *Server) setupSourceRoutes(api *gin.RouterGroup) {
 	source.Use(middleware.JWTAuth(s.accessJWTHelper))
 	{
 		source.POST("", s.sourceHandler.CreateSource)
-		source.PUT("/:id", func(c *gin.Context) {})
+		source.PUT("/:id", s.sourceHandler.UpdateSource)
 		source.GET("", func(c *gin.Context) {})
 		source.GET("/:id", func(c *gin.Context) {})
 		source.GET("/:id/token", func(c *gin.Context) {})
