@@ -201,8 +201,7 @@ OctoTify/
 │   │   ├── query/            # GORM Gen 生成的查询代码
 │   │   ├── server/           # HTTP Server（Gin）
 │   │   ├── handler/          # HTTP 处理器
-│   │   ├── service/          # 业务逻辑
-│   │   ├── repository/       # 数据访问
+│   │   ├── service/          # 业务逻辑 + 数据访问（直接调用 query）
 │   │   ├── sender/           # 推送策略层
 │   │   │   ├── sender.go     # Sender 接口
 │   │   │   ├── factory.go    # Sender 工厂
@@ -215,7 +214,8 @@ OctoTify/
 │   │   ├── response/         # 统一响应
 │   │   ├── errors/           # 错误码
 │   │   ├── i18n/             # 多语言
-│   │   └── jwt/              # JWT 工具
+│   │   ├── jwt/              # JWT 工具
+│   │   └── validator/        # 自定义参数验证器
 │   ├── config/               # 配置文件
 │   ├── data/                 # SQLite 数据库文件
 │   ├── go.mod

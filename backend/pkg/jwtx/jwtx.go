@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 )
 
@@ -86,14 +87,19 @@ func NewJWTHelper(opts ...Option) *JWTHelper {
 	return helper
 }
 
-// TokenPair 令牌对，包含 Access Token 和 Refresh Token
+// TokenPair 令牌对，包含 Access Token 和 Refresh Token 以及 Refresh Token 的 Claims
 type TokenPair struct {
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
+	AccessToken   string `json:"access_token"`
+	RefreshToken  string `json:"refresh_token"`
+	RefreshClaims Claims `json:"-"` // Refresh Token 的声明，用于存储到数据库
 }
 
 // GenerateTokenPair 一次性生成 Access Token 和 Refresh Token
 func (h *JWTHelper) GenerateTokenPair(uid string) (*TokenPair, error) {
+	now := time.Now()
+	refreshJTI := uuid.New().String()
+	refreshExpiresAt := jwt.NewNumericDate(now.Add(h.expiredTime))
+
 	accessToken, err := h.GenerateToken(Claims{
 		UID:       uid,
 		TokenType: Access,
@@ -102,17 +108,26 @@ func (h *JWTHelper) GenerateTokenPair(uid string) (*TokenPair, error) {
 		return nil, err
 	}
 
-	refreshToken, err := h.GenerateToken(Claims{
+	refreshClaims := Claims{
 		UID:       uid,
 		TokenType: Refresh,
-	})
+		RegisteredClaims: jwt.RegisteredClaims{
+			ID:        refreshJTI,
+			ExpiresAt: refreshExpiresAt,
+			IssuedAt:  jwt.NewNumericDate(now),
+			NotBefore: jwt.NewNumericDate(now),
+		},
+	}
+
+	refreshToken, err := h.GenerateToken(refreshClaims)
 	if err != nil {
 		return nil, err
 	}
 
 	return &TokenPair{
-		AccessToken:  accessToken,
-		RefreshToken: refreshToken,
+		AccessToken:   accessToken,
+		RefreshToken:  refreshToken,
+		RefreshClaims: refreshClaims,
 	}, nil
 }
 
@@ -121,6 +136,7 @@ func (h *JWTHelper) GenerateTokenPair(uid string) (*TokenPair, error) {
 func (h *JWTHelper) GenerateToken(claims Claims) (string, error) {
 	now := time.Now()
 
+	claims.ID = uuid.New().String()
 	claims.ExpiresAt = jwt.NewNumericDate(now.Add(h.expiredTime))
 	claims.IssuedAt = jwt.NewNumericDate(now)
 	claims.NotBefore = jwt.NewNumericDate(now)

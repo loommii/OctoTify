@@ -2,8 +2,8 @@ package dto
 
 // RegisterReq 用户注册请求
 type RegisterReq struct {
-	Username string `json:"username" binding:"required,min=3,max=50" example:"octotify"`                                             // 用户名，3-50 个字符
-	Password string `json:"password" binding:"required,min=8,max=128,regexp=^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)" example:"P@ssw0rd123"` // 密码，8-128 个字符，需包含大小写字母和数字
+	Username string `json:"username" binding:"required,username" example:"octotify"`    // 用户名，3-64 个字符，仅允许字母、数字和下划线
+	Password string `json:"password" binding:"required,password" example:"P@ssw0rd123"` // 密码，8-128 个字符，需包含大小写字母和数字
 }
 
 // UserDTO 用户信息响应

@@ -13,10 +13,10 @@ import (
 	"octotify/internal/config"
 	"octotify/internal/handler"
 	"octotify/internal/middleware"
-	"octotify/internal/repository"
 	"octotify/internal/service"
-	pkgjwtx "octotify/pkg/jwtx"
+	"octotify/pkg/jwtx"
 	"octotify/pkg/response"
+	"octotify/pkg/validator"
 	"octotify/pkg/xerr"
 
 	_ "octotify/docs"
@@ -40,6 +40,11 @@ func New(addr string, cfg *config.Config, db *gorm.DB, logger *zap.Logger) *Serv
 		logger:     logger,
 	}
 
+	s.engine.SetTrustedProxies(nil)
+
+	// 注册自定义验证器
+	validator.Init()
+
 	s.initDependencies(cfg, db, logger)
 	s.setupMiddleware()
 	s.setupNoRoute()
@@ -50,7 +55,7 @@ func New(addr string, cfg *config.Config, db *gorm.DB, logger *zap.Logger) *Serv
 
 func (s *Server) initDependencies(cfg *config.Config, db *gorm.DB, logger *zap.Logger) {
 	// 检查并生成 RSA 密钥对（如果不存在）
-	if err := pkgjwtx.EnsureRSAKeyPair(cfg.JWT.PrivateKeyPath, cfg.JWT.PublicKeyPath); err != nil {
+	if err := jwtx.EnsureRSAKeyPair(cfg.JWT.PrivateKeyPath, cfg.JWT.PublicKeyPath); err != nil {
 		logger.Fatal("failed to ensure RSA key pair", zap.Error(err))
 	}
 
@@ -59,7 +64,7 @@ func (s *Server) initDependencies(cfg *config.Config, db *gorm.DB, logger *zap.L
 	if err != nil {
 		logger.Fatal("failed to read private key", zap.Error(err))
 	}
-	privateKey, err := pkgjwtx.ParseRSAPrivateKeyFromPEM(privateKeyPEM)
+	privateKey, err := jwtx.ParseRSAPrivateKeyFromPEM(privateKeyPEM)
 	if err != nil {
 		logger.Fatal("failed to parse private key", zap.Error(err))
 	}
@@ -69,21 +74,19 @@ func (s *Server) initDependencies(cfg *config.Config, db *gorm.DB, logger *zap.L
 	if err != nil {
 		logger.Fatal("failed to read public key", zap.Error(err))
 	}
-	publicKey, err := pkgjwtx.ParseRSAPublicKeyFromPEM(publicKeyPEM)
+	publicKey, err := jwtx.ParseRSAPublicKeyFromPEM(publicKeyPEM)
 	if err != nil {
 		logger.Fatal("failed to parse public key", zap.Error(err))
 	}
 
 	// 初始化 JWT 辅助工具（函数选项模式）
-	jwtHelper := pkgjwtx.NewJWTHelper(
-		pkgjwtx.WithPrivateKey(privateKey),
-		pkgjwtx.WithPublicKey(publicKey),
-		pkgjwtx.WithExpiredTime(cfg.JWT.AccessTTL),
+	jwtHelper := jwtx.NewJWTHelper(
+		jwtx.WithPrivateKey(privateKey),
+		jwtx.WithPublicKey(publicKey),
+		jwtx.WithExpiredTime(cfg.JWT.AccessTTL),
 	)
 
-	userRepo := repository.NewUserRepository(db)
-	tokenRepo := repository.NewRefreshTokenRepository(db)
-	authService := service.NewAuthService(db, userRepo, tokenRepo, jwtHelper, logger)
+	authService := service.NewAuthService(db, jwtHelper, logger)
 	s.authHandler = handler.NewAuthHandler(authService)
 }
 

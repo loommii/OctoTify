@@ -2,9 +2,7 @@ package service
 
 import (
 	"context"
-	"regexp"
 	"strconv"
-	"unicode/utf8"
 
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
@@ -16,43 +14,34 @@ import (
 	"octotify/internal/handler/dto"
 	"octotify/internal/model"
 	"octotify/internal/query"
-	"octotify/internal/repository"
 )
 
-var usernameRegex = regexp.MustCompile(`^[a-zA-Z0-9_]+$`)
-
+// AuthService 认证服务，处理用户注册、登录、令牌刷新等认证相关业务逻辑
 type AuthService struct {
-	db        *gorm.DB
-	userRepo  *repository.UserRepository
-	tokenRepo *repository.RefreshTokenRepository
-	jwtHelper *pkgjwtx.JWTHelper
-	logger    *zap.Logger
+	db        *gorm.DB           // 数据库连接
+	jwtHelper *pkgjwtx.JWTHelper // JWT 令牌辅助工具
+	logger    *zap.Logger        // 日志记录器
 }
 
+// NewAuthService 创建认证服务实例
 func NewAuthService(
 	db *gorm.DB,
-	userRepo *repository.UserRepository,
-	tokenRepo *repository.RefreshTokenRepository,
 	jwtHelper *pkgjwtx.JWTHelper,
 	logger *zap.Logger,
 ) *AuthService {
 	return &AuthService{
 		db:        db,
-		userRepo:  userRepo,
-		tokenRepo: tokenRepo,
 		jwtHelper: jwtHelper,
 		logger:    logger,
 	}
 }
 
+// Register 用户注册
+// 流程：检查用户名是否已存在 -> 密码哈希 -> 创建用户 -> 生成令牌对 -> 保存刷新令牌
 func (s *AuthService) Register(ctx context.Context, req *dto.RegisterReq) (*dto.AuthResp, error) {
-	// 校验注册请求参数
-	if err := s.validateRegister(req); err != nil {
-		return nil, err
-	}
-
+	q := query.Use(s.db)
 	// 检查用户名是否已存在
-	existing, err := s.userRepo.FindByUsername(ctx, req.Username)
+	existing, err := q.WithContext(ctx).User.Where(q.User.Username.Eq(req.Username)).First()
 	if err != nil && err != gorm.ErrRecordNotFound {
 		s.logger.Error("query user by username failed", zap.Error(err))
 		return nil, xerr.ErrRegisterFailed.WithInternal(err)
@@ -61,69 +50,58 @@ func (s *AuthService) Register(ctx context.Context, req *dto.RegisterReq) (*dto.
 		return nil, xerr.ErrRegisterUsernameExists
 	}
 
-	// 密码哈希加密
+	// 对密码进行 bcrypt 哈希
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
 		s.logger.Error("bcrypt hash failed", zap.Error(err))
 		return nil, xerr.ErrRegisterFailed.WithInternal(err)
 	}
 
+	// 构建用户模型
 	user := &model.User{
 		Username:     req.Username,
 		PasswordHash: string(hash),
 	}
 
-	// 事务中创建用户
-	q := query.Use(s.db)
+	var tokenPair *pkgjwtx.TokenPair
+	// 使用事务确保数据一致性
 	err = q.Transaction(func(tx *query.Query) error {
+		// 创建用户记录（执行后 user.ID 会被自动填充）
 		if err := tx.User.Create(user); err != nil {
 			return err
 		}
-		return nil
-	})
-	if err != nil {
-		s.logger.Error("create user failed", zap.Error(err))
-		return nil, xerr.ErrRegisterFailed.WithInternal(err)
-	}
 
-	// 生成 JWT 令牌对
-	tokenPair, err := s.jwtHelper.GenerateTokenPair(strconv.FormatInt(user.ID, 10))
-	if err != nil {
-		s.logger.Error("generate token pair failed", zap.Error(err))
-		return nil, xerr.ErrRegisterFailed.WithInternal(err)
-	}
+		// 生成访问令牌和刷新令牌（依赖 user.ID，必须在用户创建后执行）
+		tokenPair, err = s.jwtHelper.GenerateTokenPair(strconv.FormatInt(user.ID, 10))
+		if err != nil {
+			s.logger.Error("generate token pair failed", zap.Error(err))
+			return err
+		}
 
-	// 解析 Refresh Token 以获取 JTI 和过期时间
-	_, refreshClaims, err := s.jwtHelper.ValidateToken(tokenPair.RefreshToken)
-	if err != nil {
-		s.logger.Error("parse refresh token failed", zap.Error(err))
-		return nil, xerr.ErrRegisterFailed.WithInternal(err)
-	}
-
-	// 保存 Refresh Token 记录到数据库
-	refreshToken := &model.RefreshToken{
-		JTI:       refreshClaims.ID,
-		UserID:    user.ID,
-		Revoked:   false,
-		ExpiresAt: refreshClaims.ExpiresAt.Time,
-	}
-
-	err = q.Transaction(func(tx *query.Query) error {
+		// 保存刷新令牌到数据库
+		refreshToken := &model.RefreshToken{
+			JTI:       tokenPair.RefreshClaims.ID,
+			UserID:    user.ID,
+			Revoked:   false,
+			ExpiresAt: tokenPair.RefreshClaims.ExpiresAt.Time,
+		}
 		if err := tx.RefreshToken.Create(refreshToken); err != nil {
 			return err
 		}
+
+		s.logger.Info("user registered",
+			zap.Int64("user_id", user.ID),
+			zap.String("username", user.Username),
+		)
+
 		return nil
 	})
 	if err != nil {
-		s.logger.Error("create refresh token failed", zap.Error(err))
-		return nil, xerr.ErrRefreshTokenFailed.WithInternal(err)
+		s.logger.Error("create user or refresh token failed", zap.Error(err))
+		return nil, xerr.ErrRegisterFailed.WithInternal(err)
 	}
 
-	s.logger.Info("user registered",
-		zap.Int64("user_id", user.ID),
-		zap.String("username", user.Username),
-	)
-
+	// 返回认证响应
 	return &dto.AuthResp{
 		AccessToken:  tokenPair.AccessToken,
 		RefreshToken: tokenPair.RefreshToken,
@@ -133,23 +111,4 @@ func (s *AuthService) Register(ctx context.Context, req *dto.RegisterReq) (*dto.
 			CreatedAt: user.CreatedAt.UnixMilli(),
 		},
 	}, nil
-}
-
-func (s *AuthService) validateRegister(req *dto.RegisterReq) error {
-	if req.Username == "" {
-		return xerr.ErrRegisterUsernameEmpty
-	}
-	if req.Password == "" {
-		return xerr.ErrRegisterPasswordEmpty
-	}
-	if utf8.RuneCountInString(req.Username) < 3 || utf8.RuneCountInString(req.Username) > 64 {
-		return xerr.ErrRegisterUsernameInvalid
-	}
-	if !usernameRegex.MatchString(req.Username) {
-		return xerr.ErrRegisterUsernameInvalid
-	}
-	if utf8.RuneCountInString(req.Password) < 6 || utf8.RuneCountInString(req.Password) > 128 {
-		return xerr.ErrRegisterPasswordInvalid
-	}
-	return nil
 }
