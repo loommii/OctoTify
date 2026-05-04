@@ -4,3 +4,8 @@ backend/data/
 backend/server
 backend/docs/
 backend/data/octotify.db
+
+# frontend
+frontend/node_modules/
+frontend/dist/
+frontend/*.tsbuildinfo
