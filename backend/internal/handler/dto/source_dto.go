@@ -56,6 +56,16 @@ type SourceDetailResponse struct {
 	Channels []*ChannelDTO    `json:"channels"` // 已绑定渠道列表
 }
 
+// SourceTokenResponse 来源令牌响应
+type SourceTokenResponse struct {
+	Token string `json:"token" example:"src0196a3b2c4d50000a1b2c3d4e5f67890"` // 推送 Token
+}
+
+// VerifyPasswordReq 密码验证请求（用于查看敏感数据）
+type VerifyPasswordReq struct {
+	Password string `json:"password" binding:"required,password" example:"P@ssw0rd123"` // 用户密码
+}
+
 // PageReq 分页请求参数
 type PageReq struct {
 	Page     int `form:"page" binding:"omitempty,min=1" example:"1"`               // 页码，从 1 开始

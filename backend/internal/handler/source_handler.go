@@ -201,3 +201,263 @@ func (h *SourceHandler) GetSourceDetail(c *gin.Context) {
 
 	response.Success(c, detail)
 }
+
+// GetSourceToken godoc
+// @Summary      查看来源令牌
+// @Description  查询指定消息来源的 Token，需要密码二次验证
+// @Tags         消息来源管理
+// @Accept       json
+// @Produce      json
+// @Param        id    path      int64              true  "来源ID"
+// @Param        body  body      dto.VerifyPasswordReq  true  "密码验证"
+// @Success      200   {object}  response.Response{data=dto.SourceTokenResponse}  "成功"
+// @Failure      200   {object}  response.Response  "业务错误（code != 0）"
+// @Router       /api/sources/{id}/token [post]
+// @Security     BearerAuth
+func (h *SourceHandler) GetSourceToken(c *gin.Context) {
+	userIDStr, exists := c.Get(middleware.ContextKeyUserID)
+	if !exists {
+		response.Fail(c, xerr.ErrUnauthorized.Code, "未提供认证令牌")
+		return
+	}
+
+	userID, err := strconv.ParseInt(userIDStr.(string), 10, 64)
+	if err != nil {
+		response.Fail(c, xerr.ErrUnauthorized.Code, "无效的认证信息")
+		return
+	}
+
+	sourceIDStr := c.Param("id")
+	sourceID, err := strconv.ParseInt(sourceIDStr, 10, 64)
+	if err != nil {
+		response.Fail(c, xerr.ErrBadRequest.Code, "来源ID格式错误")
+		return
+	}
+
+	var req dto.VerifyPasswordReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.HandleValidationError(c, err)
+		return
+	}
+
+	if err := h.sourceService.VerifyPassword(c.Request.Context(), userID, req.Password); err != nil {
+		c.Error(err)
+		return
+	}
+
+	token, err := h.sourceService.GetSourceToken(c.Request.Context(), sourceID, userID)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	response.Success(c, dto.SourceTokenResponse{Token: token})
+}
+
+// ResetSourceToken godoc
+// @Summary      重置来源令牌
+// @Description  重置指定消息来源的 Token，需要密码二次验证，旧 Token 立即失效
+// @Tags         消息来源管理
+// @Accept       json
+// @Produce      json
+// @Param        id    path      int64              true  "来源ID"
+// @Param        body  body      dto.VerifyPasswordReq  true  "密码验证"
+// @Success      200   {object}  response.Response{data=dto.SourceTokenResponse}  "成功"
+// @Failure      200   {object}  response.Response  "业务错误（code != 0）"
+// @Router       /api/sources/{id}/token [put]
+// @Security     BearerAuth
+func (h *SourceHandler) ResetSourceToken(c *gin.Context) {
+	userIDStr, exists := c.Get(middleware.ContextKeyUserID)
+	if !exists {
+		response.Fail(c, xerr.ErrUnauthorized.Code, "未提供认证令牌")
+		return
+	}
+
+	userID, err := strconv.ParseInt(userIDStr.(string), 10, 64)
+	if err != nil {
+		response.Fail(c, xerr.ErrUnauthorized.Code, "无效的认证信息")
+		return
+	}
+
+	sourceIDStr := c.Param("id")
+	sourceID, err := strconv.ParseInt(sourceIDStr, 10, 64)
+	if err != nil {
+		response.Fail(c, xerr.ErrBadRequest.Code, "来源ID格式错误")
+		return
+	}
+
+	var req dto.VerifyPasswordReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.HandleValidationError(c, err)
+		return
+	}
+
+	if err := h.sourceService.VerifyPassword(c.Request.Context(), userID, req.Password); err != nil {
+		c.Error(err)
+		return
+	}
+
+	newToken, err := h.sourceService.ResetSourceToken(c.Request.Context(), sourceID, userID)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	response.Success(c, dto.SourceTokenResponse{Token: newToken})
+}
+
+// DisableSource godoc
+// @Summary      停用消息来源
+// @Description  停用指定消息来源，需要密码二次验证，停用后无法推送消息
+// @Tags         消息来源管理
+// @Accept       json
+// @Produce      json
+// @Param        id    path      int64              true  "来源ID"
+// @Param        body  body      dto.VerifyPasswordReq  true  "密码验证"
+// @Success      200   {object}  response.Response  "成功"
+// @Failure      200   {object}  response.Response  "业务错误（code != 0）"
+// @Router       /api/sources/{id}/disable [put]
+// @Security     BearerAuth
+func (h *SourceHandler) DisableSource(c *gin.Context) {
+	userIDStr, exists := c.Get(middleware.ContextKeyUserID)
+	if !exists {
+		response.Fail(c, xerr.ErrUnauthorized.Code, "未提供认证令牌")
+		return
+	}
+
+	userID, err := strconv.ParseInt(userIDStr.(string), 10, 64)
+	if err != nil {
+		response.Fail(c, xerr.ErrUnauthorized.Code, "无效的认证信息")
+		return
+	}
+
+	sourceIDStr := c.Param("id")
+	sourceID, err := strconv.ParseInt(sourceIDStr, 10, 64)
+	if err != nil {
+		response.Fail(c, xerr.ErrBadRequest.Code, "来源ID格式错误")
+		return
+	}
+
+	var req dto.VerifyPasswordReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.HandleValidationError(c, err)
+		return
+	}
+
+	if err := h.sourceService.VerifyPassword(c.Request.Context(), userID, req.Password); err != nil {
+		c.Error(err)
+		return
+	}
+
+	err = h.sourceService.DisableSource(c.Request.Context(), sourceID, userID)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	response.SuccessWithMsg(c, "已停用", nil)
+}
+
+// EnableSource godoc
+// @Summary      启用消息来源
+// @Description  启用指定消息来源，需要密码二次验证，恢复消息推送功能
+// @Tags         消息来源管理
+// @Accept       json
+// @Produce      json
+// @Param        id    path      int64              true  "来源ID"
+// @Param        body  body      dto.VerifyPasswordReq  true  "密码验证"
+// @Success      200   {object}  response.Response  "成功"
+// @Failure      200   {object}  response.Response  "业务错误（code != 0）"
+// @Router       /api/sources/{id}/enable [put]
+// @Security     BearerAuth
+func (h *SourceHandler) EnableSource(c *gin.Context) {
+	userIDStr, exists := c.Get(middleware.ContextKeyUserID)
+	if !exists {
+		response.Fail(c, xerr.ErrUnauthorized.Code, "未提供认证令牌")
+		return
+	}
+
+	userID, err := strconv.ParseInt(userIDStr.(string), 10, 64)
+	if err != nil {
+		response.Fail(c, xerr.ErrUnauthorized.Code, "无效的认证信息")
+		return
+	}
+
+	sourceIDStr := c.Param("id")
+	sourceID, err := strconv.ParseInt(sourceIDStr, 10, 64)
+	if err != nil {
+		response.Fail(c, xerr.ErrBadRequest.Code, "来源ID格式错误")
+		return
+	}
+
+	var req dto.VerifyPasswordReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.HandleValidationError(c, err)
+		return
+	}
+
+	if err := h.sourceService.VerifyPassword(c.Request.Context(), userID, req.Password); err != nil {
+		c.Error(err)
+		return
+	}
+
+	err = h.sourceService.EnableSource(c.Request.Context(), sourceID, userID)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	response.SuccessWithMsg(c, "已启用", nil)
+}
+
+// DeleteSource godoc
+// @Summary      删除消息来源
+// @Description  软删除指定消息来源及其关联渠道关系，需要密码二次验证。\n注意：DELETE 请求需在 Body 中传递密码（{"password": "xxx"}），主流网关均支持此用法。
+// @Tags         消息来源管理
+// @Accept       json
+// @Produce      json
+// @Param        id    path      int64              true  "来源ID"
+// @Param        body  body      dto.VerifyPasswordReq  true  "密码验证"
+// @Success      200   {object}  response.Response  "成功"
+// @Failure      200   {object}  response.Response  "业务错误（code != 0）"
+// @Router       /api/sources/{id} [delete]
+// @Security     BearerAuth
+func (h *SourceHandler) DeleteSource(c *gin.Context) {
+	userIDStr, exists := c.Get(middleware.ContextKeyUserID)
+	if !exists {
+		response.Fail(c, xerr.ErrUnauthorized.Code, "未提供认证令牌")
+		return
+	}
+
+	userID, err := strconv.ParseInt(userIDStr.(string), 10, 64)
+	if err != nil {
+		response.Fail(c, xerr.ErrUnauthorized.Code, "无效的认证信息")
+		return
+	}
+
+	sourceIDStr := c.Param("id")
+	sourceID, err := strconv.ParseInt(sourceIDStr, 10, 64)
+	if err != nil {
+		response.Fail(c, xerr.ErrBadRequest.Code, "来源ID格式错误")
+		return
+	}
+
+	var req dto.VerifyPasswordReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.HandleValidationError(c, err)
+		return
+	}
+
+	if err := h.sourceService.VerifyPassword(c.Request.Context(), userID, req.Password); err != nil {
+		c.Error(err)
+		return
+	}
+
+	err = h.sourceService.DeleteSource(c.Request.Context(), sourceID, userID)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	response.SuccessWithMsg(c, "已删除", nil)
+}

@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 
 	"octotify/internal/handler/dto"
@@ -58,7 +59,7 @@ func (s *SourceService) CreateSource(ctx context.Context, userID int64, req *dto
 		return nil
 	})
 	if err != nil {
-		s.logger.Error("create source failed",
+		s.logger.Error("创建来源失败",
 			zap.Error(err),
 			zap.Int64("user_id", userID),
 			zap.String("name", req.Name),
@@ -66,7 +67,7 @@ func (s *SourceService) CreateSource(ctx context.Context, userID int64, req *dto
 		return nil, xerr.ErrSourceInsertFailed.WithInternal(err)
 	}
 
-	s.logger.Info("source created",
+	s.logger.Info("来源创建成功",
 		zap.Int64("source_id", source.ID),
 		zap.String("name", source.Name),
 	)
@@ -146,7 +147,8 @@ func (s *SourceService) ListSources(ctx context.Context, userID int64, pageReq *
 	return list, total, nil
 }
 
-// generateUniqueToken 生成唯一的 Source Token（前缀 src + UUIDv4 无连字符，共 35 位）
+// generateUniqueToken 生成唯一的 Source Token（前缀 src + UUID 无连字符，共 35 位）
+// 优先使用 UUID v7（时间有序），降级到 UUID v4
 // 最多重试 3 次，防止极端碰撞情况
 func (s *SourceService) generateUniqueToken(q *query.Query, ctx context.Context) (string, error) {
 	for i := 0; i < 3; i++ {
@@ -160,7 +162,7 @@ func (s *SourceService) generateUniqueToken(q *query.Query, ctx context.Context)
 		// 查询数据库校验 Token 唯一性
 		count, err := q.Source.WithContext(ctx).Where(q.Source.Token.Eq(token)).Count()
 		if err != nil {
-			s.logger.Error("check token uniqueness failed", zap.Error(err))
+			s.logger.Error("校验 Token 唯一性失败", zap.Error(err))
 			return "", xerr.ErrSourceTokenFailed.WithInternal(err)
 		}
 		if count == 0 {
@@ -168,7 +170,7 @@ func (s *SourceService) generateUniqueToken(q *query.Query, ctx context.Context)
 		}
 	}
 
-	return "", xerr.ErrSourceTokenFailed.WithInternal(fmt.Errorf("failed to generate unique token after 3 attempts"))
+	return "", xerr.ErrSourceTokenFailed.WithInternal(fmt.Errorf("生成唯一 Token 失败，已达最大重试次数"))
 }
 
 // UpdateSource 编辑消息来源
@@ -309,4 +311,332 @@ func (s *SourceService) GetSourceDetail(ctx context.Context, sourceID int64, use
 		Source:   sourceDTO,
 		Channels: channelDTOs,
 	}, nil
+}
+
+// GetSourceToken 查询来源令牌
+func (s *SourceService) GetSourceToken(ctx context.Context, sourceID int64, userID int64) (string, error) {
+	q := query.Use(s.db)
+
+	source, err := q.Source.WithContext(ctx).
+		Where(
+			q.Source.ID.Eq(sourceID),
+			q.Source.UserID.Eq(userID),
+			q.Source.Status.Neq(model.SourceStatusDeleted),
+		).
+		Select(q.Source.Token).
+		First()
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			s.logger.Error("来源不存在",
+				zap.Int64("source_id", sourceID),
+				zap.Int64("user_id", userID),
+			)
+			return "", xerr.ErrSourceNotFound
+		}
+		s.logger.Error("查询来源令牌失败",
+			zap.Error(err),
+			zap.Int64("source_id", sourceID),
+		)
+		return "", xerr.ErrSourceQueryFailed.WithInternal(err)
+	}
+
+	s.logger.Info("查询来源令牌成功",
+		zap.Int64("source_id", sourceID),
+	)
+
+	return source.Token, nil
+}
+
+// VerifyPassword 验证用户密码
+func (s *SourceService) VerifyPassword(ctx context.Context, userID int64, password string) error {
+	q := query.Use(s.db)
+
+	user, err := q.User.WithContext(ctx).
+		Where(q.User.ID.Eq(userID)).
+		Select(q.User.PasswordHash).
+		First()
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return xerr.ErrUnauthorized
+		}
+		s.logger.Error("查询用户失败",
+			zap.Error(err),
+			zap.Int64("user_id", userID),
+		)
+		return xerr.ErrUnauthorized
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
+		s.logger.Warn("密码验证失败",
+			zap.Int64("user_id", userID),
+		)
+		return xerr.ErrUnauthorized
+	}
+
+	return nil
+}
+
+// ResetSourceToken 重置来源令牌（旧 Token 立即失效）
+func (s *SourceService) ResetSourceToken(ctx context.Context, sourceID int64, userID int64) (string, error) {
+	q := query.Use(s.db)
+
+	// 查询来源，校验用户权限
+	source, err := q.Source.WithContext(ctx).Where(
+		q.Source.ID.Eq(sourceID),
+		q.Source.UserID.Eq(userID),
+	).First()
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			s.logger.Error("来源不存在",
+				zap.Int64("source_id", sourceID),
+				zap.Int64("user_id", userID),
+			)
+			return "", xerr.ErrSourceNotFound
+		}
+		s.logger.Error("查询来源失败",
+			zap.Error(err),
+			zap.Int64("source_id", sourceID),
+		)
+		return "", xerr.ErrSourceQueryFailed.WithInternal(err)
+	}
+
+	// 检查来源是否已删除
+	if source.Status == model.SourceStatusDeleted {
+		s.logger.Error("来源已删除",
+			zap.Int64("source_id", sourceID),
+		)
+		return "", xerr.ErrSourceAlreadyDeleted
+	}
+
+	// 生成新的唯一 Token
+	newToken, err := s.generateUniqueToken(q, ctx)
+	if err != nil {
+		return "", err
+	}
+
+	// 在事务中更新 Token
+	err = q.Transaction(func(tx *query.Query) error {
+		_, err := tx.Source.WithContext(ctx).
+			Where(tx.Source.ID.Eq(sourceID), tx.Source.UserID.Eq(userID)).
+			Updates(map[string]interface{}{
+				"token":      newToken,
+				"updated_at": time.Now(),
+			})
+		return err
+	})
+	if err != nil {
+		s.logger.Error("重置来源令牌失败",
+			zap.Error(err),
+			zap.Int64("source_id", sourceID),
+		)
+		return "", xerr.ErrSourceTokenFailed.WithInternal(err)
+	}
+
+	s.logger.Info("来源令牌重置成功",
+		zap.Int64("source_id", sourceID),
+	)
+
+	return newToken, nil
+}
+
+// DisableSource 停用消息来源
+func (s *SourceService) DisableSource(ctx context.Context, sourceID int64, userID int64) error {
+	q := query.Use(s.db)
+
+	// 查询来源，校验用户权限
+	source, err := q.Source.WithContext(ctx).Where(
+		q.Source.ID.Eq(sourceID),
+		q.Source.UserID.Eq(userID),
+	).First()
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			s.logger.Error("来源不存在",
+				zap.Int64("source_id", sourceID),
+				zap.Int64("user_id", userID),
+			)
+			return xerr.ErrSourceNotFound
+		}
+		s.logger.Error("查询来源失败",
+			zap.Error(err),
+			zap.Int64("source_id", sourceID),
+		)
+		return xerr.ErrSourceQueryFailed.WithInternal(err)
+	}
+
+	// 检查来源是否已删除
+	if source.Status == model.SourceStatusDeleted {
+		s.logger.Error("来源已删除",
+			zap.Int64("source_id", sourceID),
+		)
+		return xerr.ErrSourceAlreadyDeleted
+	}
+
+	// 检查来源是否已停用
+	if source.Status == model.SourceStatusDisabled {
+		s.logger.Error("来源已停用",
+			zap.Int64("source_id", sourceID),
+		)
+		return xerr.ErrSourceAlreadyDisabled
+	}
+
+	// 在事务中更新状态为停用
+	err = q.Transaction(func(tx *query.Query) error {
+		_, err := tx.Source.WithContext(ctx).
+			Where(tx.Source.ID.Eq(sourceID), tx.Source.UserID.Eq(userID)).
+			Updates(map[string]interface{}{
+				"status":     model.SourceStatusDisabled,
+				"updated_at": time.Now(),
+			})
+		return err
+	})
+	if err != nil {
+		s.logger.Error("停用来源失败",
+			zap.Error(err),
+			zap.Int64("source_id", sourceID),
+		)
+		return xerr.ErrSourceUpdateFailed.WithInternal(err)
+	}
+
+	s.logger.Info("来源已停用",
+		zap.Int64("source_id", sourceID),
+	)
+
+	return nil
+}
+
+// EnableSource 启用消息来源
+func (s *SourceService) EnableSource(ctx context.Context, sourceID int64, userID int64) error {
+	q := query.Use(s.db)
+
+	// 查询来源，校验用户权限
+	source, err := q.Source.WithContext(ctx).Where(
+		q.Source.ID.Eq(sourceID),
+		q.Source.UserID.Eq(userID),
+	).First()
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			s.logger.Error("来源不存在",
+				zap.Int64("source_id", sourceID),
+				zap.Int64("user_id", userID),
+			)
+			return xerr.ErrSourceNotFound
+		}
+		s.logger.Error("查询来源失败",
+			zap.Error(err),
+			zap.Int64("source_id", sourceID),
+		)
+		return xerr.ErrSourceQueryFailed.WithInternal(err)
+	}
+
+	// 检查来源是否已删除
+	if source.Status == model.SourceStatusDeleted {
+		s.logger.Error("来源已删除",
+			zap.Int64("source_id", sourceID),
+		)
+		return xerr.ErrSourceAlreadyDeleted
+	}
+
+	// 检查来源是否已启用
+	if source.Status == model.SourceStatusActive {
+		s.logger.Error("来源已启用",
+			zap.Int64("source_id", sourceID),
+		)
+		return xerr.ErrSourceAlreadyEnabled
+	}
+
+	// 在事务中更新状态为启用
+	err = q.Transaction(func(tx *query.Query) error {
+		_, err := tx.Source.WithContext(ctx).
+			Where(tx.Source.ID.Eq(sourceID), tx.Source.UserID.Eq(userID)).
+			Updates(map[string]interface{}{
+				"status":     model.SourceStatusActive,
+				"updated_at": time.Now(),
+			})
+		return err
+	})
+	if err != nil {
+		s.logger.Error("启用来源失败",
+			zap.Error(err),
+			zap.Int64("source_id", sourceID),
+		)
+		return xerr.ErrSourceUpdateFailed.WithInternal(err)
+	}
+
+	s.logger.Info("来源已启用",
+		zap.Int64("source_id", sourceID),
+	)
+
+	return nil
+}
+
+// DeleteSource 删除消息来源（软删除），同时级联软删除所有关联的渠道绑定关系
+func (s *SourceService) DeleteSource(ctx context.Context, sourceID int64, userID int64) error {
+	q := query.Use(s.db)
+
+	// 查询来源，校验用户权限
+	source, err := q.Source.WithContext(ctx).Where(
+		q.Source.ID.Eq(sourceID),
+		q.Source.UserID.Eq(userID),
+	).First()
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			s.logger.Error("来源不存在",
+				zap.Int64("source_id", sourceID),
+				zap.Int64("user_id", userID),
+			)
+			return xerr.ErrSourceNotFound
+		}
+		s.logger.Error("查询来源失败",
+			zap.Error(err),
+			zap.Int64("source_id", sourceID),
+		)
+		return xerr.ErrSourceQueryFailed.WithInternal(err)
+	}
+
+	// 检查来源是否已删除
+	if source.Status == model.SourceStatusDeleted {
+		s.logger.Error("来源已删除",
+			zap.Int64("source_id", sourceID),
+		)
+		return xerr.ErrSourceAlreadyDeleted
+	}
+
+	// 在事务中软删除来源及其关联的渠道绑定关系
+	err = q.Transaction(func(tx *query.Query) error {
+		// 软删除来源
+		_, err := tx.Source.WithContext(ctx).
+			Where(tx.Source.ID.Eq(sourceID), tx.Source.UserID.Eq(userID)).
+			Updates(map[string]interface{}{
+				"status":     model.SourceStatusDeleted,
+				"updated_at": time.Now(),
+			})
+		if err != nil {
+			return err
+		}
+
+		// 级联软删除所有关联的渠道绑定关系
+		_, err = tx.SourceChannel.WithContext(ctx).
+			Where(tx.SourceChannel.SourceID.Eq(sourceID)).
+			Updates(map[string]interface{}{
+				"status": model.SourceChannelStatusDeleted,
+			})
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		s.logger.Error("删除来源失败",
+			zap.Error(err),
+			zap.Int64("source_id", sourceID),
+		)
+		return xerr.ErrSourceDeleteFailed.WithInternal(err)
+	}
+
+	s.logger.Info("来源已删除",
+		zap.Int64("source_id", sourceID),
+	)
+
+	return nil
 }
