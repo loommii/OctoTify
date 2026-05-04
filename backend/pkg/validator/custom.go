@@ -5,6 +5,8 @@ import (
 
 	"github.com/gin-gonic/gin/binding"
 	"github.com/go-playground/validator/v10"
+
+	"octotify/internal/handler/dto"
 )
 
 // 用户名正则表达式：只允许字母、数字和下划线
@@ -15,7 +17,14 @@ func Init() {
 	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
 		v.RegisterValidation("username", validateUsername)
 		v.RegisterValidation("password", validatePassword)
+		v.RegisterValidation("channel_type", validateChannelType)
 	}
+}
+
+// validateChannelType 验证渠道类型
+func validateChannelType(fl validator.FieldLevel) bool {
+	value := fl.Field().String()
+	return dto.ValidChannelTypes[value]
 }
 
 // validateUsername 验证用户名格式

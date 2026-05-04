@@ -13,6 +13,7 @@ import (
 	"octotify/internal/config"
 	"octotify/internal/handler"
 	"octotify/internal/middleware"
+	"octotify/internal/sender"
 	"octotify/internal/service"
 	"octotify/pkg/jwtx"
 	"octotify/pkg/response"
@@ -29,10 +30,13 @@ type Server struct {
 	serverName string      // 服务器名称
 	logger     *zap.Logger // 日志记录器
 
-	authHandler     *handler.AuthHandler   // 认证处理器
-	userHandler     *handler.UserHandler   // 用户管理处理器
-	sourceHandler   *handler.SourceHandler // 来源管理处理器
-	accessJWTHelper *jwtx.JWTHelper        // Access Token JWT 辅助工具
+	authHandler     *handler.AuthHandler    // 认证处理器
+	userHandler     *handler.UserHandler    // 用户管理处理器
+	sourceHandler   *handler.SourceHandler  // 来源管理处理器
+	channelHandler  *handler.ChannelHandler // 渠道管理处理器
+	messageHandler  *handler.MessageHandler // 消息管理处理器
+	pushHandler     *handler.PushHandler    // 消息推送处理器
+	accessJWTHelper *jwtx.JWTHelper         // Access Token JWT 辅助工具
 }
 
 // New 创建并初始化 HTTP 服务器实例
@@ -116,6 +120,16 @@ func (s *Server) initDependencies(cfg *config.Config, db *gorm.DB, logger *zap.L
 	sourceService := service.NewSourceService(db, logger)
 	s.sourceHandler = handler.NewSourceHandler(sourceService)
 
+	// 初始化渠道服务及处理器
+	senderFactory := sender.NewSenderFactory()
+	channelService := service.NewChannelService(db, logger, senderFactory)
+	s.channelHandler = handler.NewChannelHandler(channelService)
+
+	// 初始化消息服务及处理器
+	messageService := service.NewMessageService(db, logger, senderFactory)
+	s.messageHandler = handler.NewMessageHandler(messageService)
+	s.pushHandler = handler.NewPushHandler(messageService)
+
 	s.accessJWTHelper = accessJWTHelper
 }
 
@@ -195,39 +209,39 @@ func (s *Server) setupSourceRoutes(api *gin.RouterGroup) {
 	}
 }
 
-// setupChannelRoutes 注册推送渠道管理相关路由（占位）
+// setupChannelRoutes 注册推送渠道管理相关路由
 func (s *Server) setupChannelRoutes(api *gin.RouterGroup) {
 	channel := api.Group("/channels")
+	channel.Use(middleware.JWTAuth(s.accessJWTHelper)) // 所有渠道接口均需 JWT 认证
 	{
-		channel.POST("", func(c *gin.Context) {})             // 创建渠道
-		channel.PUT("/:id", func(c *gin.Context) {})          // 编辑渠道
-		channel.GET("", func(c *gin.Context) {})              // 查看渠道列表
-		channel.GET("/:id", func(c *gin.Context) {})          // 查看渠道详情
-		channel.POST("/:id/test", func(c *gin.Context) {})    // 测试渠道连接
-		channel.POST("/:id/disable", func(c *gin.Context) {}) // 停用渠道
-		channel.POST("/:id/enable", func(c *gin.Context) {})  // 启用渠道
-		channel.DELETE("/:id", func(c *gin.Context) {})       // 删除渠道
+		channel.POST("", s.channelHandler.CreateChannel)             // 创建渠道
+		channel.PUT("/:id", s.channelHandler.UpdateChannel)          // 编辑渠道
+		channel.GET("", s.channelHandler.ListChannels)               // 查看渠道列表
+		channel.GET("/:id", s.channelHandler.GetChannelDetail)       // 查看渠道详情
+		channel.POST("/:id/test", s.channelHandler.TestChannel)      // 测试渠道连接
+		channel.PUT("/:id/disable", s.channelHandler.DisableChannel) // 停用渠道
+		channel.PUT("/:id/enable", s.channelHandler.EnableChannel)   // 启用渠道
+		channel.DELETE("/:id", s.channelHandler.DeleteChannel)       // 删除渠道
 	}
 }
 
-// setupMessageRoutes 注册消息管理相关路由（占位）
+// setupMessageRoutes 注册消息管理相关路由
 func (s *Server) setupMessageRoutes(api *gin.RouterGroup) {
 	message := api.Group("/messages")
+	message.Use(middleware.JWTAuth(s.accessJWTHelper)) // 所有消息接口均需 JWT 认证
 	{
-		message.GET("", func(c *gin.Context) {})        // 查看消息列表
-		message.GET("/filter", func(c *gin.Context) {}) // 筛选消息
-		message.GET("/:id", func(c *gin.Context) {})    // 查看消息详情
-		message.DELETE("/:id", func(c *gin.Context) {}) // 删除消息
+		message.GET("", s.messageHandler.ListMessages)          // 查看消息列表
+		message.GET("/filter", s.messageHandler.FilterMessages) // 筛选消息
+		message.GET("/:id", s.messageHandler.GetMessageDetail)  // 查看消息详情
+		message.DELETE("/:id", s.messageHandler.DeleteMessage)  // 删除消息
 	}
 }
 
-// setupPushRoutes 注册消息推送相关路由（占位）
+// setupPushRoutes 注册消息推送相关路由
 func (s *Server) setupPushRoutes(api *gin.RouterGroup) {
 	push := api.Group("/push")
 	{
-		push.POST("", func(c *gin.Context) {})        // 单条推送
-		push.POST("/multi", func(c *gin.Context) {})  // 批量推送
-		push.POST("/status", func(c *gin.Context) {}) // 推送状态回调
+		push.POST("/:token", s.pushHandler.PushMessage) // 推送消息（通过来源 Token）
 	}
 }
 

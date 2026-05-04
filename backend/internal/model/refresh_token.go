@@ -4,7 +4,7 @@ import "time"
 
 // RefreshToken 撤销状态
 const (
-	RefreshTokenRevoked   = true  // 已撤销
+	RefreshTokenRevoked    = true  // 已撤销
 	RefreshTokenNotRevoked = false // 未撤销
 )
 

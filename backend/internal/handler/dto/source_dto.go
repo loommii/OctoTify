@@ -40,16 +40,6 @@ type SourceDetailDTO struct {
 	LastUsedAt  int64  `json:"last_used_at" example:"1714636800000"`                // 最后使用时间（Unix 毫秒时间戳）
 }
 
-// ChannelDTO 推送渠道信息响应
-type ChannelDTO struct {
-	ID        int64  `json:"id" example:"1"`                     // 渠道 ID
-	UserID    int64  `json:"user_id" example:"1"`                // 所属用户 ID
-	Type      string `json:"type" example:"dingtalk"`            // 渠道类型
-	Name      string `json:"name" example:"钉钉-运维群"`              // 渠道名称
-	Status    int    `json:"status" example:"1"`                 // 状态：1-启用 2-停用 -1-已删除
-	CreatedAt int64  `json:"created_at" example:"1714636800000"` // 创建时间（Unix 毫秒时间戳）
-}
-
 // SourceDetailResponse 来源详情响应（包含渠道列表）
 type SourceDetailResponse struct {
 	Source   *SourceDetailDTO `json:"source"`   // 来源详情
