@@ -11,7 +11,6 @@ participant "HTTPServer" as Server
 participant "JWTAuth 中间件" as JWT
 participant "SourceHandler" as Handler
 participant "SourceService" as Service
-participant "SourceRepository" as Repo
 database "SQLite" as DB
 
 User -> Frontend: 访问消息来源页面
@@ -44,32 +43,25 @@ else 令牌有效
 
     == 查询列表 ==
 
-    Service -> Repo: List(ctx, userId, page, pageSize)
-    activate Repo
-
     alt 查询失败
-        Repo -> DB: SELECT * FROM sources WHERE user_id = ? AND status != -1 ORDER BY created_at DESC LIMIT ? OFFSET ?
+        Service -> DB: SELECT * FROM sources WHERE user_id = ? AND status != -1 ORDER BY created_at DESC LIMIT ? OFFSET ?
         activate DB
-        DB --> Repo: 查询错误
+        DB --> Service: 查询错误
         deactivate DB
-        Repo --> Service: error
-        deactivate Repo
         Service --> Handler: ErrSourceQueryFailed (110505)
         Handler --> Server: {code: 110505, msg: "查询来源失败"}
         note right: 日志：查询来源列表失败\nerror_code=110505, request_id={request_id}, userId={userId}
         Server --> Frontend: {code: 110505, msg: "查询来源失败"}
         Frontend --> User: 显示错误提示
     else 查询成功
-        Repo -> DB: SELECT * FROM sources WHERE user_id = ? AND status != -1 ORDER BY created_at DESC LIMIT ? OFFSET ?
+        Service -> DB: SELECT * FROM sources WHERE user_id = ? AND status != -1 ORDER BY created_at DESC LIMIT ? OFFSET ?
         activate DB
-        DB --> Repo: sources[]
+        DB --> Service: sources[]
         deactivate DB
-        Repo -> DB: SELECT COUNT(*) FROM sources WHERE user_id = ? AND status != -1
+        Service -> DB: SELECT COUNT(*) FROM sources WHERE user_id = ? AND status != -1
         activate DB
-        DB --> Repo: total
+        DB --> Service: total
         deactivate DB
-        Repo --> Service: {list, total}
-        deactivate Repo
         Service --> Handler: {list, total, page, pageSize}
         deactivate Service
         Handler --> Server: {code: 0, msg: "请求成功", data: {list, total, page, pageSize}}

@@ -14,8 +14,11 @@ participant "SourceService" as Service
 database "SQLite" as DB
 
 User -> Frontend: 点击启用
+Frontend -> Frontend: 弹出密码输入框
+Frontend -> User: 要求输入密码验证身份
+User -> Frontend: 输入密码
 Frontend -> Server: PUT /api/sources/:id/enable
-note right: Header: Authorization Bearer {accessToken}\nX-Request-ID: {request_id}
+note right: Header: Authorization Bearer {accessToken}\nX-Request-ID: {request_id}\nBody: {password}
 activate Server
 
 == JWT 认证中间件拦截 ==
@@ -36,72 +39,86 @@ else 令牌无效或已过期
 else 令牌有效
     JWT --> Server: userId (从 claims 中提取)
     deactivate JWT
-    Server -> Handler: enableSource(userId, sourceId)
+    Server -> Handler: enableSource(userId, sourceId, password)
     activate Handler
 
-    == 查询来源 ==
+    == 密码验证 ==
 
-    Handler -> Service: getSourceById(sourceId, userId)
+    Handler -> Service: verifyPassword(userId, password)
     activate Service
-    Service -> DB: SELECT * FROM sources WHERE id = ? AND user_id = ?
+    Service -> DB: SELECT password_hash FROM users WHERE id = ?
     activate DB
 
-    alt 来源不存在
-        DB --> Service: nil
+    alt 密码验证失败
+        DB --> Service: password_hash
         deactivate DB
-        Service --> Handler: ErrSourceNotFound (110503)
-        Handler --> Server: {code: 110503, msg: "来源不存在"}
-        Server --> Frontend: {code: 110503, msg: "来源不存在"}
-        Frontend --> User: 显示错误提示
-    else 来源已删除
-        DB --> Service: source (status = -1)
+        Service -> Service: bcrypt.CompareHashAndPassword
+        Service --> Handler: ErrUnauthorized (100001)
+        Handler --> Server: {code: 100001, msg: "密码错误"}
+        Server --> Frontend: {code: 100001, msg: "密码错误"}
+        Frontend --> User: 显示密码错误提示
+    else 密码验证成功
+        DB --> Service: password_hash
         deactivate DB
-        Service --> Handler: ErrSourceAlreadyDeleted (110509)
-        Handler --> Server: {code: 110509, msg: "来源已删除"}
-        Server --> Frontend: {code: 110509, msg: "来源已删除"}
-        Frontend --> User: 显示错误提示
-    else 来源已启用
-        DB --> Service: source (status = 1)
-        deactivate DB
-        Service --> Handler: source
+        Service -> Service: bcrypt.CompareHashAndPassword
+        Service --> Handler: 验证成功
         deactivate Service
-        Handler -> Handler: 校验状态（status == 1，返回 ErrSourceAlreadyEnabled）
-        Handler --> Server: ErrSourceAlreadyEnabled (110508)
-        Server --> Frontend: {code: 110508, msg: "来源已启用"}
-        Frontend --> User: 提示来源已启用
-    else 来源已停用
-        DB --> Service: source (status = 2)
-        deactivate DB
-        Service --> Handler: source
-        deactivate Service
-        Handler -> Handler: 校验状态（status != 1，通过）
 
-        == 更新状态 ==
+        == 启用来源 ==
 
-        Handler -> Service: updateSourceStatus(sourceId, 1, userId)
+        Handler -> Service: enableSource(sourceId, userId)
         activate Service
+        Service -> DB: SELECT * FROM sources WHERE id = ? AND user_id = ?
+        activate DB
 
-        alt 数据库更新失败
-            Service -> DB: UPDATE sources SET status = 1 WHERE id = ? AND user_id = ?
-            activate DB
-            DB --> Service: 更新失败
+        alt 来源不存在
+            DB --> Service: nil
             deactivate DB
-            Service --> Handler: ErrSourceQueryFailed (110505)
-            Handler --> Server: {code: 110505, msg: "查询来源失败"}
-            Server --> Frontend: {code: 110505, msg: "查询来源失败"}
+            Service --> Handler: ErrSourceNotFound (110503)
+            Handler --> Server: {code: 110503, msg: "来源不存在"}
+            Server --> Frontend: {code: 110503, msg: "来源不存在"}
             Frontend --> User: 显示错误提示
-        else 数据库更新成功
-            Service -> DB: UPDATE sources SET status = 1 WHERE id = ? AND user_id = ?
-            activate DB
-            DB --> Service: 成功
+        else 来源已删除
+            DB --> Service: source (status = -1)
             deactivate DB
-            Service --> Handler: 成功
-            deactivate Service
-            Handler --> Server: {code: 0}
-            deactivate Handler
-            Server --> Frontend: {code: 0, msg: "已启用"}
-            deactivate Server
-            Frontend --> User: 来源已启用
+            Service --> Handler: ErrSourceAlreadyDeleted (110509)
+            Handler --> Server: {code: 110509, msg: "来源已删除"}
+            Server --> Frontend: {code: 110509, msg: "来源已删除"}
+            Frontend --> User: 显示错误提示
+        else 来源已启用
+            DB --> Service: source (status = 1)
+            deactivate DB
+            Service --> Handler: ErrSourceAlreadyEnabled (110508)
+            Handler --> Server: {code: 110508, msg: "来源已启用"}
+            Server --> Frontend: {code: 110508, msg: "来源已启用"}
+            Frontend --> User: 提示来源已启用
+        else 来源已停用
+            DB --> Service: source (status = 2)
+            deactivate DB
+
+            == 更新状态 ==
+
+            Service -> DB: UPDATE sources SET status = 1, updated_at = ? WHERE id = ? AND user_id = ?
+            activate DB
+
+            alt 数据库更新失败
+                DB --> Service: 更新失败
+                deactivate DB
+                Service --> Handler: ErrSourceUpdateFailed (110510)
+                Handler --> Server: {code: 110510, msg: "更新来源失败"}
+                Server --> Frontend: {code: 110510, msg: "更新来源失败"}
+                Frontend --> User: 显示错误提示
+            else 数据库更新成功
+                DB --> Service: 成功
+                deactivate DB
+                Service --> Handler: 成功
+                deactivate Service
+                Handler --> Server: {code: 0}
+                deactivate Handler
+                Server --> Frontend: {code: 0, msg: "已启用"}
+                deactivate Server
+                Frontend --> User: 来源已启用
+            end
         end
     end
 end

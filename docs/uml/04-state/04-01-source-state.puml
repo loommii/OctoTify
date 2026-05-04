@@ -25,7 +25,7 @@ end note
 
 note right of src_disabled
     Token 失效，推送被拒
-    ErrSourceNotFound(110503)
+    ErrSourceDisabled(110511)
 end note
 
 note right of src_deleted

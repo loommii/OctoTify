@@ -78,6 +78,8 @@ var (
     ErrSourceAlreadyDisabled   = NewCodeError(110507, "来源已停用")
     ErrSourceAlreadyEnabled    = NewCodeError(110508, "来源已启用")
     ErrSourceAlreadyDeleted    = NewCodeError(110509, "来源已删除")
+    ErrSourceUpdateFailed      = NewCodeError(110510, "更新来源失败")
+    ErrSourceDisabled          = NewCodeError(110511, "来源已停用，无法推送")
 )
 
 // Channel 管理错误 1106XX
