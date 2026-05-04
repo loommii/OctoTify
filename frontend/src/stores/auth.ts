@@ -1,0 +1,61 @@
+import { defineStore } from 'pinia'
+import { ref, computed } from 'vue'
+import type { UserDTO } from '@/types/api'
+import { getUserProfile, logout as apiLogout } from '@/api/auth'
+
+export const useAuthStore = defineStore('auth', () => {
+  const user = ref<UserDTO | null>(null)
+  const accessToken = ref<string>(localStorage.getItem('access_token') || '')
+  const refreshToken = ref<string>(localStorage.getItem('refresh_token') || '')
+
+  const isAuthenticated = computed(() => !!accessToken.value)
+
+  const setTokens = (access: string, refresh: string) => {
+    accessToken.value = access
+    refreshToken.value = refresh
+    localStorage.setItem('access_token', access)
+    localStorage.setItem('refresh_token', refresh)
+  }
+
+  const clearTokens = () => {
+    accessToken.value = ''
+    refreshToken.value = ''
+    user.value = null
+    localStorage.removeItem('access_token')
+    localStorage.removeItem('refresh_token')
+  }
+
+  const setUser = (userData: UserDTO) => {
+    user.value = userData
+  }
+
+  const fetchProfile = async () => {
+    try {
+      const response = await getUserProfile()
+      user.value = response.data
+    } catch {
+      clearTokens()
+      throw new Error('获取用户信息失败')
+    }
+  }
+
+  const logout = async () => {
+    try {
+      await apiLogout()
+    } finally {
+      clearTokens()
+    }
+  }
+
+  return {
+    user,
+    accessToken,
+    refreshToken,
+    isAuthenticated,
+    setTokens,
+    clearTokens,
+    setUser,
+    fetchProfile,
+    logout,
+  }
+})
