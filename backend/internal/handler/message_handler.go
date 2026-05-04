@@ -12,10 +12,12 @@ import (
 	"octotify/pkg/xerr"
 )
 
+// MessageHandler 消息管理 HTTP 处理器
 type MessageHandler struct {
 	messageService *service.MessageService
 }
 
+// NewMessageHandler 创建消息管理处理器实例
 func NewMessageHandler(messageService *service.MessageService) *MessageHandler {
 	return &MessageHandler{
 		messageService: messageService,
@@ -35,6 +37,7 @@ func NewMessageHandler(messageService *service.MessageService) *MessageHandler {
 // @Router       /api/messages [get]
 // @Security     BearerAuth
 func (h *MessageHandler) ListMessages(c *gin.Context) {
+	// 从上下文获取用户 ID
 	userIDStr, exists := c.Get(middleware.ContextKeyUserID)
 	if !exists {
 		response.Fail(c, xerr.ErrUnauthorized.Code, "未提供认证令牌")
@@ -47,22 +50,15 @@ func (h *MessageHandler) ListMessages(c *gin.Context) {
 		return
 	}
 
-	pageReq := &dto.PageReq{
-		Page:     1,
-		PageSize: 20,
-	}
-	if pageStr := c.Query("page"); pageStr != "" {
-		if page, err := strconv.Atoi(pageStr); err == nil && page > 0 {
-			pageReq.Page = page
-		}
-	}
-	if pageSizeStr := c.Query("page_size"); pageSizeStr != "" {
-		if pageSize, err := strconv.Atoi(pageSizeStr); err == nil && pageSize > 0 {
-			pageReq.PageSize = pageSize
-		}
+	// 绑定并校验分页参数
+	var pageReq dto.PageReq
+	if err := c.ShouldBindQuery(&pageReq); err != nil {
+		response.HandleValidationError(c, err)
+		return
 	}
 
-	list, total, err := h.messageService.ListMessages(c.Request.Context(), userID, pageReq)
+	// 调用服务层查询消息列表
+	list, total, err := h.messageService.ListMessages(c.Request.Context(), userID, &pageReq)
 	if err != nil {
 		c.Error(err)
 		return
@@ -90,6 +86,7 @@ func (h *MessageHandler) ListMessages(c *gin.Context) {
 // @Router       /api/messages/filter [get]
 // @Security     BearerAuth
 func (h *MessageHandler) FilterMessages(c *gin.Context) {
+	// 从上下文获取用户 ID
 	userIDStr, exists := c.Get(middleware.ContextKeyUserID)
 	if !exists {
 		response.Fail(c, xerr.ErrUnauthorized.Code, "未提供认证令牌")
@@ -102,17 +99,20 @@ func (h *MessageHandler) FilterMessages(c *gin.Context) {
 		return
 	}
 
+	// 初始化筛选条件默认值
 	filter := &dto.MessageFilterReq{
 		PageReq: dto.PageReq{
 			Page:     1,
 			PageSize: 20,
 		},
 	}
+	// 绑定并校验筛选参数
 	if err := c.ShouldBindQuery(filter); err != nil {
-		response.Fail(c, xerr.ErrBadRequest.Code, "请求参数格式错误")
+		response.HandleValidationError(c, err)
 		return
 	}
 
+	// 调用服务层筛选消息
 	list, total, err := h.messageService.FilterMessages(c.Request.Context(), userID, filter)
 	if err != nil {
 		c.Error(err)
@@ -134,6 +134,7 @@ func (h *MessageHandler) FilterMessages(c *gin.Context) {
 // @Router       /api/messages/{id} [get]
 // @Security     BearerAuth
 func (h *MessageHandler) GetMessageDetail(c *gin.Context) {
+	// 从上下文获取用户 ID
 	userIDStr, exists := c.Get(middleware.ContextKeyUserID)
 	if !exists {
 		response.Fail(c, xerr.ErrUnauthorized.Code, "未提供认证令牌")
@@ -146,12 +147,14 @@ func (h *MessageHandler) GetMessageDetail(c *gin.Context) {
 		return
 	}
 
+	// 解析消息 ID
 	messageID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
 		response.Fail(c, xerr.ErrBadRequest.Code, "无效的消息 ID")
 		return
 	}
 
+	// 调用服务层查询消息详情
 	message, err := h.messageService.GetMessageByID(c.Request.Context(), userID, messageID)
 	if err != nil {
 		c.Error(err)
@@ -173,6 +176,7 @@ func (h *MessageHandler) GetMessageDetail(c *gin.Context) {
 // @Router       /api/messages/{id} [delete]
 // @Security     BearerAuth
 func (h *MessageHandler) DeleteMessage(c *gin.Context) {
+	// 从上下文获取用户 ID
 	userIDStr, exists := c.Get(middleware.ContextKeyUserID)
 	if !exists {
 		response.Fail(c, xerr.ErrUnauthorized.Code, "未提供认证令牌")
@@ -185,17 +189,19 @@ func (h *MessageHandler) DeleteMessage(c *gin.Context) {
 		return
 	}
 
+	// 解析消息 ID
 	messageID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
 		response.Fail(c, xerr.ErrBadRequest.Code, "无效的消息 ID")
 		return
 	}
 
+	// 调用服务层删除消息
 	err = h.messageService.DeleteMessage(c.Request.Context(), userID, messageID)
 	if err != nil {
 		c.Error(err)
 		return
 	}
 
-	response.Success(c, nil)
+	response.SuccessWithMsg(c, "已删除", nil)
 }
