@@ -3,7 +3,7 @@
 skinparam sequenceStyle svg
 skinparam linetype ortho
 
-title 筛选消息记录 (GET /api/messages?filters...)
+title 筛选消息记录 (GET /api/messages/filter)
 
 actor "用户" as User
 participant "前端" as Frontend
@@ -13,9 +13,9 @@ participant "MessageHandler" as Handler
 participant "MessageService" as Service
 database "SQLite" as DB
 
-User -> Frontend: 选择筛选条件
-Frontend -> Server: GET /api/messages?sourceId=1&channelId=2&status=200&startDate=xxx&endDate=xxx&keyword=xxx
-note right: Header: Authorization Bearer {accessToken}
+User -> Frontend: 设置筛选条件
+Frontend -> Server: GET /api/messages/filter?source_id=1&status=200&keyword=Build&page=1&pageSize=20
+note right: Header: Authorization Bearer {accessToken}\nX-Request-ID: {request_id}\nQuery: source_id, channel_id, status, start_date, end_date, keyword, page, page_size
 activate Server
 
 == JWT 认证中间件拦截 ==
@@ -27,49 +27,71 @@ alt 未提供认证令牌
     JWT --> Server: {code: 100001, msg: "未提供认证令牌"}
     deactivate JWT
     Server --> Frontend: {code: 100001, msg: "未提供认证令牌"}
-    Frontend --> Frontend: 使用 Refresh Token 调用刷新接口 (POST /api/auth/refresh)
+    Frontend --> Frontend: 使用 Refresh Token 调用刷新接口 (POST /api/auth/refresh)\n刷新成功后重试原请求
 else 令牌无效或已过期
     JWT --> Server: {code: 100001, msg: "认证令牌无效或已过期"}
     deactivate JWT
     Server --> Frontend: {code: 100001, msg: "认证令牌无效或已过期"}
-    Frontend --> Frontend: 使用 Refresh Token 调用刷新接口 (POST /api/auth/refresh)
+    Frontend --> Frontend: 使用 Refresh Token 调用刷新接口 (POST /api/auth/refresh)\n刷新成功后重试原请求
 else 令牌有效
     JWT --> Server: userId (从 claims 中提取)
     deactivate JWT
-    Server -> Handler: filterMessages(userId, filters)
+    Server -> Handler: FilterMessages(userId, filter)
     activate Handler
-Handler -> Service: getMessagesWithFilters(userId, filters)
-activate Service
 
-== 构建查询 ==
+    == 参数校验 ==
 
-Service -> Service: 构建动态查询条件
+    alt 参数格式错误
+        Handler --> Server: {code: 100000, msg: "请求参数格式错误"}
+        Server --> Frontend: {code: 100000, msg: "请求参数格式错误"}
+        Frontend --> User: 显示参数错误提示
+    else 参数校验通过
 
-alt 查询失败
-    Service -> DB: SELECT m.*, s.name, c.name FROM messages m LEFT JOIN sources s ON m.source_id = s.id LEFT JOIN channels c ON m.channel_id = c.id WHERE s.user_id = ? AND m.status != -1 AND ...
-    activate DB
-    DB --> Service: 查询错误
-    deactivate DB
-    Service --> Handler: ErrMessageRecordFailed (110704)
-    Handler --> Server: {code: 110704, msg: "记录消息状态失败"}
-    Server --> Frontend: {code: 110704, msg: "记录消息状态失败"}
-    Frontend --> User: 显示错误提示
-else 查询成功
-    Service -> DB: SELECT m.*, s.name, c.name FROM messages m LEFT JOIN sources s ON m.source_id = s.id LEFT JOIN channels c ON m.channel_id = c.id WHERE s.user_id = ? AND m.status != -1 AND (source_id = ?) AND (channel_id = ?) AND (status = ?) AND (created_at BETWEEN ? AND ?) AND (title LIKE ? OR content LIKE ?) ORDER BY m.created_at DESC LIMIT ? OFFSET ?
-    activate DB
-    DB --> Service: messages[]
-    deactivate DB
-    Service -> DB: SELECT COUNT(*) FROM messages m LEFT JOIN sources s ON m.source_id = s.id WHERE s.user_id = ? AND m.status != -1 AND ...
-    activate DB
-    DB --> Service: total
-    deactivate DB
-    Service --> Handler: {list, total}
-    deactivate Service
-    Handler --> Server: {code: 0, data: {list, total}}
-    deactivate Handler
-    Server --> Frontend: {code: 0, data: {list, total}}
-    deactivate Server
-    Frontend --> User: 显示筛选结果
+        == 筛选消息 ==
+
+        Handler -> Service: FilterMessages(ctx, userId, filter)
+        activate Service
+
+        Service -> DB: SELECT COUNT(*) FROM messages m INNER JOIN sources s ON m.source_id = s.id WHERE s.user_id = ? AND m.status != -1 [AND m.source_id = ?] [AND m.channel_id = ?] [AND m.status = ?] [AND m.created_at >= ?] [AND m.created_at <= ?] [AND (m.title LIKE ? OR m.content LIKE ?)]
+        activate DB
+
+        alt 查询总数失败
+            DB --> Service: 查询错误
+            deactivate DB
+            Service --> Handler: ErrMessageRecordFailed (110704)
+            Handler --> Server: {code: 110704, msg: "记录消息状态失败"}
+            note right: 日志：查询消息总数失败\nerror_code=110704, request_id={request_id}, userId={userId}
+            Server --> Frontend: {code: 110704, msg: "记录消息状态失败"}
+            Frontend --> User: 显示错误提示
+        else 查询总数成功
+            DB --> Service: total
+            deactivate DB
+
+            Service -> DB: SELECT m.* FROM messages m INNER JOIN sources s ON m.source_id = s.id WHERE s.user_id = ? AND m.status != -1 [筛选条件...] ORDER BY m.created_at DESC LIMIT ? OFFSET ?
+            activate DB
+
+            alt 查询列表失败
+                DB --> Service: 查询错误
+                deactivate DB
+                Service --> Handler: ErrMessageRecordFailed (110704)
+                Handler --> Server: {code: 110704, msg: "记录消息状态失败"}
+                note right: 日志：查询消息列表失败\nerror_code=110704, request_id={request_id}, userId={userId}
+                Server --> Frontend: {code: 110704, msg: "记录消息状态失败"}
+                Frontend --> User: 显示错误提示
+            else 查询列表成功
+                DB --> Service: messages[]
+                deactivate DB
+                Service --> Handler: {list, total, page, pageSize}
+                deactivate Service
+                Handler --> Server: {code: 0, msg: "请求成功", data: {list, total, page, pageSize}}
+                note right: 日志：筛选消息列表成功\nrequest_id={request_id}, userId={userId}, total={total}
+                deactivate Handler
+                Server --> Frontend: {code: 0, msg: "请求成功", data: {list, total, page, pageSize}}
+                deactivate Server
+                Frontend --> User: 显示筛选后的消息列表
+            end
+        end
+    end
 end
 
 @enduml

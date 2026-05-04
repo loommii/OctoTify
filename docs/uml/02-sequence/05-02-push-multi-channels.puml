@@ -8,34 +8,30 @@ title 并发推送到多个渠道
 participant "MessageService" as Service
 participant "SenderFactory" as Factory
 participant "Sender" as Sender
-participant "MessageRepo" as Repo
 database "SQLite" as DB
 
 Service -> Service: 遍历 channels[]
+note over Service: 使用 errgroup.WithContext(ctx)\n限制最大并发数（默认10）\n每个渠道独立 goroutine
+
 par 并发推送到各渠道 [渠道 1]
     == 创建消息记录（事务） ==
 
-    Service -> Repo: insertMessage(sourceId, channelId, title, content, 100)
-    activate Repo
-    note over Repo, DB: BEGIN TRANSACTION
+    Service -> DB: BEGIN TRANSACTION
+    activate DB
+    Service -> DB: INSERT INTO messages (source_id, channel_id, title, content, status, created_at, updated_at) VALUES (?, ?, ?, ?, 100, ?, ?)
+    activate DB
 
     alt 消息记录创建失败
-        Repo -> DB: INSERT INTO messages (source_id, channel_id, title, content, status) VALUES (?, ?, ?, ?, 100)
-        activate DB
-        DB --> Repo: 插入失败
+        DB --> Service: 插入失败
         deactivate DB
-        note over Repo, DB: ROLLBACK
-        Repo --> Service: ErrMessageRecordFailed (110704)
-        deactivate Repo
-        Service -> Service: 记录该渠道推送失败
+        Service -> DB: ROLLBACK
+        deactivate DB
+        Service -> Service: 记录该渠道推送失败结果\nresults[i] = {success: false, error: "创建消息记录失败"}
     else 消息记录创建成功
-        Repo -> DB: INSERT INTO messages (source_id, channel_id, title, content, status) VALUES (?, ?, ?, ?, 100)
-        activate DB
-        DB --> Repo: messageId
+        DB --> Service: messageId
         deactivate DB
-        note over Repo, DB: COMMIT
-        Repo --> Service: messageId
-        deactivate Repo
+        Service -> DB: COMMIT
+        deactivate DB
 
         == 获取 Sender ==
 
@@ -43,81 +39,76 @@ par 并发推送到各渠道 [渠道 1]
         activate Factory
 
         alt 不支持的渠道类型
-            Factory --> Service: nil
+            Factory --> Service: nil, error
             deactivate Factory
-            Service -> Repo: updateMessageStatus(messageId, 300)
-            activate Repo
-            note over Repo, DB: BEGIN TRANSACTION
-            Repo -> DB: UPDATE messages SET status = 300 WHERE id = ?
+            Service -> DB: BEGIN TRANSACTION
             activate DB
-            DB --> Repo: 成功
+            Service -> DB: UPDATE messages SET status = 300, updated_at = ? WHERE id = ?
+            DB --> Service: 成功
             deactivate DB
-            note over Repo, DB: COMMIT
-            Repo --> Service: 成功
-            deactivate Repo
+            Service -> DB: COMMIT
+            deactivate DB
+            Service -> Service: 记录该渠道推送失败结果\nresults[i] = {success: false, error: "不支持的渠道类型"}
         else Sender 创建成功
             Factory --> Service: sender
             deactivate Factory
 
-            == 推送消息 ==
+            == 推送消息（超时控制） ==
 
-            Service -> Sender: send(channel.config, message)
+            Service -> Service: context.WithTimeout(ctx, 30s)
+            note over Service: 设置30秒超时\n防止单个渠道阻塞整体推送
+
+            Service -> Sender: send(ctx, channel.config, title, message)
             activate Sender
             Sender -> Sender: 调用渠道API推送消息
+            note over Sender: 微信/Telegram/钉钉/邮件/Webhook\n各渠道实现统一Sender接口
 
             alt 推送失败（网络错误/超时/API错误）
-                Sender --> Service: 失败 (error)
+                Sender --> Service: error
                 deactivate Sender
-                Service -> Repo: updateMessageStatus(messageId, 300)
-                activate Repo
-                note over Repo, DB: BEGIN TRANSACTION
-                Repo -> DB: UPDATE messages SET status = 300 WHERE id = ?
+                Service -> DB: BEGIN TRANSACTION
                 activate DB
-                DB --> Repo: 成功
+                Service -> DB: UPDATE messages SET status = 300, updated_at = ? WHERE id = ?
+                DB --> Service: 成功
                 deactivate DB
-                note over Repo, DB: COMMIT
-                Repo --> Service: 成功
-                deactivate Repo
+                Service -> DB: COMMIT
+                deactivate DB
+                Service -> Service: 记录推送失败日志\nlogger.Error("推送消息失败", error, channel_id, message_id)
+                Service -> Service: 记录该渠道推送失败结果\nresults[i] = {success: false, error: err.Error()}
             else 推送成功
                 Sender --> Service: 成功
                 deactivate Sender
-                Service -> Repo: updateMessageStatus(messageId, 200)
-                activate Repo
-                note over Repo, DB: BEGIN TRANSACTION
-                Repo -> DB: UPDATE messages SET status = 200 WHERE id = ?
+                Service -> DB: BEGIN TRANSACTION
                 activate DB
-                DB --> Repo: 成功
+                Service -> DB: UPDATE messages SET status = 200, updated_at = ? WHERE id = ?
+                DB --> Service: 成功
                 deactivate DB
-                note over Repo, DB: COMMIT
-                Repo --> Service: 成功
-                deactivate Repo
+                Service -> DB: COMMIT
+                deactivate DB
+                Service -> Service: 记录推送成功日志\nlogger.Info("推送消息成功", channel_id, message_id)
+                Service -> Service: 记录该渠道推送成功结果\nresults[i] = {success: true, message_id: messageId}
             end
         end
     end
 else 并发推送到各渠道 [渠道 2]
     == 创建消息记录（事务） ==
 
-    Service -> Repo: insertMessage(sourceId, channelId, title, content, 100)
-    activate Repo
-    note over Repo, DB: BEGIN TRANSACTION
+    Service -> DB: BEGIN TRANSACTION
+    activate DB
+    Service -> DB: INSERT INTO messages (source_id, channel_id, title, content, status, created_at, updated_at) VALUES (?, ?, ?, ?, 100, ?, ?)
+    activate DB
 
     alt 消息记录创建失败
-        Repo -> DB: INSERT INTO messages (source_id, channel_id, title, content, status) VALUES (?, ?, ?, ?, 100)
-        activate DB
-        DB --> Repo: 插入失败
+        DB --> Service: 插入失败
         deactivate DB
-        note over Repo, DB: ROLLBACK
-        Repo --> Service: ErrMessageRecordFailed (110704)
-        deactivate Repo
-        Service -> Service: 记录该渠道推送失败
+        Service -> DB: ROLLBACK
+        deactivate DB
+        Service -> Service: 记录该渠道推送失败结果\nresults[i] = {success: false, error: "创建消息记录失败"}
     else 消息记录创建成功
-        Repo -> DB: INSERT INTO messages (source_id, channel_id, title, content, status) VALUES (?, ?, ?, ?, 100)
-        activate DB
-        DB --> Repo: messageId
+        DB --> Service: messageId
         deactivate DB
-        note over Repo, DB: COMMIT
-        Repo --> Service: messageId
-        deactivate Repo
+        Service -> DB: COMMIT
+        deactivate DB
 
         == 获取 Sender ==
 
@@ -126,41 +117,40 @@ else 并发推送到各渠道 [渠道 2]
         Factory --> Service: sender
         deactivate Factory
 
-        == 推送消息 ==
+        == 推送消息（超时控制） ==
 
-        Service -> Sender: send(channel.config, message)
+        Service -> Service: context.WithTimeout(ctx, 30s)
+        Service -> Sender: send(ctx, channel.config, title, message)
         activate Sender
         Sender -> Sender: 调用渠道API推送消息
 
         alt 推送失败
-            Sender --> Service: 失败 (error)
+            Sender --> Service: error
             deactivate Sender
-            Service -> Repo: updateMessageStatus(messageId, 300)
-            activate Repo
-            note over Repo, DB: BEGIN TRANSACTION
-            Repo -> DB: UPDATE messages SET status = 300 WHERE id = ?
+            Service -> DB: BEGIN TRANSACTION
             activate DB
-            DB --> Repo: 成功
+            Service -> DB: UPDATE messages SET status = 300, updated_at = ? WHERE id = ?
+            DB --> Service: 成功
             deactivate DB
-            note over Repo, DB: COMMIT
-            Repo --> Service: 成功
-            deactivate Repo
+            Service -> DB: COMMIT
+            deactivate DB
+            Service -> Service: 记录该渠道推送失败结果\nresults[i] = {success: false, error: err.Error()}
         else 推送成功
             Sender --> Service: 成功
             deactivate Sender
-            Service -> Repo: updateMessageStatus(messageId, 200)
-            activate Repo
-            note over Repo, DB: BEGIN TRANSACTION
-            Repo -> DB: UPDATE messages SET status = 200 WHERE id = ?
+            Service -> DB: BEGIN TRANSACTION
             activate DB
-            DB --> Repo: 成功
+            Service -> DB: UPDATE messages SET status = 200, updated_at = ? WHERE id = ?
+            DB --> Service: 成功
             deactivate DB
-            note over Repo, DB: COMMIT
-            Repo --> Service: 成功
-            deactivate Repo
+            Service -> DB: COMMIT
+            deactivate DB
+            Service -> Service: 记录该渠道推送成功结果\nresults[i] = {success: true, message_id: messageId}
         end
     end
 end
-Service --> Service: 汇总推送结果 (成功数/失败数)
+Service -> Service: g.Wait() 等待所有 goroutine 完成
+Service -> Service: 汇总推送结果 (成功数/失败数)
+note over Service: 遍历 results[]\n统计 successCount 和 failedCount\n记录推送完成日志\nlogger.Info("消息推送完成", source_id, total, success, failed)
 
 @enduml
