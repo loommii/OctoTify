@@ -10,10 +10,11 @@ import (
 )
 
 // Response 统一响应结构
+// @Description 所有 API 接口返回的统一格式，包含业务状态码、消息和数据
 type Response struct {
-	Code int    `json:"code"`           // 业务状态码，0 表示成功
-	Msg  string `json:"msg"`            // 提示信息
-	Data any    `json:"data,omitempty"` // 业务数据，无数据时省略
+	Code int    `json:"code"`           // 业务状态码，0 表示成功，非 0 表示失败
+	Msg  string `json:"msg"`            // 提示信息，成功时为"请求成功"，失败时为错误描述
+	Data any    `json:"data,omitempty"` // 业务数据，成功时返回业务数据，失败时可能为空或错误详情
 }
 
 // Success 成功响应
@@ -60,11 +61,12 @@ func FailWithData(c *gin.Context, code int, msg string, data any) {
 }
 
 // PageResult 分页响应数据
+// @Description 所有分页接口返回的数据结构
 type PageResult struct {
-	List     any   `json:"list"`
-	Total    int64 `json:"total"`
-	Page     int   `json:"page"`
-	PageSize int   `json:"page_size"`
+	List     any   `json:"list"`      // 数据列表
+	Total    int64 `json:"total"`     // 总记录数
+	Page     int   `json:"page"`      // 当前页码
+	PageSize int   `json:"page_size"` // 每页条数
 }
 
 // SuccessWithPage 分页成功响应
@@ -78,9 +80,10 @@ func SuccessWithPage(c *gin.Context, list any, total int64, page, pageSize int) 
 }
 
 // FieldError 字段级校验错误
+// @Description 参数校验失败时的字段错误信息
 type FieldError struct {
-	Field   string `json:"field"`
-	Message string `json:"message"`
+	Field   string `json:"field"`   // 字段名称
+	Message string `json:"message"` // 错误描述
 }
 
 // HandleValidationError 处理参数校验错误，返回字段级错误信息
