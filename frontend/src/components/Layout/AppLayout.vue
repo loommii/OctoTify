@@ -57,6 +57,15 @@ onUnmounted(() => {
             <router-link :to="{ name: 'Dashboard' }" class="nav-link" v-once>
               首页
             </router-link>
+            <router-link :to="{ name: 'ChannelList' }" class="nav-link" v-once>
+              推送渠道
+            </router-link>
+            <router-link :to="{ name: 'SourceList' }" class="nav-link" v-once>
+              消息来源
+            </router-link>
+            <router-link :to="{ name: 'MessageList' }" class="nav-link" v-once>
+              消息记录
+            </router-link>
           </nav>
         </div>
         <div class="header-right">

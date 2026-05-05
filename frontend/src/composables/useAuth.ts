@@ -20,8 +20,10 @@ export function useAuth() {
 
     try {
       const response = await login(data)
-      authStore.setTokens(response.data.access_token, response.data.refresh_token)
-      authStore.setUser(response.data.user)
+      if (response.data) {
+        authStore.setTokens(response.data.access_token, response.data.refresh_token)
+        authStore.setUser(response.data.user)
+      }
       router.push({ name: 'Dashboard' })
     } catch (error) {
       errorMessage.value = error instanceof Error ? error.message : '登录失败'
@@ -37,8 +39,10 @@ export function useAuth() {
 
     try {
       const response = await register(data)
-      authStore.setTokens(response.data.access_token, response.data.refresh_token)
-      authStore.setUser(response.data.user)
+      if (response.data) {
+        authStore.setTokens(response.data.access_token, response.data.refresh_token)
+        authStore.setUser(response.data.user)
+      }
       router.push({ name: 'Dashboard' })
     } catch (error) {
       errorMessage.value = error instanceof Error ? error.message : '注册失败'

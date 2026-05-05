@@ -32,7 +32,9 @@ export const useAuthStore = defineStore('auth', () => {
   const fetchProfile = async () => {
     try {
       const response = await getUserProfile()
-      user.value = response.data
+      if (response.data) {
+        user.value = response.data
+      }
     } catch {
       clearTokens()
       throw new Error('获取用户信息失败')
