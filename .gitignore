@@ -2,7 +2,6 @@ tmp/
 backend/config/keys/
 backend/data/
 backend/server
-backend/docs/
 backend/data/octotify.db
 
 # frontend

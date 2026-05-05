@@ -20,7 +20,7 @@ import (
 	"octotify/pkg/validator"
 	"octotify/pkg/xerr"
 
-	_ "octotify/docs"
+	_ "octotify/docs/swagger"
 )
 
 // Server HTTP 服务器
