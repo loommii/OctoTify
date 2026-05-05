@@ -6,7 +6,7 @@
     </div>
 
     <div class="stats-grid">
-      <div class="stat-card">
+      <router-link class="stat-card" to="/sources">
         <div class="stat-icon">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
@@ -14,11 +14,11 @@
         </div>
         <div class="stat-content">
           <span class="stat-label">消息来源</span>
-          <span class="stat-value">0</span>
+          <span class="stat-value">{{ sourceCount }}</span>
         </div>
-      </div>
+      </router-link>
 
-      <div class="stat-card">
+      <router-link class="stat-card" to="/channels">
         <div class="stat-icon">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
@@ -26,11 +26,11 @@
         </div>
         <div class="stat-content">
           <span class="stat-label">推送渠道</span>
-          <span class="stat-value">0</span>
+          <span class="stat-value">{{ channelCount }}</span>
         </div>
-      </div>
+      </router-link>
 
-      <div class="stat-card">
+      <router-link class="stat-card" to="/messages">
         <div class="stat-icon">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
@@ -39,31 +39,55 @@
         </div>
         <div class="stat-content">
           <span class="stat-label">消息总数</span>
-          <span class="stat-value">0</span>
+          <span class="stat-value">{{ messageCount }}</span>
         </div>
-      </div>
+      </router-link>
     </div>
 
     <div class="quick-actions">
       <h2 class="section-title">快速开始</h2>
       <div class="action-grid">
-        <div class="action-card">
+        <router-link class="action-card" to="/sources/create">
           <h3 class="action-title">创建消息来源</h3>
           <p class="action-desc">创建一个新的消息来源，获取推送 Token</p>
-          <span class="action-badge">开发中</span>
-        </div>
+        </router-link>
 
-        <div class="action-card">
+        <router-link class="action-card" to="/channels/create">
           <h3 class="action-title">配置推送渠道</h3>
           <p class="action-desc">添加微信、Telegram、钉钉等推送渠道</p>
-          <span class="action-badge">开发中</span>
-        </div>
+        </router-link>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { ref, onMounted } from 'vue'
+import { listSources, listChannels, listMessages } from '@/api/channels'
+
+const sourceCount = ref(0)
+const channelCount = ref(0)
+const messageCount = ref(0)
+
+// 并发请求获取三项统计数据
+async function loadStats() {
+  try {
+    const [sourcesRes, channelsRes, messagesRes] = await Promise.all([
+      listSources(1, 1),
+      listChannels(1, 1),
+      listMessages(1, 1),
+    ])
+    sourceCount.value = sourcesRes.data?.total ?? 0
+    channelCount.value = channelsRes.data?.total ?? 0
+    messageCount.value = messagesRes.data?.total ?? 0
+  } catch (err) {
+    console.error('加载统计数据失败', err)
+  }
+}
+
+onMounted(() => {
+  loadStats()
+})
 </script>
 
 <style scoped>
@@ -158,11 +182,11 @@
   padding: var(--space-6);
   text-decoration: none;
   transition: border-color var(--transition-fast);
+  cursor: pointer;
 }
 
 .action-card:hover {
   border-color: var(--green-border);
-  opacity: 1;
 }
 
 .action-title {
@@ -175,16 +199,5 @@
 .action-desc {
   font-size: 0.875rem;
   color: var(--mid-gray);
-}
-
-.action-badge {
-  display: inline-block;
-  margin-top: var(--space-3);
-  padding: 4px 12px;
-  font-size: 0.75rem;
-  color: var(--mid-gray);
-  background-color: var(--near-black);
-  border: 1px solid var(--border-dark);
-  border-radius: var(--radius-pill);
 }
 </style>

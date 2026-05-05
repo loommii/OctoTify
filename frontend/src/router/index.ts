@@ -35,6 +35,56 @@ const routes: RouteRecordRaw[] = [
         name: 'ChangePassword',
         component: () => import('@/views/auth/ChangePasswordView.vue'),
       },
+      {
+        path: 'channels',
+        name: 'ChannelList',
+        component: () => import('@/views/channels/ChannelListView.vue'),
+      },
+      {
+        path: 'channels/create',
+        name: 'ChannelCreate',
+        component: () => import('@/views/channels/ChannelCreateView.vue'),
+      },
+      {
+        path: 'channels/:id',
+        name: 'ChannelDetail',
+        component: () => import('@/views/channels/ChannelDetailView.vue'),
+      },
+      {
+        path: 'channels/:id/edit',
+        name: 'ChannelEdit',
+        component: () => import('@/views/channels/ChannelEditView.vue'),
+      },
+      {
+        path: 'sources',
+        name: 'SourceList',
+        component: () => import('@/views/sources/SourceListView.vue'),
+      },
+      {
+        path: 'sources/create',
+        name: 'SourceCreate',
+        component: () => import('@/views/sources/SourceCreateView.vue'),
+      },
+      {
+        path: 'sources/:id',
+        name: 'SourceDetail',
+        component: () => import('@/views/sources/SourceDetailView.vue'),
+      },
+      {
+        path: 'sources/:id/edit',
+        name: 'SourceEdit',
+        component: () => import('@/views/sources/SourceEditView.vue'),
+      },
+      {
+        path: 'messages',
+        name: 'MessageList',
+        component: () => import('@/views/messages/MessageListView.vue'),
+      },
+      {
+        path: 'messages/:id',
+        name: 'MessageDetail',
+        component: () => import('@/views/messages/MessageDetailView.vue'),
+      },
     ],
   },
 ]
