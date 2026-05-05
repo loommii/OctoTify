@@ -32,7 +32,6 @@ func newRefreshToken(db *gorm.DB, opts ...gen.DOOption) refreshToken {
 	_refreshToken.JTI = field.NewString(tableName, "jti")
 	_refreshToken.UserID = field.NewInt64(tableName, "user_id")
 	_refreshToken.Revoked = field.NewBool(tableName, "revoked")
-	_refreshToken.ExpiresAt = field.NewTime(tableName, "expires_at")
 	_refreshToken.CreatedAt = field.NewTime(tableName, "created_at")
 
 	_refreshToken.fillFieldMap()
@@ -48,7 +47,6 @@ type refreshToken struct {
 	JTI       field.String
 	UserID    field.Int64
 	Revoked   field.Bool
-	ExpiresAt field.Time
 	CreatedAt field.Time
 
 	fieldMap map[string]field.Expr
@@ -70,7 +68,6 @@ func (r *refreshToken) updateTableName(table string) *refreshToken {
 	r.JTI = field.NewString(table, "jti")
 	r.UserID = field.NewInt64(table, "user_id")
 	r.Revoked = field.NewBool(table, "revoked")
-	r.ExpiresAt = field.NewTime(table, "expires_at")
 	r.CreatedAt = field.NewTime(table, "created_at")
 
 	r.fillFieldMap()
@@ -88,12 +85,11 @@ func (r *refreshToken) GetFieldByName(fieldName string) (field.OrderExpr, bool) 
 }
 
 func (r *refreshToken) fillFieldMap() {
-	r.fieldMap = make(map[string]field.Expr, 6)
+	r.fieldMap = make(map[string]field.Expr, 5)
 	r.fieldMap["id"] = r.ID
 	r.fieldMap["jti"] = r.JTI
 	r.fieldMap["user_id"] = r.UserID
 	r.fieldMap["revoked"] = r.Revoked
-	r.fieldMap["expires_at"] = r.ExpiresAt
 	r.fieldMap["created_at"] = r.CreatedAt
 }
 

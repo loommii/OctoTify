@@ -36,6 +36,7 @@ func newChannel(db *gorm.DB, opts ...gen.DOOption) channel {
 	_channel.Status = field.NewInt(tableName, "status")
 	_channel.CreatedAt = field.NewTime(tableName, "created_at")
 	_channel.UpdatedAt = field.NewTime(tableName, "updated_at")
+	_channel.LastUsedAt = field.NewTime(tableName, "last_used_at")
 
 	_channel.fillFieldMap()
 
@@ -45,15 +46,16 @@ func newChannel(db *gorm.DB, opts ...gen.DOOption) channel {
 type channel struct {
 	channelDo
 
-	ALL       field.Asterisk
-	ID        field.Int64
-	UserID    field.Int64
-	Type      field.String
-	Name      field.String
-	Config    field.Field
-	Status    field.Int
-	CreatedAt field.Time
-	UpdatedAt field.Time
+	ALL        field.Asterisk
+	ID         field.Int64
+	UserID     field.Int64
+	Type       field.String
+	Name       field.String
+	Config     field.Field
+	Status     field.Int
+	CreatedAt  field.Time
+	UpdatedAt  field.Time
+	LastUsedAt field.Time
 
 	fieldMap map[string]field.Expr
 }
@@ -78,6 +80,7 @@ func (c *channel) updateTableName(table string) *channel {
 	c.Status = field.NewInt(table, "status")
 	c.CreatedAt = field.NewTime(table, "created_at")
 	c.UpdatedAt = field.NewTime(table, "updated_at")
+	c.LastUsedAt = field.NewTime(table, "last_used_at")
 
 	c.fillFieldMap()
 
@@ -94,7 +97,7 @@ func (c *channel) GetFieldByName(fieldName string) (field.OrderExpr, bool) {
 }
 
 func (c *channel) fillFieldMap() {
-	c.fieldMap = make(map[string]field.Expr, 8)
+	c.fieldMap = make(map[string]field.Expr, 9)
 	c.fieldMap["id"] = c.ID
 	c.fieldMap["user_id"] = c.UserID
 	c.fieldMap["type"] = c.Type
@@ -103,6 +106,7 @@ func (c *channel) fillFieldMap() {
 	c.fieldMap["status"] = c.Status
 	c.fieldMap["created_at"] = c.CreatedAt
 	c.fieldMap["updated_at"] = c.UpdatedAt
+	c.fieldMap["last_used_at"] = c.LastUsedAt
 }
 
 func (c channel) clone(db *gorm.DB) channel {

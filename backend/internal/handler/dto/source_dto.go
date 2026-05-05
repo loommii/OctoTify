@@ -11,6 +11,7 @@ type SourceBaseReq struct {
 // @Description 创建新的消息来源，系统自动生成 Source Token
 type CreateSourceReq struct {
 	SourceBaseReq
+	ChannelIDs []int64 `json:"channel_ids" binding:"omitempty" example:"1,2,3"` // 关联的渠道ID列表
 }
 
 // UpdateSourceReq 编辑消息来源请求
@@ -42,7 +43,7 @@ type SourceDetailDTO struct {
 	Status      int    `json:"status" example:"1"`                                  // 状态：1-启用 2-停用 -1-已删除
 	CreatedAt   int64  `json:"created_at" example:"1714636800000"`                  // 创建时间（Unix 毫秒时间戳）
 	UpdatedAt   int64  `json:"updated_at" example:"1714636800000"`                  // 更新时间（Unix 毫秒时间戳）
-	LastUsedAt  int64  `json:"last_used_at" example:"1714636800000"`                // 最后使用时间（Unix 毫秒时间戳）
+	LastUsedAt  int64  `json:"last_used_at" example:"1714636800000"`                // 最后使用时间（Unix 毫秒时间戳，0 表示未使用）
 }
 
 // SourceDetailResponse 来源详情响应（包含渠道列表）

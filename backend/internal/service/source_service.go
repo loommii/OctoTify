@@ -31,7 +31,7 @@ func NewSourceService(db *gorm.DB, logger *zap.Logger) *SourceService {
 	}
 }
 
-// CreateSource 创建消息来源，生成唯一 Token 并写入数据库
+// CreateSource 创建消息来源，生成唯一 Token 并绑定渠道
 func (s *SourceService) CreateSource(ctx context.Context, userID int64, req *dto.CreateSourceReq) (*dto.SourceDTO, error) {
 	q := query.Use(s.db)
 
@@ -50,10 +50,27 @@ func (s *SourceService) CreateSource(ctx context.Context, userID int64, req *dto
 		Status:      model.SourceStatusActive,
 	}
 
-	// 在事务中创建来源记录
+	// 在事务中创建来源记录并绑定渠道
 	err = q.Transaction(func(tx *query.Query) error {
 		if err := tx.Source.WithContext(ctx).Create(source); err != nil {
 			return err
+		}
+
+		// 绑定渠道：批量插入 source_channels 关联记录
+		if len(req.ChannelIDs) > 0 {
+			sourceChannels := make([]*model.SourceChannel, 0, len(req.ChannelIDs))
+			now := time.Now()
+			for _, channelID := range req.ChannelIDs {
+				sourceChannels = append(sourceChannels, &model.SourceChannel{
+					SourceID:  source.ID,
+					ChannelID: channelID,
+					Status:    model.SourceChannelStatusActive,
+					CreatedAt: now,
+				})
+			}
+			if err := tx.SourceChannel.WithContext(ctx).CreateInBatches(sourceChannels, len(sourceChannels)); err != nil {
+				return err
+			}
 		}
 
 		return nil
@@ -70,6 +87,7 @@ func (s *SourceService) CreateSource(ctx context.Context, userID int64, req *dto
 	s.logger.Info("来源创建成功",
 		zap.Int64("source_id", source.ID),
 		zap.String("name", source.Name),
+		zap.Int("channel_count", len(req.ChannelIDs)),
 	)
 
 	// 返回 DTO 响应数据
@@ -277,6 +295,11 @@ func (s *SourceService) GetSourceDetail(ctx context.Context, sourceID int64, use
 	}
 
 	// 转换为 SourceDetailDTO（详情接口暴露 Token）
+	// LastUsedAt 为指针类型，nil 表示未使用，转换为 0 返回给前端
+	lastUsedAt := int64(0)
+	if source.LastUsedAt != nil {
+		lastUsedAt = source.LastUsedAt.UnixMilli()
+	}
 	sourceDTO := &dto.SourceDetailDTO{
 		ID:          source.ID,
 		UserID:      source.UserID,
@@ -286,7 +309,7 @@ func (s *SourceService) GetSourceDetail(ctx context.Context, sourceID int64, use
 		Status:      source.Status,
 		CreatedAt:   source.CreatedAt.UnixMilli(),
 		UpdatedAt:   source.UpdatedAt.UnixMilli(),
-		LastUsedAt:  source.LastUsedAt.UnixMilli(),
+		LastUsedAt:  lastUsedAt,
 	}
 
 	// 转换为 ChannelDTO

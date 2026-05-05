@@ -29,6 +29,10 @@ func NewChannelService(db *gorm.DB, logger *zap.Logger, senderFactory *sender.Se
 	}
 }
 
+func (s *ChannelService) GetChannelTypes() []dto.ChannelTypeMeta {
+	return dto.ChannelTypeMetas
+}
+
 func (s *ChannelService) CreateChannel(ctx context.Context, userID int64, req *dto.CreateChannelReq) (*dto.ChannelDTO, error) {
 	q := query.Use(s.db)
 
@@ -60,6 +64,12 @@ func (s *ChannelService) CreateChannel(ctx context.Context, userID int64, req *d
 		zap.String("name", channel.Name),
 	)
 
+	// LastUsedAt 为指针类型，nil 表示未使用，转换为 0 返回给前端
+	lastUsedAt := int64(0)
+	if channel.LastUsedAt != nil {
+		lastUsedAt = channel.LastUsedAt.UnixMilli()
+	}
+
 	return &dto.ChannelDTO{
 		ID:         channel.ID,
 		UserID:     channel.UserID,
@@ -69,7 +79,7 @@ func (s *ChannelService) CreateChannel(ctx context.Context, userID int64, req *d
 		Status:     channel.Status,
 		CreatedAt:  channel.CreatedAt.UnixMilli(),
 		UpdatedAt:  channel.UpdatedAt.UnixMilli(),
-		LastUsedAt: channel.LastUsedAt.UnixMilli(),
+		LastUsedAt: lastUsedAt,
 	}, nil
 }
 
@@ -167,6 +177,11 @@ func (s *ChannelService) ListChannels(ctx context.Context, userID int64, pageReq
 
 	list := make([]*dto.ChannelDTO, 0, len(channels))
 	for _, ch := range channels {
+		// LastUsedAt 为指针类型，nil 表示未使用，转换为 0 返回给前端
+		lastUsedAt := int64(0)
+		if ch.LastUsedAt != nil {
+			lastUsedAt = ch.LastUsedAt.UnixMilli()
+		}
 		list = append(list, &dto.ChannelDTO{
 			ID:         ch.ID,
 			UserID:     ch.UserID,
@@ -176,7 +191,7 @@ func (s *ChannelService) ListChannels(ctx context.Context, userID int64, pageReq
 			Status:     ch.Status,
 			CreatedAt:  ch.CreatedAt.UnixMilli(),
 			UpdatedAt:  ch.UpdatedAt.UnixMilli(),
-			LastUsedAt: ch.LastUsedAt.UnixMilli(),
+			LastUsedAt: lastUsedAt,
 		})
 	}
 
@@ -222,6 +237,11 @@ func (s *ChannelService) GetChannelByID(ctx context.Context, userID int64, chann
 		return nil, xerr.ErrChannelAlreadyDeleted
 	}
 
+	lastUsedAt := int64(0)
+	if channel.LastUsedAt != nil {
+		lastUsedAt = channel.LastUsedAt.UnixMilli()
+	}
+
 	return &dto.ChannelDTO{
 		ID:         channel.ID,
 		UserID:     channel.UserID,
@@ -231,7 +251,7 @@ func (s *ChannelService) GetChannelByID(ctx context.Context, userID int64, chann
 		Status:     channel.Status,
 		CreatedAt:  channel.CreatedAt.UnixMilli(),
 		UpdatedAt:  channel.UpdatedAt.UnixMilli(),
-		LastUsedAt: channel.LastUsedAt.UnixMilli(),
+		LastUsedAt: lastUsedAt,
 	}, nil
 }
 

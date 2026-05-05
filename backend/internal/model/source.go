@@ -20,7 +20,7 @@ type Source struct {
 	Status      int       `gorm:"default:1" json:"status"`                   // 状态：1-启用 2-停用 -1-已删除
 	CreatedAt   time.Time `json:"created_at"`                                // 创建时间
 	UpdatedAt   time.Time `json:"updated_at"`                                // 更新时间
-	LastUsedAt  time.Time `json:"last_used_at"`                              // 最后使用时间
+	LastUsedAt  *time.Time `json:"last_used_at"`                              // 最后使用时间
 }
 
 func (Source) TableName() string {

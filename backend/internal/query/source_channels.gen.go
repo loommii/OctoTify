@@ -30,6 +30,7 @@ func newSourceChannel(db *gorm.DB, opts ...gen.DOOption) sourceChannel {
 	_sourceChannel.ALL = field.NewAsterisk(tableName)
 	_sourceChannel.SourceID = field.NewInt64(tableName, "source_id")
 	_sourceChannel.ChannelID = field.NewInt64(tableName, "channel_id")
+	_sourceChannel.Status = field.NewInt(tableName, "status")
 	_sourceChannel.CreatedAt = field.NewTime(tableName, "created_at")
 
 	_sourceChannel.fillFieldMap()
@@ -43,6 +44,7 @@ type sourceChannel struct {
 	ALL       field.Asterisk
 	SourceID  field.Int64
 	ChannelID field.Int64
+	Status    field.Int
 	CreatedAt field.Time
 
 	fieldMap map[string]field.Expr
@@ -62,6 +64,7 @@ func (s *sourceChannel) updateTableName(table string) *sourceChannel {
 	s.ALL = field.NewAsterisk(table)
 	s.SourceID = field.NewInt64(table, "source_id")
 	s.ChannelID = field.NewInt64(table, "channel_id")
+	s.Status = field.NewInt(table, "status")
 	s.CreatedAt = field.NewTime(table, "created_at")
 
 	s.fillFieldMap()
@@ -79,9 +82,10 @@ func (s *sourceChannel) GetFieldByName(fieldName string) (field.OrderExpr, bool)
 }
 
 func (s *sourceChannel) fillFieldMap() {
-	s.fieldMap = make(map[string]field.Expr, 3)
+	s.fieldMap = make(map[string]field.Expr, 4)
 	s.fieldMap["source_id"] = s.SourceID
 	s.fieldMap["channel_id"] = s.ChannelID
+	s.fieldMap["status"] = s.Status
 	s.fieldMap["created_at"] = s.CreatedAt
 }
 
