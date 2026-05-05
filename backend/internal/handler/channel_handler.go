@@ -21,6 +21,37 @@ func NewChannelHandler(channelService *service.ChannelService) *ChannelHandler {
 	return &ChannelHandler{channelService: channelService}
 }
 
+// GetChannelTypes godoc
+// @Summary      获取渠道类型元数据
+// @Description  获取系统支持的所有推送渠道类型及其配置字段定义，用于前端动态渲染创建渠道表单。
+// @Description  ## 使用场景
+// @Description  1. 打开创建渠道页面时获取支持的渠道类型列表
+// @Description  2. 根据 config_fields 动态生成配置表单
+// @Description  ## 返回数据说明
+// @Description  每个渠道类型包含：
+// @Description  - type: 渠道类型标识（如 feishu, dingtalk, wechat 等）
+// @Description  - name: 渠道类型名称（如 飞书, 钉钉, 企业微信 等）
+// @Description  - description: 渠道类型描述
+// @Description  - config_fields: 配置字段定义列表，用于前端动态表单渲染
+// @Description  ## 错误码说明
+// @Description  - 100001: 未提供认证令牌
+// @Tags         推送渠道管理
+// @Accept       json
+// @Produce      json
+// @Success      200   {object}  response.Response{data=[]dto.ChannelTypeMeta}  "获取成功"
+// @Router       /channel-types [get]
+// @Security     BearerAuth
+func (h *ChannelHandler) GetChannelTypes(c *gin.Context) {
+	_, exists := c.Get(middleware.ContextKeyUserID)
+	if !exists {
+		response.Fail(c, xerr.ErrUnauthorized.Code, "未提供认证令牌")
+		return
+	}
+
+	metas := h.channelService.GetChannelTypes()
+	response.Success(c, metas)
+}
+
 // CreateChannel godoc
 // @Summary      创建推送渠道
 // @Description  创建一个新的推送渠道，配置渠道类型、名称和凭证信息。
@@ -30,6 +61,7 @@ func NewChannelHandler(channelService *service.ChannelService) *ChannelHandler {
 // @Description  - **dingtalk**: 钉钉群机器人
 // @Description  - **email**: 邮件推送
 // @Description  - **webhook**: 自定义 Webhook
+// @Description  - **feishu**: 飞书自定义机器人
 // @Description  ## 使用场景
 // @Description  1. 配置企业微信群机器人
 // @Description  2. 配置 Telegram Bot
