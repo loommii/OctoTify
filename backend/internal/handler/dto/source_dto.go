@@ -15,9 +15,10 @@ type CreateSourceReq struct {
 }
 
 // UpdateSourceReq 编辑消息来源请求
-// @Description 编辑已有消息来源的名称和描述
+// @Description 编辑已有消息来源的名称、描述和绑定渠道
 type UpdateSourceReq struct {
 	SourceBaseReq
+	ChannelIDs []int64 `json:"channel_ids" binding:"omitempty" example:"1,2,3"` // 关联的渠道ID列表
 }
 
 // SourceDTO 消息来源信息响应

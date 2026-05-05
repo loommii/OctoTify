@@ -13,8 +13,8 @@ participant "SourceHandler" as Handler
 participant "SourceService" as Service
 database "SQLite" as DB
 
-User -> Frontend: 修改名称、描述
-Frontend -> Server: PUT /api/sources/:id {name, description}
+User -> Frontend: 修改名称、描述、渠道绑定
+Frontend -> Server: PUT /api/sources/:id {name, description, channel_ids}
 note right: Header: Authorization Bearer {accessToken}\nX-Request-ID: {request_id}
 activate Server
 
@@ -76,34 +76,54 @@ else 令牌有效
             Service --> Handler: source
             deactivate Service
 
-            == 更新来源（事务） ==
+            == 更新来源和渠道绑定（事务） ==
 
-            Handler -> Service: updateSource(sourceId, name, description, userId)
+            Handler -> Service: updateSource(sourceId, name, description, channel_ids, userId)
             activate Service
-            note over Service, DB: BEGIN TRANSACTION
+            Service -> DB: BEGIN TRANSACTION
+            activate DB
 
-            alt 数据库更新失败
+            alt 更新失败
                 Service -> DB: UPDATE sources SET name = ?, description = ?, updated_at = ? WHERE id = ? AND user_id = ?
                 activate DB
                 DB --> Service: 更新失败
                 deactivate DB
+                Service -> DB: ROLLBACK
                 note over Service, DB: ROLLBACK
                 Service --> Handler: ErrSourceUpdateFailed (110510)
                 Handler --> Server: {code: 110510, msg: "更新来源失败"}
                 note right: 日志：更新来源失败\nerror_code=110510, sourceId=1, request_id={request_id}
                 Server --> Frontend: {code: 110510, msg: "更新来源失败"}
                 Frontend --> User: 显示错误提示
-            else 数据库更新成功
+            else 更新成功
                 Service -> DB: UPDATE sources SET name = ?, description = ?, updated_at = ? WHERE id = ? AND user_id = ?
                 activate DB
                 DB --> Service: 成功
+                deactivate DB
+
+                == 更新渠道绑定 ==
+
+                alt 需要更新渠道绑定
+                    Service -> DB: DELETE FROM source_channels WHERE source_id = ?
+                    activate DB
+                    DB --> Service: 硬删除旧绑定成功
+                    deactivate DB
+                    alt 有新的渠道绑定
+                        Service -> DB: INSERT INTO source_channels (source_id, channel_id, status) VALUES ...
+                        activate DB
+                        DB --> Service: 批量插入成功
+                        deactivate DB
+                    end
+                end
+
+                Service -> DB: COMMIT
                 deactivate DB
                 note over Service, DB: COMMIT
                 Service --> Handler: 成功
                 deactivate Service
                 Handler --> Server: {code: 0}
                 deactivate Handler
-                note right: 日志：来源更新成功\nsourceId=1, name=xxx, request_id={request_id}
+                note right: 日志：来源更新成功\nsourceId=1, name=xxx, channel_count=N, request_id={request_id}
                 Server --> Frontend: {code: 0, msg: "更新成功"}
                 deactivate Server
                 Frontend --> User: 编辑成功

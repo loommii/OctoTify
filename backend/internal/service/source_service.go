@@ -223,8 +223,9 @@ func (s *SourceService) UpdateSource(ctx context.Context, sourceID int64, userID
 		return xerr.ErrSourceAlreadyDeleted
 	}
 
-	// 在事务中更新来源
+	// 在事务中更新来源和渠道绑定
 	err = q.Transaction(func(tx *query.Query) error {
+		// 更新来源基本信息
 		_, err := tx.Source.WithContext(ctx).
 			Where(tx.Source.ID.Eq(sourceID), tx.Source.UserID.Eq(userID)).
 			Updates(map[string]interface{}{
@@ -232,7 +233,39 @@ func (s *SourceService) UpdateSource(ctx context.Context, sourceID int64, userID
 				"description": req.Description,
 				"updated_at":  time.Now(),
 			})
-		return err
+		if err != nil {
+			return err
+		}
+
+		// 更新渠道绑定：硬删除旧绑定，再插入新绑定
+		if req.ChannelIDs != nil {
+			// 硬删除旧的渠道绑定（关联表无需保留历史）
+			_, err = tx.SourceChannel.WithContext(ctx).
+				Where(tx.SourceChannel.SourceID.Eq(sourceID)).
+				Delete()
+			if err != nil {
+				return err
+			}
+
+			// 插入新的渠道绑定
+			if len(req.ChannelIDs) > 0 {
+				sourceChannels := make([]*model.SourceChannel, 0, len(req.ChannelIDs))
+				now := time.Now()
+				for _, channelID := range req.ChannelIDs {
+					sourceChannels = append(sourceChannels, &model.SourceChannel{
+						SourceID:  sourceID,
+						ChannelID: channelID,
+						Status:    model.SourceChannelStatusActive,
+						CreatedAt: now,
+					})
+				}
+				if err := tx.SourceChannel.WithContext(ctx).CreateInBatches(sourceChannels, len(sourceChannels)); err != nil {
+					return err
+				}
+			}
+		}
+
+		return nil
 	})
 	if err != nil {
 		s.logger.Error("更新来源失败",
@@ -245,6 +278,7 @@ func (s *SourceService) UpdateSource(ctx context.Context, sourceID int64, userID
 	s.logger.Info("来源更新成功",
 		zap.Int64("source_id", sourceID),
 		zap.String("name", req.Name),
+		zap.Int("channel_count", len(req.ChannelIDs)),
 	)
 
 	return nil
