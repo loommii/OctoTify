@@ -71,6 +71,21 @@
       :loading="actionLoading"
       @confirm="handleConfirm"
     />
+
+    <Transition name="toast">
+      <div v-if="showToast" :class="['toast', 'toast-' + toastType]">
+        <svg v-if="toastType === 'success'" class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+          <polyline points="22 4 12 14.01 9 11.01"/>
+        </svg>
+        <svg v-else class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="15" y1="9" x2="9" y2="15"/>
+          <line x1="9" y1="9" x2="15" y2="15"/>
+        </svg>
+        <span>{{ toastMessage }}</span>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -80,6 +95,7 @@ import { useRouter } from 'vue-router'
 import { getChannelTypes, createChannel } from '@/api/channels'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import { useConfirm } from '@/composables/useConfirm'
+import { useToast } from '@/composables/useToast'
 import type { ChannelTypeMeta } from '@/types/api'
 
 const router = useRouter()
@@ -98,6 +114,8 @@ const {
   requestConfirm,
   handleConfirm,
 } = useConfirm()
+
+const { visible: showToast, message: toastMessage, type: toastType, success: showSuccess, error: showError } = useToast()
 
 const selectedType = computed(() => {
   return channelTypes.value.find((t) => t.type === form.value.type)
@@ -122,6 +140,29 @@ function selectType(type: string) {
   form.value.config = {}
 }
 
+function validateForm(): boolean {
+  if (!form.value.type) {
+    showError('请选择渠道类型')
+    return false
+  }
+
+  if (!form.value.name) {
+    showError('请输入渠道名称')
+    return false
+  }
+
+  if (!selectedType.value) return false
+
+  for (const field of selectedType.value.config_fields) {
+    if (field.required && !form.value.config[field.name]) {
+      showError(`请填写 ${field.label}`)
+      return false
+    }
+  }
+
+  return true
+}
+
 async function loadChannelTypes() {
   try {
     const res = await getChannelTypes()
@@ -134,18 +175,7 @@ async function loadChannelTypes() {
 }
 
 function handleSubmit() {
-  if (!form.value.type || !form.value.name) {
-    requestConfirm(
-      {
-        title: '提示',
-        description: '请填写必填字段',
-        confirmText: '确定',
-        confirmType: 'warning',
-      },
-      async () => {}
-    )
-    return
-  }
+  if (!validateForm()) return
 
   requestConfirm(
     {
@@ -162,9 +192,13 @@ function handleSubmit() {
           name: form.value.name,
           config: form.value.config,
         })
-        router.push({ name: 'ChannelList' })
+        showSuccess('创建成功', 1500)
+        setTimeout(() => {
+          router.push({ name: 'ChannelList' })
+        }, 1500)
       } catch (err) {
         console.error('创建渠道失败', err)
+        showError('创建失败，请重试')
       } finally {
         submitting.value = false
       }
@@ -400,5 +434,57 @@ onMounted(() => {
 
 .btn-secondary:hover {
   border-color: var(--mid-border);
+}
+
+.toast {
+  position: fixed;
+  top: 32px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 28px;
+  border-radius: var(--radius-md);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  z-index: 9999;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
+  min-width: 200px;
+  justify-content: center;
+}
+
+.toast-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.toast-success {
+  background: rgba(0, 197, 115, 0.95);
+  color: var(--dark);
+  border: 1px solid rgba(0, 197, 115, 0.3);
+}
+
+.toast-error {
+  background: rgba(239, 68, 68, 0.95);
+  color: white;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.toast-enter-active,
+.toast-leave-active {
+  transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+.toast-enter-from {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-20px);
+}
+
+.toast-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-20px);
 }
 </style>

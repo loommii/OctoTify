@@ -63,7 +63,16 @@
 
     <Transition name="toast">
       <div v-if="showToast" :class="['toast', 'toast-' + toastType]">
-        {{ toastMessage }}
+        <svg v-if="toastType === 'success'" class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+          <polyline points="22 4 12 14.01 9 11.01"/>
+        </svg>
+        <svg v-else class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="15" y1="9" x2="9" y2="15"/>
+          <line x1="9" y1="9" x2="15" y2="15"/>
+        </svg>
+        <span>{{ toastMessage }}</span>
       </div>
     </Transition>
   </div>
@@ -75,15 +84,13 @@ import { useRouter, useRoute } from 'vue-router'
 import { getChannelDetail, testChannel } from '@/api/channels'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import { useConfirm } from '@/composables/useConfirm'
+import { useToast } from '@/composables/useToast'
 import type { ChannelDTO } from '@/types/api'
 
 const router = useRouter()
 const route = useRoute()
 const channel = ref<ChannelDTO | null>(null)
 const loading = ref(true)
-const toastMessage = ref('')
-const toastType = ref<'success' | 'error'>('success')
-const showToast = ref(false)
 
 const {
   showDialog,
@@ -93,14 +100,7 @@ const {
   handleConfirm,
 } = useConfirm()
 
-function showResult(message: string, type: 'success' | 'error') {
-  toastMessage.value = message
-  toastType.value = type
-  showToast.value = true
-  setTimeout(() => {
-    showToast.value = false
-  }, 3000)
-}
+const { visible: showToast, message: toastMessage, type: toastType, success: showSuccess, error: showError } = useToast()
 
 const typeNames: Record<string, string> = {
   wechat: '企业微信',
@@ -154,8 +154,13 @@ function handleTest() {
       confirmType: 'primary',
     },
     async () => {
-      await testChannel(channel.value!.id)
-      showResult('测试消息已推送', 'success')
+      try {
+        await testChannel(channel.value!.id)
+        showSuccess('测试消息已推送')
+      } catch (err) {
+        console.error('测试渠道连接失败', err)
+        showError('测试失败，请检查配置')
+      }
     }
   )
 }
@@ -318,30 +323,44 @@ onMounted(() => {
 
 .toast {
   position: fixed;
-  top: 24px;
+  top: 32px;
   left: 50%;
   transform: translateX(-50%);
-  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 28px;
   border-radius: var(--radius-md);
-  font-size: 0.875rem;
+  font-size: 0.9375rem;
   font-weight: 500;
-  z-index: 2000;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 9999;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
+  min-width: 200px;
+  justify-content: center;
+}
+
+.toast-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
 }
 
 .toast-success {
-  background: var(--success);
+  background: rgba(0, 197, 115, 0.95);
   color: var(--dark);
+  border: 1px solid rgba(0, 197, 115, 0.3);
 }
 
 .toast-error {
-  background: var(--error);
-  color: var(--off-white);
+  background: rgba(239, 68, 68, 0.95);
+  color: white;
+  border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
 .toast-enter-active,
 .toast-leave-active {
-  transition: all 0.3s ease;
+  transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
 }
 
 .toast-enter-from {
