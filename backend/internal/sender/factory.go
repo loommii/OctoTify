@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"go.uber.org/zap"
 	"gorm.io/datatypes"
 
 	"octotify/pkg/xerr"
@@ -15,17 +16,19 @@ type Sender interface {
 
 type SenderFactory struct {
 	senders map[string]Sender
+	logger  *zap.Logger
 }
 
-func NewSenderFactory() *SenderFactory {
+func NewSenderFactory(logger *zap.Logger) *SenderFactory {
 	return &SenderFactory{
+		logger: logger,
 		senders: map[string]Sender{
 			"wechat":   &WechatSender{},
 			"telegram": &TelegramSender{},
 			"dingtalk": &DingtalkSender{},
 			"email":    &EmailSender{},
 			"webhook":  &WebhookSender{},
-			"feishu":   &FeishuSender{},
+			"feishu":   NewFeishuSender(logger),
 		},
 	}
 }
