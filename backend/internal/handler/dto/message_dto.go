@@ -3,7 +3,7 @@ package dto
 // PushMessageReq 推送消息请求
 // @Description 外部系统通过 Source Token 推送消息时使用的请求参数
 type PushMessageReq struct {
-	Title   string `json:"title" binding:"required,min=1,max=256" example:"CI Build"`    // 消息标题，1-256 个字符
+	Title   string `json:"title" binding:"required,min=1" example:"CI Build"`    // 消息标题，不能为空
 	Message string `json:"message" binding:"required,min=1" example:"Build #123 passed"` // 消息内容，不能为空
 }
 

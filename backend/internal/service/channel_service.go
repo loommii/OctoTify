@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"go.uber.org/zap"
-	"gorm.io/datatypes"
 	"gorm.io/gorm"
 
 	"octotify/internal/handler/dto"
@@ -60,10 +59,10 @@ func (s *ChannelService) CreateChannel(ctx context.Context, userID int64, req *d
 	// 构建渠道模型实例
 	channel := &model.Channel{
 		UserID: userID,
-		Type:   req.Type,                   // 渠道类型（如 feishu, wechat 等）
-		Name:   req.Name,                   // 渠道名称
-		Config: datatypes.JSON(req.Config), // 渠道配置，将 string 转换为 datatypes.JSON
-		Status: model.ChannelStatusActive,  // 默认启用状态
+		Type:   req.Type,                  // 渠道类型（如 feishu, wechat 等）
+		Name:   req.Name,                  // 渠道名称
+		Config: req.Config,                // 渠道配置
+		Status: model.ChannelStatusActive, // 默认启用状态
 	}
 
 	// 使用事务创建渠道，确保数据一致性
@@ -99,7 +98,7 @@ func (s *ChannelService) CreateChannel(ctx context.Context, userID int64, req *d
 		UserID:     channel.UserID,
 		Type:       channel.Type,
 		Name:       channel.Name,
-		Config:     string(channel.Config), // 将 datatypes.JSON 转换为 string
+		Config:     channel.Config,
 		Status:     channel.Status,
 		CreatedAt:  channel.CreatedAt.UnixMilli(),
 		UpdatedAt:  channel.UpdatedAt.UnixMilli(),
@@ -152,7 +151,7 @@ func (s *ChannelService) UpdateChannel(ctx context.Context, userID int64, channe
 			Where(tx.Channel.ID.Eq(channelID), tx.Channel.UserID.Eq(userID)).
 			Updates(map[string]interface{}{
 				"name":       req.Name,
-				"config":     datatypes.JSON(req.Config), // 将 string 转换为 datatypes.JSON
+				"config":     req.Config,
 				"updated_at": time.Now(),
 			})
 		return err
@@ -236,7 +235,7 @@ func (s *ChannelService) ListChannels(ctx context.Context, userID int64, pageReq
 			UserID:     ch.UserID,
 			Type:       ch.Type,
 			Name:       ch.Name,
-			Config:     string(ch.Config), // 将 datatypes.JSON 转换为 string
+			Config:     ch.Config,
 			Status:     ch.Status,
 			CreatedAt:  ch.CreatedAt.UnixMilli(),
 			UpdatedAt:  ch.UpdatedAt.UnixMilli(),
@@ -309,7 +308,7 @@ func (s *ChannelService) GetChannelByID(ctx context.Context, userID int64, chann
 		UserID:     channel.UserID,
 		Type:       channel.Type,
 		Name:       channel.Name,
-		Config:     string(channel.Config), // 将 datatypes.JSON 转换为 string
+		Config:     channel.Config,
 		Status:     channel.Status,
 		CreatedAt:  channel.CreatedAt.UnixMilli(),
 		UpdatedAt:  channel.UpdatedAt.UnixMilli(),

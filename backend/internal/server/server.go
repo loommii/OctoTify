@@ -25,10 +25,11 @@ import (
 
 // Server HTTP 服务器
 type Server struct {
-	engine     *gin.Engine // Gin 引擎实例
-	addr       string      // 服务器监听地址
-	serverName string      // 服务器名称
-	logger     *zap.Logger // 日志记录器
+	engine     *gin.Engine    // Gin 引擎实例
+	addr       string         // 服务器监听地址
+	serverName string         // 服务器名称
+	logger     *zap.Logger    // 日志记录器
+	cfg        *config.Config // 配置信息
 
 	authHandler     *handler.AuthHandler    // 认证处理器
 	userHandler     *handler.UserHandler    // 用户管理处理器
@@ -47,6 +48,7 @@ func New(addr string, cfg *config.Config, db *gorm.DB, logger *zap.Logger) *Serv
 		addr:       addr,
 		serverName: cfg.Server.Name,
 		logger:     logger,
+		cfg:        cfg,
 	}
 
 	// 禁用信任代理（默认不信任任何代理）
@@ -121,7 +123,7 @@ func (s *Server) initDependencies(cfg *config.Config, db *gorm.DB, logger *zap.L
 	s.sourceHandler = handler.NewSourceHandler(sourceService)
 
 	// 初始化渠道服务及处理器
-	senderFactory := sender.NewSenderFactory()
+	senderFactory := sender.NewSenderFactory(s.logger)
 	channelService := service.NewChannelService(db, logger, senderFactory)
 	s.channelHandler = handler.NewChannelHandler(channelService)
 
@@ -135,10 +137,10 @@ func (s *Server) initDependencies(cfg *config.Config, db *gorm.DB, logger *zap.L
 
 // setupMiddleware 注册全局中间件
 func (s *Server) setupMiddleware() {
-	s.engine.Use(middleware.RequestID())              // 请求 ID 生成与注入
-	s.engine.Use(middleware.RequestLogger(s.logger))  // 请求日志记录
-	s.engine.Use(middleware.CustomRecovery(s.logger)) // 自定义 Panic 恢复
-	s.engine.Use(middleware.ErrorHandler(s.logger))   // 统一错误处理
+	s.engine.Use(middleware.RequestID())                                  // 请求 ID 生成与注入
+	s.engine.Use(middleware.RequestLogger(s.logger, s.cfg.Log.DebugBody)) // 请求日志记录
+	s.engine.Use(middleware.CustomRecovery(s.logger))                     // 自定义 Panic 恢复
+	s.engine.Use(middleware.ErrorHandler(s.logger))                       // 统一错误处理
 }
 
 // setupNoRoute 注册 404/405 默认处理

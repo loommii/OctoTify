@@ -115,7 +115,7 @@ definitions:
       ""}'
     properties:
       config:
-        description: 渠道配置，JSON 格式，不同渠道类型配置不同
+        description: 渠道配置，JSON 对象，不同渠道类型配置不同
         type: object
       name:
         description: 渠道名称，1-128 个字符
@@ -438,7 +438,7 @@ definitions:
       "method": "POST", "headers": {"Content-Type": "application/json"}}'
     properties:
       config:
-        description: 渠道配置，JSON 格式，不同渠道类型配置不同
+        description: 渠道配置，JSON 对象，不同渠道类型配置不同
         type: object
       name:
         description: 渠道名称，1-128 个字符

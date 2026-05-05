@@ -1654,7 +1654,7 @@ const docTemplate = `{
             ],
             "properties": {
                 "config": {
-                    "description": "渠道配置，JSON 格式，不同渠道类型配置不同",
+                    "description": "渠道配置，JSON 对象，不同渠道类型配置不同",
                     "type": "object"
                 },
                 "name": {
@@ -2073,7 +2073,7 @@ const docTemplate = `{
             ],
             "properties": {
                 "config": {
-                    "description": "渠道配置，JSON 格式，不同渠道类型配置不同",
+                    "description": "渠道配置，JSON 对象，不同渠道类型配置不同",
                     "type": "object"
                 },
                 "name": {

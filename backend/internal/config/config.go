@@ -29,6 +29,7 @@ type LogConfig struct {
 	Output    string `mapstructure:"output"`
 	LogFile   string `mapstructure:"log_file"`
 	ErrorFile string `mapstructure:"error_file"`
+	DebugBody bool   `mapstructure:"debug_body"`
 }
 
 type JWTConfig struct {
