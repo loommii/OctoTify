@@ -38,9 +38,9 @@ else 用户存在
     deactivate DB
     UserSvc --> Handler: user
     deactivate UserSvc
-    Handler --> Server: {code: 0, data: {id, username, createdAt}}
+    Handler --> Server: {code: 0, data: {user: {id, username, createdAt}}}
     deactivate Handler
-    Server --> Frontend: {code: 0, data: {id, username, createdAt}}
+    Server --> Frontend: {code: 0, data: {user: {id, username, createdAt}}}
     deactivate Server
     Frontend --> User: 显示用户信息
 end

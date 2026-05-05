@@ -4,6 +4,10 @@ export interface UserDTO {
   created_at: number
 }
 
+export interface UserProfileResp {
+  user: UserDTO
+}
+
 export interface AuthResp {
   access_token: string
   refresh_token: string

@@ -32,8 +32,8 @@ export const useAuthStore = defineStore('auth', () => {
   const fetchProfile = async () => {
     try {
       const response = await getUserProfile()
-      if (response.data) {
-        user.value = response.data
+      if (response.data && response.data.user) {
+        user.value = response.data.user
       }
     } catch {
       clearTokens()

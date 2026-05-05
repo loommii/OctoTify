@@ -5,7 +5,7 @@ import type {
   RefreshReq,
   ChangePasswordReq,
   AuthResp,
-  UserDTO,
+  UserProfileResp,
 } from '@/types/api'
 
 export const login = (data: LoginReq) => {
@@ -40,7 +40,7 @@ export const logout = () => {
 }
 
 export const getUserProfile = () => {
-  return request<UserDTO>({
+  return request<UserProfileResp>({
     url: '/user/profile',
     method: 'get',
   })

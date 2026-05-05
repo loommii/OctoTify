@@ -1,7 +1,7 @@
 package main
 
-//go:generate go run ../../tools/generate/main.go
-//go:generate swag init -g cmd/server/main.go -o docs/swagger --parseDependency --parseInternal
+//go:generate sh -c "cd ../.. && go run tools/generate/main.go"
+//go:generate sh -c "cd ../.. && swag init -g cmd/server/main.go -o docs/swagger --parseDependency --parseInternal"
 
 // @title           OctoTify API
 // @version         1.0

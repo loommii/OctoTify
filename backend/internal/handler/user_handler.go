@@ -145,7 +145,7 @@ func (h *UserHandler) ChangePassword(c *gin.Context) {
 // @Tags         用户管理
 // @Accept       json
 // @Produce      json
-// @Success      200   {object}  response.Response{data=dto.UserDTO}  "查询成功"
+// @Success      200   {object}  response.Response{data=dto.UserProfileResp}  "查询成功"
 // @Router       /user/profile [get]
 // @Security     BearerAuth
 func (h *UserHandler) GetUserProfile(c *gin.Context) {

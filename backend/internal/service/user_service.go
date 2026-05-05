@@ -38,7 +38,7 @@ func NewUserService(
 	}
 }
 
-func (s *UserService) GetUserProfile(ctx context.Context, userID int64) (*dto.UserDTO, error) {
+func (s *UserService) GetUserProfile(ctx context.Context, userID int64) (*dto.UserProfileResp, error) {
 	q := query.Use(s.db)
 
 	user, err := q.User.WithContext(ctx).Where(q.User.ID.Eq(userID)).First()
@@ -50,14 +50,16 @@ func (s *UserService) GetUserProfile(ctx context.Context, userID int64) (*dto.Us
 		return nil, xerr.ErrUserProfileQueryFailed.WithInternal(err)
 	}
 
-	return &dto.UserDTO{
-		ID:        user.ID,
-		Username:  user.Username,
-		CreatedAt: user.CreatedAt.UnixMilli(),
+	return &dto.UserProfileResp{
+		User: dto.UserDTO{
+			ID:        user.ID,
+			Username:  user.Username,
+			CreatedAt: user.CreatedAt.UnixMilli(),
+		},
 	}, nil
 }
 
-func (s *UserService) GetUserProfileByID(ctx context.Context, userIDStr string) (*dto.UserDTO, error) {
+func (s *UserService) GetUserProfileByID(ctx context.Context, userIDStr string) (*dto.UserProfileResp, error) {
 	userID, err := strconv.ParseInt(userIDStr, 10, 64)
 	if err != nil {
 		s.logger.Error("parse user id failed", zap.String("user_id", userIDStr), zap.Error(err))

@@ -483,6 +483,14 @@ definitions:
         example: octotify
         type: string
     type: object
+  octotify_internal_handler_dto.UserProfileResp:
+    description: 查询用户个人信息时返回的响应结构
+    properties:
+      user:
+        allOf:
+        - $ref: '#/definitions/octotify_internal_handler_dto.UserDTO'
+        description: 用户信息
+    type: object
   octotify_internal_handler_dto.VerifyPasswordReq:
     description: 需要密码二次验证的接口（查看令牌、重置令牌、停用/启用/删除来源）
     properties:
@@ -1786,7 +1794,7 @@ paths:
             - $ref: '#/definitions/octotify_pkg_response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/octotify_internal_handler_dto.UserDTO'
+                  $ref: '#/definitions/octotify_internal_handler_dto.UserProfileResp'
               type: object
       security:
       - BearerAuth: []

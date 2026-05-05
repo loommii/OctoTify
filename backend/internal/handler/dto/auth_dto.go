@@ -47,3 +47,9 @@ type AuthResp struct {
 	RefreshToken string  `json:"refresh_token" example:"eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."` // 刷新令牌，有效期 7 天
 	User         UserDTO `json:"user"`                                                            // 用户信息
 }
+
+// UserProfileResp 用户信息响应
+// @Description 查询用户个人信息时返回的响应结构
+type UserProfileResp struct {
+	User UserDTO `json:"user"` // 用户信息
+}

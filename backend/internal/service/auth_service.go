@@ -132,7 +132,7 @@ func (s *AuthService) Logout(ctx context.Context, userID int64) error {
 }
 
 // RefreshAccessToken 刷新访问令牌
-// 流程：验证JWT令牌 -> 查询数据库记录 -> 检查撤销状态 -> 生成新 Access Token -> 复用原 Refresh Token
+// 流程：验证JWT令牌 -> 查询数据库记录 -> 检查撤销状态 -> 生成新 Access Token -> 重新签发 Refresh Token（相同 JTI）
 func (s *AuthService) RefreshAccessToken(ctx context.Context, refreshTokenStr string) (*dto.AuthResp, error) {
 	q := query.Use(s.db)
 
@@ -186,15 +186,28 @@ func (s *AuthService) RefreshAccessToken(ctx context.Context, refreshTokenStr st
 		return nil, xerr.ErrRefreshTokenFailed.WithInternal(err)
 	}
 
+	// 重新签发 Refresh Token（使用相同的 JTI，刷新过期时间，无需更新数据库）
+	newRefreshToken, err := s.refreshJWTHelper.GenerateToken(pkgjwtx.JWTClaims{
+		UID:       uid,
+		TokenType: pkgjwtx.Refresh,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ID: claims.ID,
+		},
+	})
+	if err != nil {
+		s.logger.Error("generate new refresh token failed", zap.Error(err))
+		return nil, xerr.ErrRefreshTokenFailed.WithInternal(err)
+	}
+
 	s.logger.Info("access token refreshed",
 		zap.Int64("user_id", user.ID),
 		zap.String("username", user.Username),
 	)
 
-	// 返回新的认证响应（复用原 Refresh Token）
+	// 返回新的认证响应（重新签发 Refresh Token）
 	return &dto.AuthResp{
 		AccessToken:  newAccessToken,
-		RefreshToken: refreshTokenStr,
+		RefreshToken: newRefreshToken,
 		User: dto.UserDTO{
 			ID:        user.ID,
 			Username:  user.Username,

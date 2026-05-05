@@ -1443,7 +1443,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/octotify_internal_handler_dto.UserDTO"
+                                            "$ref": "#/definitions/octotify_internal_handler_dto.UserProfileResp"
                                         }
                                     }
                                 }
@@ -2125,6 +2125,20 @@ const docTemplate = `{
                     "description": "用户名",
                     "type": "string",
                     "example": "octotify"
+                }
+            }
+        },
+        "octotify_internal_handler_dto.UserProfileResp": {
+            "description": "查询用户个人信息时返回的响应结构",
+            "type": "object",
+            "properties": {
+                "user": {
+                    "description": "用户信息",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/octotify_internal_handler_dto.UserDTO"
+                        }
+                    ]
                 }
             }
         },
