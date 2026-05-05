@@ -70,7 +70,7 @@ func New(addr string, cfg *config.Config, db *gorm.DB, logger *zap.Logger) *Serv
 // initDependencies 初始化服务器依赖组件（JWT、Service、Handler）
 func (s *Server) initDependencies(cfg *config.Config, db *gorm.DB, logger *zap.Logger) {
 	// 检查并生成 RSA 密钥对（如果不存在）
-	if err := jwtx.EnsureRSAKeyPair(cfg.JWT.PrivateKeyPath, cfg.JWT.PublicKeyPath); err != nil {
+	if err := jwtx.EnsureRSAKeyPair(cfg.JWT.PrivateKeyPath, cfg.JWT.PublicKeyPath, cfg.JWT.AutoGenerateKeys); err != nil {
 		logger.Fatal("确保 RSA 密钥对存在失败", zap.Error(err))
 	}
 

@@ -43,7 +43,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.LoginReq"
+                            "$ref": "#/definitions/octotify_internal_handler_dto.LoginReq"
                         }
                     }
                 ],
@@ -53,13 +53,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/response.Response"
+                                    "$ref": "#/definitions/octotify_pkg_response.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/dto.AuthResp"
+                                            "$ref": "#/definitions/octotify_internal_handler_dto.AuthResp"
                                         }
                                     }
                                 }
@@ -91,7 +91,7 @@ const docTemplate = `{
                     "200": {
                         "description": "退出成功",
                         "schema": {
-                            "$ref": "#/definitions/response.Response"
+                            "$ref": "#/definitions/octotify_pkg_response.Response"
                         }
                     }
                 }
@@ -117,7 +117,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.RefreshReq"
+                            "$ref": "#/definitions/octotify_internal_handler_dto.RefreshReq"
                         }
                     }
                 ],
@@ -127,13 +127,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/response.Response"
+                                    "$ref": "#/definitions/octotify_pkg_response.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/dto.AuthResp"
+                                            "$ref": "#/definitions/octotify_internal_handler_dto.AuthResp"
                                         }
                                     }
                                 }
@@ -167,7 +167,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/response.Response"
+                                    "$ref": "#/definitions/octotify_pkg_response.Response"
                                 },
                                 {
                                     "type": "object",
@@ -175,7 +175,7 @@ const docTemplate = `{
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/definitions/dto.ChannelTypeMeta"
+                                                "$ref": "#/definitions/octotify_internal_handler_dto.ChannelTypeMeta"
                                             }
                                         }
                                     }
@@ -229,7 +229,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/response.Response"
+                                    "$ref": "#/definitions/octotify_pkg_response.Response"
                                 },
                                 {
                                     "type": "object",
@@ -237,7 +237,7 @@ const docTemplate = `{
                                         "data": {
                                             "allOf": [
                                                 {
-                                                    "$ref": "#/definitions/response.PageResult"
+                                                    "$ref": "#/definitions/octotify_pkg_response.PageResult"
                                                 },
                                                 {
                                                     "type": "object",
@@ -245,7 +245,7 @@ const docTemplate = `{
                                                         "list": {
                                                             "type": "array",
                                                             "items": {
-                                                                "$ref": "#/definitions/dto.ChannelDTO"
+                                                                "$ref": "#/definitions/octotify_internal_handler_dto.ChannelDTO"
                                                             }
                                                         }
                                                     }
@@ -283,7 +283,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.CreateChannelReq"
+                            "$ref": "#/definitions/octotify_internal_handler_dto.CreateChannelReq"
                         }
                     }
                 ],
@@ -293,13 +293,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/response.Response"
+                                    "$ref": "#/definitions/octotify_pkg_response.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/dto.ChannelDTO"
+                                            "$ref": "#/definitions/octotify_internal_handler_dto.ChannelDTO"
                                         }
                                     }
                                 }
@@ -344,13 +344,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/response.Response"
+                                    "$ref": "#/definitions/octotify_pkg_response.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/dto.ChannelDTO"
+                                            "$ref": "#/definitions/octotify_internal_handler_dto.ChannelDTO"
                                         }
                                     }
                                 }
@@ -392,7 +392,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.UpdateChannelReq"
+                            "$ref": "#/definitions/octotify_internal_handler_dto.UpdateChannelReq"
                         }
                     }
                 ],
@@ -400,7 +400,7 @@ const docTemplate = `{
                     "200": {
                         "description": "编辑成功",
                         "schema": {
-                            "$ref": "#/definitions/response.Response"
+                            "$ref": "#/definitions/octotify_pkg_response.Response"
                         }
                     }
                 }
@@ -437,7 +437,7 @@ const docTemplate = `{
                     "200": {
                         "description": "删除成功",
                         "schema": {
-                            "$ref": "#/definitions/response.Response"
+                            "$ref": "#/definitions/octotify_pkg_response.Response"
                         }
                     }
                 }
@@ -476,7 +476,7 @@ const docTemplate = `{
                     "200": {
                         "description": "停用成功",
                         "schema": {
-                            "$ref": "#/definitions/response.Response"
+                            "$ref": "#/definitions/octotify_pkg_response.Response"
                         }
                     }
                 }
@@ -515,7 +515,7 @@ const docTemplate = `{
                     "200": {
                         "description": "启用成功",
                         "schema": {
-                            "$ref": "#/definitions/response.Response"
+                            "$ref": "#/definitions/octotify_pkg_response.Response"
                         }
                     }
                 }
@@ -554,7 +554,7 @@ const docTemplate = `{
                     "200": {
                         "description": "测试成功",
                         "schema": {
-                            "$ref": "#/definitions/response.Response"
+                            "$ref": "#/definitions/octotify_pkg_response.Response"
                         }
                     }
                 }
@@ -603,7 +603,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/response.Response"
+                                    "$ref": "#/definitions/octotify_pkg_response.Response"
                                 },
                                 {
                                     "type": "object",
@@ -611,7 +611,7 @@ const docTemplate = `{
                                         "data": {
                                             "allOf": [
                                                 {
-                                                    "$ref": "#/definitions/response.PageResult"
+                                                    "$ref": "#/definitions/octotify_pkg_response.PageResult"
                                                 },
                                                 {
                                                     "type": "object",
@@ -619,7 +619,7 @@ const docTemplate = `{
                                                         "list": {
                                                             "type": "array",
                                                             "items": {
-                                                                "$ref": "#/definitions/dto.MessageDTO"
+                                                                "$ref": "#/definitions/octotify_internal_handler_dto.MessageDTO"
                                                             }
                                                         }
                                                     }
@@ -717,7 +717,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/response.Response"
+                                    "$ref": "#/definitions/octotify_pkg_response.Response"
                                 },
                                 {
                                     "type": "object",
@@ -725,7 +725,7 @@ const docTemplate = `{
                                         "data": {
                                             "allOf": [
                                                 {
-                                                    "$ref": "#/definitions/response.PageResult"
+                                                    "$ref": "#/definitions/octotify_pkg_response.PageResult"
                                                 },
                                                 {
                                                     "type": "object",
@@ -733,7 +733,7 @@ const docTemplate = `{
                                                         "list": {
                                                             "type": "array",
                                                             "items": {
-                                                                "$ref": "#/definitions/dto.MessageDTO"
+                                                                "$ref": "#/definitions/octotify_internal_handler_dto.MessageDTO"
                                                             }
                                                         }
                                                     }
@@ -783,13 +783,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/response.Response"
+                                    "$ref": "#/definitions/octotify_pkg_response.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/dto.MessageDetailDTO"
+                                            "$ref": "#/definitions/octotify_internal_handler_dto.MessageDetailDTO"
                                         }
                                     }
                                 }
@@ -830,7 +830,7 @@ const docTemplate = `{
                     "200": {
                         "description": "删除成功",
                         "schema": {
-                            "$ref": "#/definitions/response.Response"
+                            "$ref": "#/definitions/octotify_pkg_response.Response"
                         }
                     }
                 }
@@ -868,7 +868,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.PushMessageReq"
+                            "$ref": "#/definitions/octotify_internal_handler_dto.PushMessageReq"
                         }
                     }
                 ],
@@ -878,13 +878,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/response.Response"
+                                    "$ref": "#/definitions/octotify_pkg_response.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/dto.PushResponse"
+                                            "$ref": "#/definitions/octotify_internal_handler_dto.PushResponse"
                                         }
                                     }
                                 }
@@ -937,7 +937,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/response.Response"
+                                    "$ref": "#/definitions/octotify_pkg_response.Response"
                                 },
                                 {
                                     "type": "object",
@@ -945,7 +945,7 @@ const docTemplate = `{
                                         "data": {
                                             "allOf": [
                                                 {
-                                                    "$ref": "#/definitions/response.PageResult"
+                                                    "$ref": "#/definitions/octotify_pkg_response.PageResult"
                                                 },
                                                 {
                                                     "type": "object",
@@ -953,7 +953,7 @@ const docTemplate = `{
                                                         "list": {
                                                             "type": "array",
                                                             "items": {
-                                                                "$ref": "#/definitions/dto.SourceDTO"
+                                                                "$ref": "#/definitions/octotify_internal_handler_dto.SourceDTO"
                                                             }
                                                         }
                                                     }
@@ -991,7 +991,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.CreateSourceReq"
+                            "$ref": "#/definitions/octotify_internal_handler_dto.CreateSourceReq"
                         }
                     }
                 ],
@@ -1001,13 +1001,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/response.Response"
+                                    "$ref": "#/definitions/octotify_pkg_response.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/dto.SourceDTO"
+                                            "$ref": "#/definitions/octotify_internal_handler_dto.SourceDTO"
                                         }
                                     }
                                 }
@@ -1052,13 +1052,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/response.Response"
+                                    "$ref": "#/definitions/octotify_pkg_response.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/dto.SourceDetailResponse"
+                                            "$ref": "#/definitions/octotify_internal_handler_dto.SourceDetailResponse"
                                         }
                                     }
                                 }
@@ -1100,7 +1100,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.UpdateSourceReq"
+                            "$ref": "#/definitions/octotify_internal_handler_dto.UpdateSourceReq"
                         }
                     }
                 ],
@@ -1108,7 +1108,7 @@ const docTemplate = `{
                     "200": {
                         "description": "编辑成功",
                         "schema": {
-                            "$ref": "#/definitions/response.Response"
+                            "$ref": "#/definitions/octotify_pkg_response.Response"
                         }
                     }
                 }
@@ -1146,7 +1146,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.VerifyPasswordReq"
+                            "$ref": "#/definitions/octotify_internal_handler_dto.VerifyPasswordReq"
                         }
                     }
                 ],
@@ -1154,7 +1154,7 @@ const docTemplate = `{
                     "200": {
                         "description": "删除成功",
                         "schema": {
-                            "$ref": "#/definitions/response.Response"
+                            "$ref": "#/definitions/octotify_pkg_response.Response"
                         }
                     }
                 }
@@ -1194,7 +1194,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.VerifyPasswordReq"
+                            "$ref": "#/definitions/octotify_internal_handler_dto.VerifyPasswordReq"
                         }
                     }
                 ],
@@ -1202,7 +1202,7 @@ const docTemplate = `{
                     "200": {
                         "description": "停用成功",
                         "schema": {
-                            "$ref": "#/definitions/response.Response"
+                            "$ref": "#/definitions/octotify_pkg_response.Response"
                         }
                     }
                 }
@@ -1242,7 +1242,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.VerifyPasswordReq"
+                            "$ref": "#/definitions/octotify_internal_handler_dto.VerifyPasswordReq"
                         }
                     }
                 ],
@@ -1250,7 +1250,7 @@ const docTemplate = `{
                     "200": {
                         "description": "启用成功",
                         "schema": {
-                            "$ref": "#/definitions/response.Response"
+                            "$ref": "#/definitions/octotify_pkg_response.Response"
                         }
                     }
                 }
@@ -1290,7 +1290,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.VerifyPasswordReq"
+                            "$ref": "#/definitions/octotify_internal_handler_dto.VerifyPasswordReq"
                         }
                     }
                 ],
@@ -1300,13 +1300,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/response.Response"
+                                    "$ref": "#/definitions/octotify_pkg_response.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/dto.SourceTokenResponse"
+                                            "$ref": "#/definitions/octotify_internal_handler_dto.SourceTokenResponse"
                                         }
                                     }
                                 }
@@ -1348,7 +1348,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.VerifyPasswordReq"
+                            "$ref": "#/definitions/octotify_internal_handler_dto.VerifyPasswordReq"
                         }
                     }
                 ],
@@ -1358,13 +1358,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/response.Response"
+                                    "$ref": "#/definitions/octotify_pkg_response.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/dto.SourceTokenResponse"
+                                            "$ref": "#/definitions/octotify_internal_handler_dto.SourceTokenResponse"
                                         }
                                     }
                                 }
@@ -1399,7 +1399,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.ChangePasswordReq"
+                            "$ref": "#/definitions/octotify_internal_handler_dto.ChangePasswordReq"
                         }
                     }
                 ],
@@ -1407,7 +1407,7 @@ const docTemplate = `{
                     "200": {
                         "description": "修改成功",
                         "schema": {
-                            "$ref": "#/definitions/response.Response"
+                            "$ref": "#/definitions/octotify_pkg_response.Response"
                         }
                     }
                 }
@@ -1437,13 +1437,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/response.Response"
+                                    "$ref": "#/definitions/octotify_pkg_response.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/dto.UserDTO"
+                                            "$ref": "#/definitions/octotify_internal_handler_dto.UserDTO"
                                         }
                                     }
                                 }
@@ -1473,7 +1473,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.RegisterReq"
+                            "$ref": "#/definitions/octotify_internal_handler_dto.RegisterReq"
                         }
                     }
                 ],
@@ -1483,13 +1483,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/response.Response"
+                                    "$ref": "#/definitions/octotify_pkg_response.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/dto.AuthResp"
+                                            "$ref": "#/definitions/octotify_internal_handler_dto.AuthResp"
                                         }
                                     }
                                 }
@@ -1501,7 +1501,7 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "dto.AuthResp": {
+        "octotify_internal_handler_dto.AuthResp": {
             "description": "认证成功后返回的 Access Token、Refresh Token 和用户信息",
             "type": "object",
             "properties": {
@@ -1519,13 +1519,13 @@ const docTemplate = `{
                     "description": "用户信息",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/dto.UserDTO"
+                            "$ref": "#/definitions/octotify_internal_handler_dto.UserDTO"
                         }
                     ]
                 }
             }
         },
-        "dto.ChangePasswordReq": {
+        "octotify_internal_handler_dto.ChangePasswordReq": {
             "description": "修改用户登录密码",
             "type": "object",
             "required": [
@@ -1545,7 +1545,7 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.ChannelDTO": {
+        "octotify_internal_handler_dto.ChannelDTO": {
             "description": "推送渠道的详细信息",
             "type": "object",
             "properties": {
@@ -1595,14 +1595,14 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.ChannelTypeMeta": {
+        "octotify_internal_handler_dto.ChannelTypeMeta": {
             "type": "object",
             "properties": {
                 "config_fields": {
                     "description": "配置字段定义",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/dto.ConfigField"
+                        "$ref": "#/definitions/octotify_internal_handler_dto.ConfigField"
                     }
                 },
                 "description": {
@@ -1619,7 +1619,7 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.ConfigField": {
+        "octotify_internal_handler_dto.ConfigField": {
             "type": "object",
             "properties": {
                 "label": {
@@ -1644,7 +1644,7 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.CreateChannelReq": {
+        "octotify_internal_handler_dto.CreateChannelReq": {
             "description": "创建新的推送渠道，需要指定渠道类型、名称和配置信息 ## 渠道配置示例 - wechat: {\"webhook\": \"https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx\"} - telegram: {\"bot_token\": \"xxx\", \"chat_id\": \"xxx\"} - dingtalk: {\"webhook\": \"https://oapi.dingtalk.com/robot/send?access_token=xxx\"} - email: {\"smtp_host\": \"smtp.example.com\", \"smtp_port\": 587, \"username\": \"xxx\", \"password\": \"xxx\", \"to\": \"xxx@example.com\"} - webhook: {\"url\": \"https://example.com/webhook\", \"method\": \"POST\", \"headers\": {\"Content-Type\": \"application/json\"}} - feishu: {\"webhook_url\": \"https://open.feishu.cn/open-apis/bot/v2/hook/xxx\", \"secret\": \"\"}",
             "type": "object",
             "required": [
@@ -1671,7 +1671,7 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.CreateSourceReq": {
+        "octotify_internal_handler_dto.CreateSourceReq": {
             "description": "创建新的消息来源，系统自动生成 Source Token",
             "type": "object",
             "required": [
@@ -1705,7 +1705,7 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.LoginReq": {
+        "octotify_internal_handler_dto.LoginReq": {
             "description": "用户登录时使用的请求参数",
             "type": "object",
             "required": [
@@ -1725,7 +1725,7 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.MessageDTO": {
+        "octotify_internal_handler_dto.MessageDTO": {
             "description": "消息列表中的单条消息记录",
             "type": "object",
             "properties": {
@@ -1771,7 +1771,7 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.MessageDetailDTO": {
+        "octotify_internal_handler_dto.MessageDetailDTO": {
             "description": "单条消息的详细信息，包含来源名称、渠道名称和类型",
             "type": "object",
             "properties": {
@@ -1832,7 +1832,7 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.PushMessageReq": {
+        "octotify_internal_handler_dto.PushMessageReq": {
             "description": "外部系统通过 Source Token 推送消息时使用的请求参数",
             "type": "object",
             "required": [
@@ -1855,7 +1855,7 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.PushResponse": {
+        "octotify_internal_handler_dto.PushResponse": {
             "description": "消息推送接口的返回结果，包含各渠道的推送详情",
             "type": "object",
             "properties": {
@@ -1867,7 +1867,7 @@ const docTemplate = `{
                     "description": "各渠道推送结果详情",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/dto.PushResult"
+                        "$ref": "#/definitions/octotify_internal_handler_dto.PushResult"
                     }
                 },
                 "success": {
@@ -1880,7 +1880,7 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.PushResult": {
+        "octotify_internal_handler_dto.PushResult": {
             "description": "并发推送到多个渠道时，单个渠道的推送结果",
             "type": "object",
             "properties": {
@@ -1906,7 +1906,7 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.RefreshReq": {
+        "octotify_internal_handler_dto.RefreshReq": {
             "description": "使用 Refresh Token 获取新的 Access Token",
             "type": "object",
             "required": [
@@ -1920,7 +1920,7 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.RegisterReq": {
+        "octotify_internal_handler_dto.RegisterReq": {
             "description": "注册新用户时使用的请求参数",
             "type": "object",
             "required": [
@@ -1940,7 +1940,7 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.SourceDTO": {
+        "octotify_internal_handler_dto.SourceDTO": {
             "description": "消息来源的基本信息，不包含 Token",
             "type": "object",
             "properties": {
@@ -1981,7 +1981,7 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.SourceDetailDTO": {
+        "octotify_internal_handler_dto.SourceDetailDTO": {
             "description": "消息来源的详细信息，包含 Token 和使用时间",
             "type": "object",
             "properties": {
@@ -2032,7 +2032,7 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.SourceDetailResponse": {
+        "octotify_internal_handler_dto.SourceDetailResponse": {
             "description": "来源详情及其已绑定的有效渠道列表",
             "type": "object",
             "properties": {
@@ -2040,20 +2040,20 @@ const docTemplate = `{
                     "description": "已绑定渠道列表",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/dto.ChannelDTO"
+                        "$ref": "#/definitions/octotify_internal_handler_dto.ChannelDTO"
                     }
                 },
                 "source": {
                     "description": "来源详情",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/dto.SourceDetailDTO"
+                            "$ref": "#/definitions/octotify_internal_handler_dto.SourceDetailDTO"
                         }
                     ]
                 }
             }
         },
-        "dto.SourceTokenResponse": {
+        "octotify_internal_handler_dto.SourceTokenResponse": {
             "description": "查看或重置来源令牌时返回的 Token 值",
             "type": "object",
             "properties": {
@@ -2064,7 +2064,7 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.UpdateChannelReq": {
+        "octotify_internal_handler_dto.UpdateChannelReq": {
             "description": "编辑已有推送渠道的名称和配置信息 ## 渠道配置示例 - wechat: {\"webhook\": \"https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx\"} - telegram: {\"bot_token\": \"xxx\", \"chat_id\": \"xxx\"} - dingtalk: {\"webhook\": \"https://oapi.dingtalk.com/robot/send?access_token=xxx\"} - email: {\"smtp_host\": \"smtp.example.com\", \"smtp_port\": 587, \"username\": \"xxx\", \"password\": \"xxx\", \"to\": \"xxx@example.com\"} - webhook: {\"url\": \"https://example.com/webhook\", \"method\": \"POST\", \"headers\": {\"Content-Type\": \"application/json\"}}",
             "type": "object",
             "required": [
@@ -2085,7 +2085,7 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.UpdateSourceReq": {
+        "octotify_internal_handler_dto.UpdateSourceReq": {
             "description": "编辑已有消息来源的名称和描述",
             "type": "object",
             "required": [
@@ -2107,7 +2107,7 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.UserDTO": {
+        "octotify_internal_handler_dto.UserDTO": {
             "description": "用户基本信息，用于登录/注册/刷新令牌等接口返回",
             "type": "object",
             "properties": {
@@ -2128,7 +2128,7 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.VerifyPasswordReq": {
+        "octotify_internal_handler_dto.VerifyPasswordReq": {
             "description": "需要密码二次验证的接口（查看令牌、重置令牌、停用/启用/删除来源）",
             "type": "object",
             "required": [
@@ -2142,7 +2142,7 @@ const docTemplate = `{
                 }
             }
         },
-        "response.PageResult": {
+        "octotify_pkg_response.PageResult": {
             "description": "所有分页接口返回的数据结构",
             "type": "object",
             "properties": {
@@ -2163,7 +2163,7 @@ const docTemplate = `{
                 }
             }
         },
-        "response.Response": {
+        "octotify_pkg_response.Response": {
             "description": "所有 API 接口返回的统一格式，包含业务状态码、消息和数据",
             "type": "object",
             "properties": {

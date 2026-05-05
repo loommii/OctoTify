@@ -32,3 +32,5 @@ jwt:
   access_ttl: 1h
   # Refresh Token 有效期（Go time.Duration 格式）
   refresh_ttl: 168h
+  # 是否自动生成密钥对（true: 密钥不存在时自动生成，适合新手用户；false: 密钥不存在时启动失败，适合生产环境）
+  auto_generate_keys: true
