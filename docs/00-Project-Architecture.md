@@ -88,7 +88,7 @@ Message 1 ──── 1 Channel  (一条消息只属于一个渠道)
 | status | int | 1=正常, 2=禁用, -1=删除 |
 | created_at | int64 | 创建时间（Unix 毫秒时间戳） |
 | updated_at | int64 | 更新时间（Unix 毫秒时间戳） |
-| last_used_at | int64 | 最后使用时间（Unix 毫秒时间戳） |
+| last_used_at | int64 | 最后使用时间（Unix 毫秒时间戳，0 表示未使用） |
 
 ### channels 表
 
@@ -102,7 +102,7 @@ Message 1 ──── 1 Channel  (一条消息只属于一个渠道)
 | status | int | 1=正常, 2=禁用, -1=删除 |
 | created_at | int64 | 创建时间（Unix 毫秒时间戳） |
 | updated_at | int64 | 更新时间（Unix 毫秒时间戳） |
-| last_used_at | int64 | 最后使用时间（Unix 毫秒时间戳） |
+| last_used_at | int64 | 最后使用时间（Unix 毫秒时间戳，0 表示未使用） |
 
 ### source_channels 表（关联表）
 
