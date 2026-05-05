@@ -223,6 +223,9 @@ func (s *Server) setupChannelRoutes(api *gin.RouterGroup) {
 		channel.PUT("/:id/enable", s.channelHandler.EnableChannel)   // 启用渠道
 		channel.DELETE("/:id", s.channelHandler.DeleteChannel)       // 删除渠道
 	}
+
+	// 渠道类型元数据接口（在 channels 组外，避免与 :id 路由冲突）
+	api.GET("/channel-types", middleware.JWTAuth(s.accessJWTHelper), s.channelHandler.GetChannelTypes) // 获取渠道类型元数据
 }
 
 // setupMessageRoutes 注册消息管理相关路由

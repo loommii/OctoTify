@@ -33,6 +33,9 @@ package "internal/sender (推送策略层)" {
     class "WebhookSender (Webhook推送)" as WebhookSender <<struct>> {
         + Send(ctx context.Context, config datatypes.JSON, title string, content string): error ' 发送HTTP POST到自定义URL
     }
+    class "FeishuSender (飞书推送)" as FeishuSender <<struct>> {
+        + Send(ctx context.Context, config datatypes.JSON, title string, content string): error ' 调用飞书自定义机器人Webhook推送
+    }
 }
 
 WechatSender ..|> Sender : 实现
@@ -40,6 +43,7 @@ TelegramSender ..|> Sender : 实现
 DingtalkSender ..|> Sender : 实现
 EmailSender ..|> Sender : 实现
 WebhookSender ..|> Sender : 实现
+FeishuSender ..|> Sender : 实现
 SenderFactory --> Sender : 创建
 
 note as SenderNote
@@ -53,6 +57,19 @@ note as SenderNote
     "dingtalk"  → DingtalkSender
     "email"     → EmailSender
     "webhook"   → WebhookSender
+    "feishu"    → FeishuSender
+
+    FeishuSender 配置结构：
+    {
+      "webhook_url": "https://open.feishu.cn/open-apis/bot/v2/hook/xxx",
+      "secret": ""  // 可选，签名校验密钥
+    }
+
+    签名校验流程：
+    1. 拼接字符串: timestamp + "\n" + secret
+    2. HMAC-SHA256 计算签名
+    3. Base64 URL Safe 编码
+    4. 附加到 URL: ?timestamp=xxx&sign=xxx
 
     并发推送策略：
     - goroutine pool 限制最大并发数（默认 10）

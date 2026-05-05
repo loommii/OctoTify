@@ -25,6 +25,7 @@ func NewSenderFactory() *SenderFactory {
 			"dingtalk": &DingtalkSender{},
 			"email":    &EmailSender{},
 			"webhook":  &WebhookSender{},
+			"feishu":   &FeishuSender{},
 		},
 	}
 }

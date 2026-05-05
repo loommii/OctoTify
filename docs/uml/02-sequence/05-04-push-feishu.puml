@@ -1,0 +1,85 @@
+@startuml OctoTify_Sequence_PushFeishu
+
+skinparam sequenceStyle svg
+skinparam linetype ortho
+
+title 飞书渠道推送消息 (FeishuSender.Send)
+
+participant "MessageService" as Service
+participant "SenderFactory" as Factory
+participant "FeishuSender" as Feishu
+participant "Feishu Webhook" as FeishuAPI
+database "SQLite" as DB
+
+Service -> Service: pushToChannels(ctx, source, channels, req)
+note over Service: 遍历 channels\n找到 type = "feishu" 的渠道
+
+== 创建发送器 ==
+
+Service -> Factory: Create("feishu")
+activate Factory
+Factory -> Factory: senders["feishu"]
+Factory --> Service: &FeishuSender{}
+deactivate Factory
+
+== 解析渠道配置 ==
+
+Service -> Feishu: Send(ctx, config, title, content)
+activate Feishu
+Feishu -> Feishu: json.Unmarshal(config)
+note over Feishu: 解析 JSON 配置\n{\n  "webhook_url": "https://...",\n  "secret": ""\n}
+
+alt 配置解析失败
+    Feishu --> Service: error("渠道配置无效")
+    Service -> DB: UPDATE messages SET status = 300
+    note over Service: 标记推送失败
+else 配置解析成功
+    Feishu -> Feishu: 提取 webhookURL 和 secret
+
+    == 构造消息体 ==
+
+    Feishu -> Feishu: 构造 text 类型消息
+    note over Feishu: {\n  "msg_type": "text",\n  "content": {\n    "text": "[title]\ncontent"\n  }\n}
+
+    == 签名校验处理 ==
+
+    alt secret 不为空（启用签名校验）
+        Feishu -> Feishu: timestamp = time.Now().Unix()
+        Feishu -> Feishu: stringToSign = timestamp + "\n" + secret
+        Feishu -> Feishu: sign = HMAC-SHA256(secret, stringToSign)
+        Feishu -> Feishu: sign = Base64URLEncoding(sign)
+        Feishu -> Feishu: 拼接 URL 查询参数
+        note over Feishu: webhookURL + "?timestamp=" + timestamp + "&sign=" + sign
+    else secret 为空（不启用签名校验）
+        Feishu -> Feishu: 使用原始 webhookURL
+    end
+
+    == 发送 HTTP 请求 ==
+
+    Feishu -> FeishuAPI: POST {webhookURL}
+    note right: Header: Content-Type: application/json\nBody: {"msg_type":"text","content":{"text":"..."}}
+    activate FeishuAPI
+
+    alt 飞书返回成功（StatusCode = 0）
+        FeishuAPI --> Feishu: {"StatusCode":0,"msg":"success"}
+        deactivate FeishuAPI
+        Feishu --> Service: nil（成功）
+        deactivate Feishu
+        Service -> DB: UPDATE messages SET status = 200
+        note over Service: 标记推送成功
+    else 飞书返回失败（StatusCode != 0）
+        FeishuAPI --> Feishu: {"StatusCode":19021,"msg":"sign match fail"}
+        deactivate FeishuAPI
+        Feishu --> Service: error("飞书推送失败: sign match fail")
+        deactivate Feishu
+        Service -> DB: UPDATE messages SET status = 300
+        note over Service: 标记推送失败
+    else 网络超时（30s）
+        Feishu --> Service: error("context deadline exceeded")
+        deactivate Feishu
+        Service -> DB: UPDATE messages SET status = 300
+        note over Service: 标记推送失败
+    end
+end
+
+@enduml

@@ -1524,7 +1524,7 @@ const docTemplate = `{
                     "example": 1
                 },
                 "last_used_at": {
-                    "description": "最后使用时间（Unix 毫秒时间戳）",
+                    "description": "最后使用时间（Unix 毫秒时间戳，0 表示未使用）",
                     "type": "integer",
                     "example": 1714636800000
                 },
@@ -1903,7 +1903,7 @@ const docTemplate = `{
                     "example": 1
                 },
                 "last_used_at": {
-                    "description": "最后使用时间（Unix 毫秒时间戳）",
+                    "description": "最后使用时间（Unix 毫秒时间戳，0 表示未使用）",
                     "type": "integer",
                     "example": 1714636800000
                 },
