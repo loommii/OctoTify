@@ -105,11 +105,24 @@ export function listSources(page = 1, pageSize = 20) {
   })
 }
 
-export function getSourceDetail(id: number) {
-  return request<SourceDetailDTO>({
+export async function getSourceDetail(id: number) {
+  const res = await request<{ source: SourceDetailDTO; channels: ChannelDTO[] }>({
     url: `/sources/${id}`,
     method: 'GET',
   })
+  
+  // 在 API 层做数据转换，将后端嵌套结构扁平化
+  if (res.data) {
+    return {
+      ...res,
+      data: {
+        ...res.data.source,
+        channels: res.data.channels,
+      } as SourceDetailDTO,
+    }
+  }
+  
+  return res as unknown as ReturnType<typeof request<SourceDetailDTO>>
 }
 
 export function getSourceToken(id: number, password: string) {
