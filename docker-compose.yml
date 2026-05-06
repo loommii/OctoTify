@@ -1,0 +1,18 @@
+# 容器编排配置
+services:
+  octotify:
+    build:
+      context: .                    # 构建上下文（项目根目录）
+      dockerfile: docker/Dockerfile  # Dockerfile 路径
+    container_name: octotify
+    restart: unless-stopped          # 异常退出后自动重启
+    ports:
+      - "5233:5233"                 # 宿主机 5233 → 容器 5233
+    volumes:
+      - octotify-data:/app/data      # 持久化数据库和日志
+      - ./backend/config:/app/config:ro  # 只读挂载配置文件
+    environment:
+      - TZ=Asia/Shanghai             # 设置容器时区
+
+volumes:
+  octotify-data:                     # 命名数据卷，容器删除后数据保留
