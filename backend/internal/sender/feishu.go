@@ -48,8 +48,8 @@ type feishuMessageContent struct {
 
 // feishuResponse 飞书 API 响应
 type feishuResponse struct {
-	Code int    `json:"StatusCode"` // 状态码：0 表示成功（飞书返回大写驼峰）
-	Msg  string `json:"msg"`        // 提示信息
+	Code int    `json:"code"` // 业务状态码：0 表示成功
+	Msg  string `json:"msg"`  // 提示信息
 	Raw  string // 原始响应体（用于调试）
 }
 
@@ -165,7 +165,7 @@ func (s *FeishuSender) Send(ctx context.Context, config datatypes.JSON, title st
 		zap.String("msg", feishuResp.Msg),
 	)
 
-	// 检查业务状态码：成功时 StatusCode=0 且 msg="success"
+	// 检查业务状态码：成功时 code=0 且 msg="success"
 	if feishuResp.Code != 0 || feishuResp.Msg != "success" {
 		s.logger.Warn("飞书推送业务失败",
 			zap.Int("status_code", feishuResp.Code),
