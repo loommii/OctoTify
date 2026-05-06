@@ -37,3 +37,38 @@ func WithSigningMethod(method jwt.SigningMethod) Option {
 		helper.signingMethod = method
 	}
 }
+
+// WithKeyType 设置密钥类型（HMAC 或 RSA）
+func WithKeyType(keyType KeyType) Option {
+	return func(helper *JWTHelper) {
+		helper.keyType = keyType
+	}
+}
+
+// WithSecret 设置 HMAC 密钥
+func WithSecret(secret []byte) Option {
+	return func(helper *JWTHelper) {
+		helper.secretKey = secret
+	}
+}
+
+// WithTTL 设置令牌有效期（覆盖默认 1 小时）
+func WithTTL(ttl time.Duration) Option {
+	return func(helper *JWTHelper) {
+		helper.expiredTime = ttl
+	}
+}
+
+// WithIssuer 设置签发者
+func WithIssuer(issuer string) Option {
+	return func(helper *JWTHelper) {
+		helper.issuer = issuer
+	}
+}
+
+// WithTokenType 设置默认令牌类型（access 或 refresh）
+func WithTokenType(tokenType string) Option {
+	return func(helper *JWTHelper) {
+		helper.defaultTokenType = tokenType
+	}
+}

@@ -41,6 +41,11 @@ func (f *SenderFactory) Create(channelType string) (Sender, error) {
 	return snd, nil
 }
 
+// Register 动态注册新的渠道发送器类型（支持运行时扩展第三方渠道）
+func (f *SenderFactory) Register(channelType string, snd Sender) {
+	f.senders[channelType] = snd
+}
+
 type WechatSender struct{}
 
 func (s *WechatSender) Send(ctx context.Context, config datatypes.JSON, title string, content string) error {

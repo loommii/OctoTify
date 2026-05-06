@@ -16,10 +16,14 @@ import (
 
 // JWTHelper JWT 辅助工具结构体，封装 JWT 令牌的生成与验证操作
 type JWTHelper struct {
-	publicKey     *rsa.PublicKey    // RSA 公钥，用于验证令牌签名
-	privateKey    *rsa.PrivateKey   // RSA 私钥，用于生成令牌签名
-	expiredTime   time.Duration     // 令牌默认有效期
-	signingMethod jwt.SigningMethod // 签名算法（默认 RS256）
+	publicKey       *rsa.PublicKey    // RSA 公钥，用于验证令牌签名
+	privateKey      *rsa.PrivateKey   // RSA 私钥，用于生成令牌签名
+	expiredTime     time.Duration     // 令牌默认有效期
+	signingMethod   jwt.SigningMethod // 签名算法（默认 RS256）
+	keyType         KeyType           // 密钥类型（HMAC 或 RSA）
+	secretKey       []byte            // HMAC 密钥
+	issuer          string            // 签发者
+	defaultTokenType string           // 默认令牌类型
 }
 
 // NewJWTHelper 使用函数选项模式创建 JWTHelper 实例
@@ -47,11 +51,6 @@ func (j *JWTHelper) GetExpiredTime() time.Duration {
 //  2. 此函数会覆盖时间字段（IssuedAt、NotBefore、ExpiresAt）
 //  3. 如果 claims.ID 已设置则保留，否则自动生成 UUID
 func (j *JWTHelper) GenerateToken(claims JWTClaims) (string, error) {
-	// 检查私钥是否已配置
-	if j.privateKey == nil {
-		return "", errors.New("private key is not configured")
-	}
-
 	now := time.Now()
 
 	// 如果未设置令牌唯一标识，则自动生成
@@ -63,7 +62,34 @@ func (j *JWTHelper) GenerateToken(claims JWTClaims) (string, error) {
 	claims.IssuedAt = jwt.NewNumericDate(now)
 	claims.NotBefore = jwt.NewNumericDate(now)
 
-	// 创建令牌并使用私钥签名
+	// 如果设置了签发者，则覆盖
+	if j.issuer != "" {
+		claims.Issuer = j.issuer
+	}
+
+	// 如果未设置令牌类型，使用默认类型
+	if claims.TokenType == "" && j.defaultTokenType != "" {
+		claims.TokenType = j.defaultTokenType
+	}
+
+	// 根据密钥类型选择签名方式
+	if j.keyType == HMAC {
+		// HMAC 对称加密
+		if len(j.secretKey) == 0 {
+			return "", errors.New("HMAC secret key is not configured")
+		}
+		token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+		signedToken, err := token.SignedString(j.secretKey)
+		if err != nil {
+			return "", errors.Wrap(err, "failed to sign token with HMAC")
+		}
+		return signedToken, nil
+	}
+
+	// RSA 非对称加密（默认）
+	if j.privateKey == nil {
+		return "", errors.New("private key is not configured")
+	}
 	token := jwt.NewWithClaims(j.signingMethod, claims)
 	signedToken, err := token.SignedString(j.privateKey)
 	if err != nil {
@@ -77,7 +103,33 @@ func (j *JWTHelper) GenerateToken(claims JWTClaims) (string, error) {
 // 返回解析后的令牌对象、自定义声明和错误信息
 // 验证内容包括：签名有效性、过期时间、令牌格式等
 func (j *JWTHelper) ValidateToken(tokenString string) (*jwt.Token, *JWTClaims, error) {
-	// 检查公钥是否已配置
+	// 根据密钥类型选择验证方式
+	if j.keyType == HMAC {
+		// HMAC 对称加密验证
+		if len(j.secretKey) == 0 {
+			return nil, nil, errors.New("HMAC secret key is not configured")
+		}
+		token, err := jwt.ParseWithClaims(tokenString, &JWTClaims{}, func(token *jwt.Token) (any, error) {
+			// 验证签名算法是否为 HMAC 类型
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, errors.Errorf("unexpected signing method: %v", token.Header["alg"])
+			}
+			return j.secretKey, nil
+		}, jwt.WithLeeway(5*time.Second))
+
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "failed to parse token")
+		}
+
+		// 验证令牌是否有效且声明类型正确
+		if claims, ok := token.Claims.(*JWTClaims); ok && token.Valid {
+			return token, claims, nil
+		}
+
+		return nil, nil, errors.New("invalid token")
+	}
+
+	// RSA 非对称加密验证（默认）
 	if j.publicKey == nil {
 		return nil, nil, errors.New("public key is not configured")
 	}

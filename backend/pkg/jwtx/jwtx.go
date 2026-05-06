@@ -7,6 +7,14 @@ import "github.com/golang-jwt/jwt/v5"
 这里存放的该项目自己用到的一些内容
 */
 
+// KeyType 密钥类型
+type KeyType string
+
+const (
+	HMAC KeyType = "HMAC" // HMAC-SHA256 对称加密（适用于测试和简单场景）
+	RSA  KeyType = "RSA"  // RSA 非对称加密（默认）
+)
+
 const (
 	Access  = "access"  // Access Token 类型标识
 	Refresh = "refresh" // Refresh Token 类型标识
