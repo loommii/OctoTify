@@ -9,50 +9,90 @@
 </p>
 
 <p align="center">
-  English · <a href="./README.zh-CN.md">中文</a>
+  <a href="./README.zh-CN.md">中文</a> · English
 </p>
 
 ---
 
 ## 🚀 Overview
 
-OctoTify is a **message bus platform** that bridges external systems (CI/CD, monitoring, custom apps) with multiple notification channels (Feishu, WeChat, Telegram, DingTalk, Email, Webhook).
+OctoTify is a **message bus platform** that bridges external systems (CI/CD, monitoring, custom apps) with multiple notification channels (Feishu, WeCom, Telegram, DingTalk, Email, Webhook).
 
 **How it works:**
 
-1. Create a **Source** in OctoTify — you get a unique token
+1. Create a **Source** in OctoTify — you get a unique push token
 2. Bind the Source to one or more **Channels** (Feishu group, Telegram bot, etc.)
-3. External systems push messages to `POST /api/push/{token}`
-4. OctoTify delivers the message to all bound channels concurrently
+3. External systems push messages via `POST /api/push/{token}`
+4. OctoTify concurrently delivers messages to all bound channels
 
 ---
 
 ## ✨ Key Features
 
-- **One Token, Many Channels** — Push once, deliver everywhere
-- **Concurrent Delivery** — Each channel gets an independent goroutine with 30s timeout
-- **Full Audit Trail** — Every message delivery is recorded with status
-- **Dual-Token Auth** — JWT Access Token (1h) + Refresh Token (7d) for admin panel
-- **i18n Ready** — API error messages support multiple languages
-- **Request Tracing** — `X-Request-ID` for debugging and log correlation
+- **Decoupled Push** — External systems push to a single token, no need to be aware of downstream channels
+- **Flexible Routing** — Bind/unbind channels anytime, one source → many destinations
+- **Independent Fault Tolerance** — One channel failing doesn't affect others, each channel has an independent 30-second timeout
+- **Extensible by Design** — Strategy pattern architecture, add new channels without modifying existing code
+- **Full Audit Trail** — Every push attempt is recorded, including status and error details
 
 ---
 
-## � Quick Start
+## 🚦 Quick Start
 
-### Prerequisites
+### Docker Compose (Recommended)
+
+Create `docker-compose.yml`:
+
+```yaml
+services:
+  octotify:
+    image: loommii/octotify:latest
+    container_name: octotify
+    restart: unless-stopped
+    ports:
+      - "5233:5233"
+    volumes:
+      - octotify-data:/app/data
+
+volumes:
+  octotify-data:
+```
+
+Start:
+
+```bash
+docker compose up -d
+```
+
+> **Persistence recommendation:** Use named volume `octotify-data` to persist the database and logs, preventing data loss when the container is removed.
+
+After starting, visit `http://localhost:5233`.
+
+### Docker
+
+```bash
+docker run -d \
+  --name octotify \
+  -p 5233:5233 \
+  -v octotify-data:/app/data \
+  loommii/octotify:latest
+```
+
+### From Source
+
+**Prerequisites:**
 
 - Go 1.26+
 - Node.js 20+
 
-### Backend
+**Backend:**
 
 ```bash
 cd backend
 go run cmd/server/main.go
 ```
 
-### Frontend
+**Frontend:**
 
 ```bash
 cd frontend
@@ -60,13 +100,13 @@ npm install
 npm run dev
 ```
 
-Or use the startup scripts in `run/`.
+Or use the startup scripts in the `run/` directory.
 
 ---
 
-## � Push API
+## 📡 Push API
 
-External systems use this endpoint to push messages:
+External systems push messages via the following endpoint:
 
 ```bash
 POST /api/push/{sourceToken}
@@ -91,46 +131,48 @@ Content-Type: application/json
     "failed": 0,
     "results": [
       { "channel_id": 1, "channel_name": "Feishu", "message_id": 10, "success": true },
-      { "channel_id": 2, "channel_name": "WeChat", "message_id": 11, "success": true }
+      { "channel_id": 2, "channel_name": "WeCom", "message_id": 11, "success": true }
     ]
   }
 }
 ```
 
-> All business errors return HTTP 200 with a non-zero `code`. Only JWT auth errors return HTTP 401.
+> Except for JWT authentication failures which return HTTP 401, all business errors return HTTP 200, with the `code` field distinguishing error types.
 
 ---
 
-## 🏗️ Architecture
+## 🏗️ Architecture Overview
 
 ```
 External System ──POST /api/push/{token}──→ OctoTify
                                                 │
-                                          Validate Token
+                                          Validate Source Token
                                                 │
-                                    Query bound Channels
+                                    Query associated Channels
                                                 │
-                              Concurrent push to each Channel
-                              (independent goroutine, 30s timeout per channel)
+                              Concurrent push to each channel
+                              (independent goroutine per channel, 30s timeout)
                                                 │
-                                    Record results → Return summary
+                                    Record results → Return push summary
 ```
 
-Built with **Go + Gin** (backend) and **Vue 3 + Vite** (frontend), using **SQLite** for storage and **GORM Gen** for data access.
+Backend uses **Go + Gin**, frontend uses **Vue 3 + Vite**, data storage uses **SQLite**, and the data access layer uses **GORM Gen**.
 
 ---
 
-## � Documentation
+## 📚 Documentation
 
 For detailed design docs, API specifications, and UML diagrams, see the [docs](./docs/) directory:
 
 | Document | Description |
 |----------|-------------|
 | [Architecture](./docs/00-Project-Architecture.md) | Project architecture, domain models, database design |
-| [API Spec](./docs/03-API-Specification.md) | API design rules, pagination, response format |
+| [API Specification](./docs/03-API-Specification.md) | API design rules, pagination, response format |
 | [Error Codes](./docs/05-Error-Codes.md) | Error code definitions by module |
 | [UML Diagrams](./docs/uml/) | Use case, sequence, class, state, and activity diagrams |
 
 ---
 
-<p align="center">Made with ❤️ using Go & Vue</p>
+<p align="center">
+  <a href="https://github.com/loommii/OctoTify">loommii/OctoTify</a>
+</p>

@@ -29,30 +29,70 @@ OctoTify 是一个**消息总线平台**，连接外部系统（CI/CD、监控�
 
 ## ✨ 核心特性
 
-- **一个令牌，多渠道推送** — 一次推送，多端送达
-- **并发投递** — 每个渠道独立 goroutine，单渠道 30 秒超时
-- **完整审计** — 每条消息的投递状态均有记录
-- **双令牌认证** — JWT Access Token（1 小时）+ Refresh Token（7 天）
-- **国际化** — API 错误消息支持多语言
-- **请求追踪** — `X-Request-ID` 便于调试和日志关联
+- **推送解耦** — 外部系统只需推送到一个令牌，无需感知下游渠道
+- **灵活路由** — 随时绑定/解绑渠道，一个来源 → 多个目的地
+- **独立容错** — 一个渠道失败不影响其他渠道，每个渠道独立 30 秒超时
+- **易于扩展** — 策略模式架构，新增渠道无需改动现有代码
+- **完整审计** — 每次推送尝试均有记录，包含状态和错误详情
 
 ---
 
 ## 🚦 快速开始
 
-### 前置要求
+### Docker Compose（推荐）
+
+创建 `docker-compose.yml`：
+
+```yaml
+services:
+  octotify:
+    image: loommii/octotify:latest
+    container_name: octotify
+    restart: unless-stopped
+    ports:
+      - "5233:5233"
+    volumes:
+      - octotify-data:/app/data
+
+volumes:
+  octotify-data:
+```
+
+启动：
+
+```bash
+docker compose up -d
+```
+
+> **持久化建议：** 使用命名数据卷 `octotify-data` 持久化数据库和日志，防止容器删除后数据丢失。
+
+启动后访问 `http://localhost:5233` 即可使用。
+
+### Docker
+
+```bash
+docker run -d \
+  --name octotify \
+  -p 5233:5233 \
+  -v octotify-data:/app/data \
+  loommii/octotify:latest
+```
+
+### 源码部署
+
+**前置要求：**
 
 - Go 1.26+
 - Node.js 20+
 
-### 后端
+**后端：**
 
 ```bash
 cd backend
 go run cmd/server/main.go
 ```
 
-### 前端
+**前端：**
 
 ```bash
 cd frontend
@@ -133,4 +173,6 @@ Content-Type: application/json
 
 ---
 
-<p align="center">Made with ❤️ using Go & Vue</p>
+<p align="center">
+  <a href="https://github.com/loommii/OctoTify">loommii/OctoTify</a>
+</p>
