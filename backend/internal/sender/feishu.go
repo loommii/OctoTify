@@ -17,6 +17,7 @@ import (
 )
 
 // FeishuSender 飞书消息发送器
+// 官方文档：https://open.feishu.cn/document/client-docs/bot-v3/add-custom-bot
 type FeishuSender struct {
 	logger *zap.Logger
 }
