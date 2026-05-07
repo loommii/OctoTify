@@ -61,6 +61,34 @@ var ChannelTypeMetas = []ChannelTypeMeta{
 			},
 		},
 	},
+	{
+		Type:        ChannelTypeTelegram,
+		Name:        "Telegram",
+		Description: "Telegram Bot 推送",
+		ConfigFields: []ConfigField{
+			{
+				Name:        "bot_token",
+				Label:       "Bot Token",
+				Type:        "password",
+				Required:    true,
+				Placeholder: "1234567890:ABCdefGHIjklMNOpqrsTUVwxyz",
+			},
+			{
+				Name:        "chat_id",
+				Label:       "Chat ID",
+				Type:        "string",
+				Required:    true,
+				Placeholder: "-1001234567890 或 @channel_name",
+			},
+			{
+				Name:        "proxy",
+				Label:       "HTTP 代理（可选）",
+				Type:        "url",
+				Required:    false,
+				Placeholder: "http://127.0.0.1:7890",
+			},
+		},
+	},
 }
 
 // TODO: 恢复以下渠道
@@ -70,15 +98,6 @@ var ChannelTypeMetas = []ChannelTypeMeta{
 // 	Description: "企业微信群机器人",
 // 	ConfigFields: []ConfigField{
 // 		{Name: "webhook", Label: "Webhook 地址", Type: "url", Required: true, Placeholder: "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx"},
-// 	},
-// },
-// {
-// 	Type:        ChannelTypeTelegram,
-// 	Name:        "Telegram",
-// 	Description: "Telegram Bot",
-// 	ConfigFields: []ConfigField{
-// 		{Name: "bot_token", Label: "Bot Token", Type: "password", Required: true, Placeholder: "1234567890:ABCdefGHIjklMNOpqrsTUVwxyz"},
-// 		{Name: "chat_id", Label: "Chat ID", Type: "string", Required: true, Placeholder: "-1001234567890"},
 // 	},
 // },
 // {
