@@ -27,9 +27,9 @@ OctoTify is a **message bus platform** that bridges external systems (CI/CD, mon
 | Feishu | ✅ | Feishu custom bot |
 | Telegram | ✅ | Telegram bot push |
 | Email | ✅ | SMTP email push |
+| DingTalk | ✅ | DingTalk group bot with HMAC-SHA256 signature |
 | Gotify | ✅ | Self-hosted Gotify notification server |
 | WeCom | 🚧 | WeCom group bot (coming soon) |
-| DingTalk | 🚧 | DingTalk group bot (coming soon) |
 | Webhook | 🚧 | Custom webhook (coming soon) |
 
 **How it works:**
@@ -192,6 +192,7 @@ For detailed design docs, API specifications, and UML diagrams, see the [docs](.
 ### v1.1.0
 
 **New Channels:**
+- Add DingTalk group bot with HMAC-SHA256 signature verification
 - Add Telegram bot push with optional HTTP proxy support
 - Add Email SMTP sender supporting port 465 (implicit TLS), 587 (STARTTLS), and 25 (plaintext)
 - Add Gotify self-hosted notification server with Markdown message format and priority support

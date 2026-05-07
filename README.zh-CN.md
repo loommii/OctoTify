@@ -27,9 +27,9 @@ OctoTify 是一个**消息总线平台**，连接外部系统（CI/CD、监控�
 | 飞书 | ✅ | 飞书自定义机器人 |
 | Telegram | ✅ | Telegram Bot 推送 |
 | 邮件 | ✅ | SMTP 邮件推送 |
+| 钉钉 | ✅ | 钉钉群机器人，支持 HMAC-SHA256 签名校验 |
 | Gotify | ✅ | 自托管 Gotify 消息推送 |
 | 企业微信 | 🚧 | 企业微信群机器人（即将上线） |
-| 钉钉 | 🚧 | 钉钉群机器人（即将上线） |
 | Webhook | 🚧 | 自定义 Webhook（即将上线） |
 
 **工作流程：**
@@ -192,6 +192,7 @@ Content-Type: application/json
 ### v1.1.0
 
 **新增渠道：**
+- 新增钉钉群机器人渠道，支持 HMAC-SHA256 加签校验
 - 新增 Telegram Bot 推送渠道，支持可选 HTTP 代理
 - 新增 Email SMTP 邮件推送，支持端口 465（隐式 TLS）、587（STARTTLS）、25（明文）
 - 新增 Gotify 自托管消息推送渠道，支持 Markdown 消息格式和优先级配置
