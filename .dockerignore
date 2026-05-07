@@ -1,0 +1,10 @@
+# Docker 构建忽略文件
+.git
+.github
+.vscode
+.idea
+*.md
+!README.md
+!README.zh-CN.md
+docs
+run

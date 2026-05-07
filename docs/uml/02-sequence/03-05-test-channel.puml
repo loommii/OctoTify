@@ -1,0 +1,102 @@
+@startuml OctoTify_Sequence_TestChannel
+
+skinparam sequenceStyle svg
+skinparam linetype ortho
+
+title 测试渠道连接 (POST /api/channels/:id/test)
+
+actor "用户" as User
+participant "前端" as Frontend
+participant "HTTPServer" as Server
+participant "JWTAuth 中间件" as JWT
+participant "ChannelHandler" as Handler
+participant "ChannelService" as Service
+participant "SenderFactory" as Factory
+participant "Sender" as Sender
+database "SQLite" as DB
+
+User -> Frontend: 点击测试连接
+Frontend -> Server: POST /api/channels/:id/test
+note right: Header: Authorization Bearer {accessToken}\nX-Request-ID: {request_id}
+activate Server
+
+== JWT 认证中间件拦截 ==
+
+Server -> JWT: JWTAuth(accessToken)
+activate JWT
+
+alt 未提供认证令牌
+    JWT --> Server: {code: 100001, msg: "未提供认证令牌"}
+    deactivate JWT
+    Server --> Frontend: {code: 100001, msg: "未提供认证令牌"}
+    Frontend --> Frontend: 使用 Refresh Token 调用刷新接口 (POST /api/auth/refresh)
+else 令牌无效或已过期
+    JWT --> Server: {code: 100001, msg: "认证令牌无效或已过期"}
+    deactivate JWT
+    Server --> Frontend: {code: 100001, msg: "认证令牌无效或已过期"}
+    Frontend --> Frontend: 使用 Refresh Token 调用刷新接口 (POST /api/auth/refresh)
+else 令牌有效
+    JWT --> Server: userId (从 claims 中提取)
+    deactivate JWT
+    Server -> Handler: testChannel(userId, channelId)
+    activate Handler
+
+    == 查询渠道 ==
+
+    Handler -> Service: getChannelById(channelId, userId)
+    activate Service
+    Service -> DB: SELECT * FROM channels WHERE id = ? AND user_id = ?
+    activate DB
+
+    alt 渠道不存在
+        DB --> Service: nil
+        deactivate DB
+        Service --> Handler: ErrChannelNotFound (110603)
+        Handler --> Server: {code: 110603, msg: "渠道不存在"}
+        Server --> Frontend: {code: 110603, msg: "渠道不存在"}
+        Frontend --> User: 显示错误提示
+    else 渠道已停用
+        DB --> Service: channel (status = 2)
+        deactivate DB
+        Service --> Handler: channel
+        deactivate Service
+        Handler -> Handler: 校验状态（status != 1，返回 ErrChannelDisabled）
+        Handler --> Server: {code: 110607, msg: "渠道已停用"}
+        Server --> Frontend: {code: 110607, msg: "渠道已停用"}
+        Frontend --> User: 提示渠道已停用
+    else 渠道正常
+        DB --> Service: channel
+        deactivate DB
+        Service --> Handler: channel
+        deactivate Service
+        Handler -> Handler: 校验状态（status == 1，通过）
+
+        == 发送测试消息 ==
+
+        Handler -> Factory: create(channel.type)
+        activate Factory
+        Factory --> Handler: sender
+        deactivate Factory
+        Handler -> Sender: send(config, testMessage)
+        activate Sender
+        Sender -> Sender: 调用渠道API发送测试消息
+
+        alt 发送失败
+            Sender --> Handler: 失败 (error)
+            deactivate Sender
+            Handler --> Server: {code: 200000, msg: "测试失败: 错误信息"}
+            Server --> Frontend: {code: 200000, msg: "测试失败: 错误信息"}
+            Frontend --> User: 显示测试失败
+        else 发送成功
+            Sender --> Handler: 成功
+            deactivate Sender
+            Handler --> Server: {code: 0, msg: "测试成功"}
+            deactivate Handler
+            Server --> Frontend: {code: 0, msg: "测试成功"}
+            deactivate Server
+            Frontend --> User: 测试连接成功
+        end
+    end
+end
+
+@enduml

@@ -1,0 +1,36 @@
+@startuml OctoTify_State_Source
+
+title Source 状态机
+
+skinparam linetype ortho
+
+state "正常\n(Active)\nstatus = 1" as src_active
+state "禁用\n(Disabled)\nstatus = 2" as src_disabled
+state "已删除\n(Deleted)\nstatus = -1" as src_deleted
+
+[*] --> src_active : 创建 Source\n(POST /api/sources)\n生成 Token
+
+src_active --> src_disabled : 停用\n(PUT /api/sources/:id/disable)
+src_disabled --> src_active : 启用\n(PUT /api/sources/:id/enable)
+
+src_active --> src_deleted : 删除\n(DELETE /api/sources/:id)\n软删除，Token 失效
+src_disabled --> src_deleted : 删除\n(DELETE /api/sources/:id)\n软删除，Token 失效
+
+src_deleted --> [*] : 终态，不可恢复\nErrSourceAlreadyDeleted(110509)
+
+note right of src_active
+    Token 有效，可接受推送
+    POST /api/message/push 可通过
+end note
+
+note right of src_disabled
+    Token 失效，推送被拒
+    ErrSourceDisabled(110511)
+end note
+
+note right of src_deleted
+    软删除，不可恢复
+    所有操作返回 110509
+end note
+
+@enduml

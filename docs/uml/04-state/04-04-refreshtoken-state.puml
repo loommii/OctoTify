@@ -1,0 +1,29 @@
+@startuml OctoTify_State_RefreshToken
+
+title RefreshToken 状态机
+
+skinparam linetype ortho
+
+state "有效\n(Valid)\nrevoked = false" as rt_valid
+state "已撤销\n(Revoked)\nrevoked = true" as rt_revoked
+state "已过期\n(Expired)\nexpires_at < now" as rt_expired
+
+[*] --> rt_valid : 登录/注册时创建\n(INSERT refresh_tokens)
+
+rt_valid --> rt_revoked : 刷新令牌时撤销旧令牌\n(UPDATE revoked=true)\n或主动登出
+rt_valid --> rt_expired : 超过 expires_at\n(7天有效期)
+
+rt_revoked --> [*] : 不可再用\nErrRefreshTokenRevoked(110301)
+rt_expired --> [*] : 不可再用\nErrRefreshTokenExpired(110302)
+
+note right of rt_valid
+    可用于刷新 Access Token
+    POST /api/auth/refresh
+end note
+
+note right of rt_revoked
+    已被新令牌替代
+    每次刷新撤销旧令牌+创建新令牌
+end note
+
+@enduml

@@ -1,0 +1,16 @@
+tmp/
+backend/config/keys/
+backend/data/
+backend/server
+backend/generate
+backend/data/octotify.db
+
+# frontend
+frontend/node_modules/
+frontend/dist/
+frontend/*.tsbuildinfo
+
+# playwright
+/tests/
+/test-results/
+/playwright-report/

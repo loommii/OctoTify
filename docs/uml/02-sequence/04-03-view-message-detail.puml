@@ -1,0 +1,89 @@
+@startuml OctoTify_Sequence_ViewMessageDetail
+
+skinparam sequenceStyle svg
+skinparam linetype ortho
+
+title 查看消息详情 (GET /api/messages/:id)
+
+actor "用户" as User
+participant "前端" as Frontend
+participant "HTTPServer" as Server
+participant "JWTAuth 中间件" as JWT
+participant "MessageHandler" as Handler
+participant "MessageService" as Service
+database "SQLite" as DB
+
+User -> Frontend: 点击某条消息
+Frontend -> Server: GET /api/messages/:id
+note right: Header: Authorization Bearer {accessToken}\nX-Request-ID: {request_id}
+activate Server
+
+== JWT 认证中间件拦截 ==
+
+Server -> JWT: JWTAuth(accessToken)
+activate JWT
+
+alt 未提供认证令牌
+    JWT --> Server: {code: 100001, msg: "未提供认证令牌"}
+    deactivate JWT
+    Server --> Frontend: {code: 100001, msg: "未提供认证令牌"}
+    Frontend --> Frontend: 使用 Refresh Token 调用刷新接口 (POST /api/auth/refresh)\n刷新成功后重试原请求
+else 令牌无效或已过期
+    JWT --> Server: {code: 100001, msg: "认证令牌无效或已过期"}
+    deactivate JWT
+    Server --> Frontend: {code: 100001, msg: "认证令牌无效或已过期"}
+    Frontend --> Frontend: 使用 Refresh Token 调用刷新接口 (POST /api/auth/refresh)\n刷新成功后重试原请求
+else 令牌有效
+    JWT --> Server: userId (从 claims 中提取)
+    deactivate JWT
+    Server -> Handler: GetMessageDetail(userId, messageId)
+    activate Handler
+
+    == 参数校验 ==
+
+    alt messageId 格式错误
+        Handler --> Server: {code: 100000, msg: "无效的消息 ID"}
+        Server --> Frontend: {code: 100000, msg: "无效的消息 ID"}
+        Frontend --> User: 显示错误提示
+    else 参数校验通过
+
+        == 查询消息详情 ==
+
+        Handler -> Service: GetMessageByID(ctx, userId, messageId)
+        activate Service
+
+        Service -> DB: SELECT m.id, m.source_id, s.name as source_name, m.channel_id, c.name as channel_name, c.type as channel_type, m.title, m.content, m.status, m.created_at, m.updated_at FROM messages m LEFT JOIN sources s ON m.source_id = s.id LEFT JOIN channels c ON m.channel_id = c.id WHERE m.id = ? AND s.user_id = ? AND m.status != -1
+        activate DB
+
+        alt 查询失败
+            DB --> Service: 查询错误
+            deactivate DB
+            Service --> Handler: ErrMessageRecordFailed (110704)
+            Handler --> Server: {code: 110704, msg: "记录消息状态失败"}
+            note right: 日志：查询消息详情失败\nerror_code=110704, request_id={request_id}, messageId={messageId}
+            Server --> Frontend: {code: 110704, msg: "记录消息状态失败"}
+            Frontend --> User: 显示错误提示
+        else 消息不存在或已删除
+            DB --> Service: nil
+            deactivate DB
+            Service --> Handler: ErrNotFound (100003)
+            Handler --> Server: {code: 100003, msg: "资源不存在"}
+            note right: 日志：消息不存在\nerror_code=100003, request_id={request_id}, messageId={messageId}
+            Server --> Frontend: {code: 100003, msg: "资源不存在"}
+            Frontend --> User: 显示消息不存在提示
+        else 消息存在
+            DB --> Service: {id, source_id, source_name, channel_id, channel_name, channel_type, title, content, status, created_at, updated_at}
+            deactivate DB
+            Service --> Handler: MessageDetailDTO
+            deactivate Service
+            Handler --> Server: {code: 0, msg: "请求成功", data: MessageDetailDTO}
+            note right: 日志：查询消息详情成功\nrequest_id={request_id}, messageId={messageId}
+            deactivate Handler
+            Server --> Frontend: {code: 0, msg: "请求成功", data: MessageDetailDTO}
+            deactivate Server
+            Frontend --> User: 显示消息详情（包含来源名称、渠道名称、渠道类型）
+        end
+    end
+end
+
+@enduml

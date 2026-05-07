@@ -1,0 +1,76 @@
+@startuml OctoTify_Sequence_RecordStatus
+
+skinparam sequenceStyle svg
+skinparam linetype ortho
+
+title 更新推送状态（通用）
+
+participant "MessageService" as Service
+database "SQLite" as DB
+
+note over Service: 推送完成后更新消息状态\n状态流转：\n100（待推送）→ 200（成功）\n100（待推送）→ 300（失败）\n300（失败）→ 100（待推送）重试场景
+
+== 场景1：推送成功，更新为 200 ==
+
+Service -> DB: BEGIN TRANSACTION
+activate DB
+Service -> DB: UPDATE messages SET status = 200, updated_at = ? WHERE id = ?
+activate DB
+
+alt 数据库更新失败
+    DB --> Service: 更新失败
+    deactivate DB
+    Service -> DB: ROLLBACK
+    deactivate DB
+    Service -> Service: 记录状态更新失败日志\nlogger.Error("更新消息状态失败", error, message_id, status)
+else 数据库更新成功
+    DB --> Service: 成功 (rows affected)
+    deactivate DB
+    Service -> DB: COMMIT
+    deactivate DB
+    Service -> Service: 状态更新成功
+end
+
+== 场景2：推送失败，更新为 300 ==
+
+Service -> DB: BEGIN TRANSACTION
+activate DB
+Service -> DB: UPDATE messages SET status = 300, updated_at = ? WHERE id = ?
+activate DB
+
+alt 数据库更新失败
+    DB --> Service: 更新失败
+    deactivate DB
+    Service -> DB: ROLLBACK
+    deactivate DB
+    Service -> Service: 记录状态更新失败日志\nlogger.Error("更新消息状态失败", error, message_id, status)
+else 数据库更新成功
+    DB --> Service: 成功 (rows affected)
+    deactivate DB
+    Service -> DB: COMMIT
+    deactivate DB
+    Service -> Service: 状态更新成功
+end
+
+== 场景3：重试场景，300 → 100 ==
+
+Service -> DB: BEGIN TRANSACTION
+activate DB
+Service -> DB: UPDATE messages SET status = 100, updated_at = ? WHERE id = ?
+activate DB
+
+alt 数据库更新失败
+    DB --> Service: 更新失败
+    deactivate DB
+    Service -> DB: ROLLBACK
+    deactivate DB
+    Service -> Service: 记录状态更新失败日志\nlogger.Error("更新消息状态失败", error, message_id, status)
+else 数据库更新成功
+    DB --> Service: 成功 (rows affected)
+    deactivate DB
+    Service -> DB: COMMIT
+    deactivate DB
+    Service -> Service: 状态更新成功，准备重试推送
+end
+
+@enduml

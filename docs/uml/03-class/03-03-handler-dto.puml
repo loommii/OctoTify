@@ -1,0 +1,146 @@
+@startuml OctoTify_Class_HandlerDTO
+
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam nodesep 60
+skinparam ranksep 60
+
+title OctoTify 类图（3/6）—— Handler 与 DTO
+
+package "internal/handler (HTTP处理器)" {
+    class "AuthHandler (认证处理器)" as AuthHandler <<struct>> {
+        - authService: AuthService        ' 认证服务
+        + Register(ctx *gin.Context)      ' 注册账户
+        + Login(ctx *gin.Context)         ' 用户登录
+        + RefreshToken(ctx *gin.Context)  ' 刷新令牌
+        + ChangePassword(ctx *gin.Context) ' 修改密码
+        + GetUserProfile(ctx *gin.Context) ' 查询用户信息
+    }
+
+    class "SourceHandler (消息来源处理器)" as SourceHandler <<struct>> {
+        - sourceService: SourceService     ' 来源服务
+        + CreateSource(ctx *gin.Context)   ' 创建消息来源
+        + UpdateSource(ctx *gin.Context)   ' 编辑消息来源
+        + ListSources(ctx *gin.Context)    ' 查看来源列表
+        + ViewSourceDetail(ctx *gin.Context) ' 查看来源详情
+        + ViewSourceToken(ctx *gin.Context)  ' 查看来源令牌
+        + ResetSourceToken(ctx *gin.Context) ' 重置来源令牌
+        + DisableSource(ctx *gin.Context)  ' 停用消息来源
+        + EnableSource(ctx *gin.Context)   ' 启用消息来源
+        + DeleteSource(ctx *gin.Context)   ' 删除消息来源
+    }
+
+    class "ChannelHandler (推送渠道处理器)" as ChannelHandler <<struct>> {
+        - channelService: ChannelService  ' 渠道服务
+        - senderFactory: SenderFactory    ' 推送发送器工厂
+        + CreateChannel(ctx *gin.Context)   ' 创建推送渠道
+        + UpdateChannel(ctx *gin.Context)   ' 编辑推送渠道
+        + ListChannels(ctx *gin.Context)    ' 查看渠道列表
+        + ViewChannelDetail(ctx *gin.Context) ' 查看渠道详情
+        + TestChannel(ctx *gin.Context)     ' 测试渠道连接
+        + DisableChannel(ctx *gin.Context)  ' 停用推送渠道
+        + EnableChannel(ctx *gin.Context)   ' 启用推送渠道
+        + DeleteChannel(ctx *gin.Context)   ' 删除推送渠道
+    }
+
+    class "MessageHandler (消息处理器)" as MessageHandler <<struct>> {
+        - messageService: MessageService   ' 消息服务
+        + PushMessage(ctx *gin.Context)    ' 推送消息
+        + ListMessages(ctx *gin.Context)   ' 查看消息列表
+        + FilterMessages(ctx *gin.Context) ' 筛选消息记录
+        + ViewMessageDetail(ctx *gin.Context) ' 查看消息详情
+        + DeleteMessage(ctx *gin.Context)  ' 删除消息记录
+    }
+}
+
+package "internal/handler/dto (请求DTO)" {
+    class "RegisterReq (注册请求)" as RegisterReq <<struct>> {
+        + Username: string     ' 用户名
+        + Password: string     ' 密码
+    }
+    class "LoginReq (登录请求)" as LoginReq <<struct>> {
+        + Username: string     ' 用户名
+        + Password: string     ' 密码
+    }
+    class "RefreshReq (刷新令牌请求)" as RefreshReq <<struct>> {
+        + RefreshToken: string ' 刷新令牌
+    }
+    class "ChangePasswordReq (修改密码请求)" as ChangePasswordReq <<struct>> {
+        + OldPassword: string  ' 旧密码
+        + NewPassword: string  ' 新密码
+    }
+    class "CreateSourceReq (创建来源请求)" as CreateSourceReq <<struct>> {
+        + Name: string         ' 来源名称
+        + Description: string  ' 来源描述
+    }
+    class "UpdateSourceReq (编辑来源请求)" as UpdateSourceReq <<struct>> {
+        + Name: string         ' 来源名称
+        + Description: string  ' 来源描述
+        + ChannelIDs: []int64  ' 绑定的渠道ID列表
+    }
+    class "CreateChannelReq (创建渠道请求)" as CreateChannelReq <<struct>> {
+        + Type: string         ' 渠道类型
+        + Name: string         ' 渠道名称
+        + Config: datatypes.JSON ' 渠道配置
+    }
+    class "UpdateChannelReq (编辑渠道请求)" as UpdateChannelReq <<struct>> {
+        + Name: string         ' 渠道名称
+        + Config: datatypes.JSON ' 渠道配置
+    }
+    class "PushMessageReq (推送消息请求)" as PushMessageReq <<struct>> {
+        + Title: string        ' 消息标题
+        + Message: string      ' 消息内容
+    }
+    class "PageReq (分页请求)" as PageReq <<struct>> {
+        + Page: int            ' 页码（从1开始）
+        + PageSize: int        ' 每页条数（最大100）
+    }
+}
+
+package "internal/handler/dto (响应DTO)" {
+    class "UserDTO (用户响应)" as UserDTO <<struct>> {
+        + ID: int64            ' 用户ID
+        + Username: string     ' 用户名
+        + CreatedAt: int64     ' 创建时间（Unix毫秒）
+    }
+    class "SourceDTO (来源响应)" as SourceDTO <<struct>> {
+        + ID: int64            ' 来源ID
+        + Name: string         ' 来源名称
+        + Token: string        ' 推送Token
+        + Description: string  ' 来源描述
+        + Status: int          ' 状态
+        + CreatedAt: int64     ' 创建时间（Unix毫秒）
+        + UpdatedAt: int64     ' 更新时间（Unix毫秒）
+        + LastUsedAt: int64    ' 最后使用时间（Unix毫秒）
+    }
+    class "ChannelDTO (渠道响应)" as ChannelDTO <<struct>> {
+        + ID: int64            ' 渠道ID
+        + Type: string         ' 渠道类型
+        + Name: string         ' 渠道名称
+        + Config: datatypes.JSON ' 渠道配置
+        + Status: int          ' 状态
+        + CreatedAt: int64     ' 创建时间（Unix毫秒）
+        + UpdatedAt: int64     ' 更新时间（Unix毫秒）
+        + LastUsedAt: int64    ' 最后使用时间（Unix毫秒）
+    }
+    class "MessageDTO (消息响应)" as MessageDTO <<struct>> {
+        + ID: int64            ' 消息ID
+        + SourceID: int64      ' 来源ID
+        + ChannelID: int64     ' 渠道ID
+        + Title: string        ' 消息标题
+        + Content: string      ' 消息内容
+        + Status: int          ' 推送状态
+        + CreatedAt: int64     ' 创建时间（Unix毫秒）
+        + UpdatedAt: int64     ' 更新时间（Unix毫秒）
+    }
+}
+
+note as MappingNote
+    Domain → DTO 映射关系：
+    User    → UserDTO    (剥离 PasswordHash)
+    Source  → SourceDTO  (直映射)
+    Channel → ChannelDTO (直映射)
+    Message → MessageDTO (直映射)
+end note
+
+@enduml

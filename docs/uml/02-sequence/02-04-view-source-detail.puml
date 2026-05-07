@@ -1,0 +1,106 @@
+@startuml OctoTify_Sequence_ViewSourceDetail
+
+skinparam sequenceStyle svg
+skinparam linetype ortho
+
+title 查看来源详情 (GET /api/sources/:id)
+
+actor "用户" as User
+participant "前端" as Frontend
+participant "HTTPServer" as Server
+participant "JWTAuth 中间件" as JWT
+participant "SourceHandler" as Handler
+participant "SourceService" as Service
+database "SQLite" as DB
+
+User -> Frontend: 点击某个来源
+Frontend -> Server: GET /api/sources/:id
+note right: Header: Authorization Bearer {accessToken}\nX-Request-ID: {request_id}
+activate Server
+
+== JWT 认证中间件拦截 ==
+
+Server -> JWT: JWTAuth(accessToken)
+activate JWT
+
+alt 未提供认证令牌
+    JWT --> Server: {code: 100001, msg: "未提供认证令牌"}
+    deactivate JWT
+    Server --> Frontend: {code: 100001, msg: "未提供认证令牌"}
+    Frontend --> Frontend: 使用 Refresh Token 调用刷新接口 (POST /api/auth/refresh)\n刷新成功后重试原请求
+else 令牌无效或已过期
+    JWT --> Server: {code: 100001, msg: "认证令牌无效或已过期"}
+    deactivate JWT
+    Server --> Frontend: {code: 100001, msg: "认证令牌无效或已过期"}
+    Frontend --> Frontend: 使用 Refresh Token 调用刷新接口 (POST /api/auth/refresh)\n刷新成功后重试原请求
+else 令牌有效
+    JWT --> Server: userId (从 claims 中提取)
+    deactivate JWT
+    Server -> Handler: GetSourceDetail(userId, sourceId)
+    activate Handler
+
+    == 参数校验 ==
+
+    alt sourceId 格式错误
+        Handler --> Server: {code: 100000, msg: "来源ID格式错误"}
+        Server --> Frontend: {code: 100000, msg: "来源ID格式错误"}
+        Frontend --> User: 显示错误提示
+    else 参数校验通过
+
+        == 查询来源 ==
+
+        Handler -> Service: GetSourceDetail(ctx, sourceId, userId)
+        activate Service
+        Service -> DB: SELECT * FROM sources WHERE id = ? AND user_id = ? AND status != -1
+        activate DB
+
+        alt 查询失败
+            DB --> Service: 查询错误
+            deactivate DB
+            Service --> Handler: ErrSourceQueryFailed (110505)
+            Handler --> Server: {code: 110505, msg: "查询来源失败"}
+            note right: 日志：查询来源详情失败\nerror_code=110505, request_id={request_id}, sourceId={sourceId}
+            Server --> Frontend: {code: 110505, msg: "查询来源失败"}
+            Frontend --> User: 显示错误提示
+        else 来源不存在或已删除
+            DB --> Service: nil
+            deactivate DB
+            Service --> Handler: ErrSourceNotFound (110503)
+            Handler --> Server: {code: 110503, msg: "来源不存在"}
+            note right: 日志：来源不存在\nerror_code=110503, request_id={request_id}, sourceId={sourceId}
+            Server --> Frontend: {code: 110503, msg: "来源不存在"}
+            Frontend --> User: 显示错误提示
+        else 来源存在
+            DB --> Service: source
+            deactivate DB
+
+            == 查询绑定渠道 ==
+
+            Service -> DB: SELECT c.* FROM channels c INNER JOIN source_channels sc ON c.id = sc.channel_id WHERE sc.source_id = ? AND c.status != -1
+            activate DB
+
+            alt 查询渠道失败
+                DB --> Service: 查询错误
+                deactivate DB
+                Service --> Handler: ErrChannelQueryFailed (110605)
+                Handler --> Server: {code: 110605, msg: "查询渠道失败"}
+                note right: 日志：查询绑定渠道失败\nerror_code=110605, request_id={request_id}, sourceId={sourceId}
+                Server --> Frontend: {code: 110605, msg: "查询渠道失败"}
+                Frontend --> User: 显示错误提示
+            else 查询成功
+                DB --> Service: channels[]
+                deactivate DB
+                Service --> Handler: {source, channels}
+                deactivate Service
+                Handler --> Server: {code: 0, msg: "请求成功", data: {source, channels}}
+                note right: 日志：查询来源详情成功\nrequest_id={request_id}, sourceId={sourceId}
+                deactivate Handler
+                Server --> Frontend: {code: 0, msg: "请求成功", data: {source, channels}}
+                deactivate Server
+                Frontend --> User: 显示来源详情和已绑定渠道
+            end
+        end
+    end
+end
+
+@enduml

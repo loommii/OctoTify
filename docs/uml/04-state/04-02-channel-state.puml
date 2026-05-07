@@ -1,0 +1,31 @@
+@startuml OctoTify_State_Channel
+
+title Channel 状态机
+
+skinparam linetype ortho
+
+state "正常\n(Active)\nstatus = 1" as ch_active
+state "禁用\n(Disabled)\nstatus = 2" as ch_disabled
+state "已删除\n(Deleted)\nstatus = -1" as ch_deleted
+
+[*] --> ch_active : 创建 Channel\n(POST /api/channels)\n配置渠道凭证
+
+ch_active --> ch_disabled : 停用\n(PUT /api/channels/:id/disable)
+ch_disabled --> ch_active : 启用\n(PUT /api/channels/:id/enable)
+
+ch_active --> ch_deleted : 删除\n(DELETE /api/channels/:id)\n软删除
+ch_disabled --> ch_deleted : 删除\n(DELETE /api/channels/:id)\n软删除
+
+ch_deleted --> [*] : 终态，不可恢复\nErrChannelAlreadyDeleted(110609)
+
+note right of ch_active
+    渠道可用，可接收推送
+    可执行测试连接
+end note
+
+note right of ch_disabled
+    渠道停用，推送时跳过
+    测试连接返回 110607
+end note
+
+@enduml

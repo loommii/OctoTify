@@ -1,0 +1,48 @@
+@startuml OctoTify_Sequence_GetUserProfile
+
+skinparam sequenceStyle svg
+skinparam linetype ortho
+
+title 查询用户信息 (GET /api/user/profile)
+
+actor "用户" as User
+participant "前端" as Frontend
+participant "HTTPServer" as Server
+participant "UserHandler" as Handler
+participant "UserService" as UserSvc
+database "SQLite" as DB
+
+User -> Frontend: 访问个人中心
+Frontend -> Server: GET /api/user/profile
+note right: Header: Authorization Bearer {accessToken}
+activate Server
+Server -> Handler: getUserProfile(req)
+activate Handler
+Handler -> UserSvc: getUserById(userId)
+activate UserSvc
+
+== 查询用户 ==
+
+UserSvc -> DB: SELECT id, username, created_at FROM users WHERE id = ?
+activate DB
+
+alt 用户不存在
+    DB --> UserSvc: nil
+    deactivate DB
+    UserSvc --> Handler: ErrUserProfileNotFound (110500)
+    Handler --> Server: {code: 110500, msg: "用户不存在"}
+    Server --> Frontend: {code: 110500, msg: "用户不存在"}
+    Frontend --> User: 显示错误提示
+else 用户存在
+    DB --> UserSvc: user
+    deactivate DB
+    UserSvc --> Handler: user
+    deactivate UserSvc
+    Handler --> Server: {code: 0, data: {user: {id, username, createdAt}}}
+    deactivate Handler
+    Server --> Frontend: {code: 0, data: {user: {id, username, createdAt}}}
+    deactivate Server
+    Frontend --> User: 显示用户信息
+end
+
+@enduml

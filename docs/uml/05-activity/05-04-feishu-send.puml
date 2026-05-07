@@ -1,0 +1,67 @@
+@startuml OctoTify_Activity_FeishuSend
+
+skinparam activityStyle round
+skinparam linetype ortho
+
+title 飞书渠道推送活动图
+
+start
+
+:MessageService 调用 FeishuSender.Send();
+
+:解析渠道配置 JSON;
+note right
+  {
+    "webhook_url": "https://...",
+    "secret": ""
+  }
+end note
+
+if [配置解析失败] then (是)
+  :返回错误 "渠道配置无效";
+  stop
+else (否)
+  :提取 webhookURL 和 secret;
+endif
+
+:构造飞书 text 消息体;
+note right
+  {
+    "msg_type": "text",
+    "content": {
+      "text": "[标题]\n内容"
+    }
+  }
+end note
+
+if [secret 不为空?] then (是)
+  :获取当前时间戳（秒级）;
+  :拼接签名字符串: timestamp + "\n" + secret;
+  :HMAC-SHA256 计算签名;
+  :Base64 URL Safe 编码签名;
+  :拼接 URL: webhookURL + "?timestamp=" + timestamp + "&sign=" + sign;
+else (否)
+  :使用原始 webhookURL;
+endif
+
+:构造 HTTP POST 请求;
+note right
+  Header: Content-Type: application/json
+  Timeout: 30s
+end note
+
+:发送请求到飞书 Webhook;
+
+if [HTTP 响应 StatusCode == 0?] then (是)
+  :推送成功;
+  stop
+else (否)
+  if [网络超时?] then (是)
+    :返回错误 "请求超时";
+  else (否)
+    :返回错误 "飞书推送失败: " + msg;
+  endif
+  stop
+endif
+
+@enduml

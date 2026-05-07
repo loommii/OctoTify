@@ -1,0 +1,141 @@
+@startuml OctoTify_Sequence_DeleteSource
+
+skinparam sequenceStyle svg
+skinparam linetype ortho
+
+title 删除消息来源 (DELETE /api/sources/:id)
+
+actor "用户" as User
+participant "前端" as Frontend
+participant "HTTPServer" as Server
+participant "JWTAuth 中间件" as JWT
+participant "SourceHandler" as Handler
+participant "SourceService" as Service
+database "SQLite" as DB
+
+User -> Frontend: 点击删除
+Frontend -> Frontend: 弹出密码输入框
+Frontend -> User: 要求输入密码验证身份
+User -> Frontend: 输入密码
+Frontend -> Server: DELETE /api/sources/:id
+note right: Header: Authorization Bearer {accessToken}\nX-Request-ID: {request_id}\nBody: {password}\n注意：DELETE 携带 Body 用于密码验证，主流网关均支持
+activate Server
+
+== JWT 认证中间件拦截 ==
+
+Server -> JWT: JWTAuth(accessToken)
+activate JWT
+
+alt 未提供认证令牌
+    JWT --> Server: {code: 100001, msg: "未提供认证令牌"}
+    deactivate JWT
+    Server --> Frontend: {code: 100001, msg: "未提供认证令牌"}
+    Frontend --> Frontend: 使用 Refresh Token 调用刷新接口 (POST /api/auth/refresh)
+else 令牌无效或已过期
+    JWT --> Server: {code: 100001, msg: "认证令牌无效或已过期"}
+    deactivate JWT
+    Server --> Frontend: {code: 100001, msg: "认证令牌无效或已过期"}
+    Frontend --> Frontend: 使用 Refresh Token 调用刷新接口 (POST /api/auth/refresh)
+else 令牌有效
+    JWT --> Server: userId (从 claims 中提取)
+    deactivate JWT
+    Server -> Handler: deleteSource(userId, sourceId, password)
+    activate Handler
+
+    == 密码验证 ==
+
+    Handler -> Service: verifyPassword(userId, password)
+    activate Service
+    Service -> DB: SELECT password_hash FROM users WHERE id = ?
+    activate DB
+
+    alt 密码验证失败
+        DB --> Service: password_hash
+        deactivate DB
+        Service -> Service: bcrypt.CompareHashAndPassword
+        Service --> Handler: ErrUnauthorized (100001)
+        Handler --> Server: {code: 100001, msg: "密码错误"}
+        Server --> Frontend: {code: 100001, msg: "密码错误"}
+        Frontend --> User: 显示密码错误提示
+    else 密码验证成功
+        DB --> Service: password_hash
+        deactivate DB
+        Service -> Service: bcrypt.CompareHashAndPassword
+        Service --> Handler: 验证成功
+        deactivate Service
+
+        == 查询来源 ==
+
+        Handler -> Service: getSourceById(sourceId, userId)
+        activate Service
+        Service -> DB: SELECT * FROM sources WHERE id = ? AND user_id = ?
+        activate DB
+
+        alt 来源不存在
+            DB --> Service: nil
+            deactivate DB
+            Service --> Handler: ErrSourceNotFound (110503)
+            Handler --> Server: {code: 110503, msg: "来源不存在"}
+            Server --> Frontend: {code: 110503, msg: "来源不存在"}
+            Frontend --> User: 显示错误提示
+        else 来源已删除
+            DB --> Service: source (status = -1)
+            deactivate DB
+            Service --> Handler: ErrSourceAlreadyDeleted (110509)
+            Handler --> Server: {code: 110509, msg: "来源已删除"}
+            Server --> Frontend: {code: 110509, msg: "来源已删除"}
+            Frontend --> User: 提示来源已删除
+        else 来源存在
+            DB --> Service: source
+            deactivate DB
+            Service --> Handler: source
+            deactivate Service
+
+            == 软删除来源 ==
+
+            Handler -> Service: softDeleteSource(sourceId, userId)
+            activate Service
+
+            Service -> DB: UPDATE sources SET status = -1, updated_at = ? WHERE id = ? AND user_id = ?
+            activate DB
+
+            alt 删除来源失败
+                DB --> Service: 更新失败
+                deactivate DB
+                Service --> Handler: ErrSourceDeleteFailed (110506)
+                Handler --> Server: {code: 110506, msg: "删除来源失败"}
+                Server --> Frontend: {code: 110506, msg: "删除来源失败"}
+                Frontend --> User: 显示错误提示
+            else 删除来源成功
+                DB --> Service: 成功
+                deactivate DB
+
+                == 软删除关联渠道 ==
+
+                Service -> DB: UPDATE source_channels SET status = -1 WHERE source_id = ?
+                activate DB
+
+                alt 删除关联渠道失败
+                    DB --> Service: 更新失败
+                    deactivate DB
+                    Service --> Handler: ErrSourceDeleteFailed (110506)
+                    Handler --> Server: {code: 110506, msg: "删除来源失败"}
+                    Server --> Frontend: {code: 110506, msg: "删除来源失败"}
+                    Frontend --> User: 显示错误提示
+                else 删除关联渠道成功
+                    DB --> Service: 成功
+                    deactivate DB
+                    Service --> Handler: 成功
+                    deactivate Service
+                    Handler --> Server: {code: 0}
+                    deactivate Handler
+                    Server --> Frontend: {code: 0, msg: "已删除"}
+                    deactivate Server
+                    Frontend --> User: 来源已删除
+                end
+            end
+        end
+    end
+end
+
+@enduml

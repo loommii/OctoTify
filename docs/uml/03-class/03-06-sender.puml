@@ -1,0 +1,81 @@
+@startuml OctoTify_Class_Sender
+
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam nodesep 60
+skinparam ranksep 60
+
+title OctoTify 类图（6/6）—— Sender 策略模式
+
+package "internal/sender (推送策略层)" {
+
+    interface "Sender (推送发送器接口)" as Sender <<interface>> {
+        + Send(ctx context.Context, config datatypes.JSON, title string, content string) error ' 发送消息到渠道
+    }
+
+    class "SenderFactory (发送器工厂)" as SenderFactory <<struct>> {
+        - senders: map[string]Sender ' 渠道类型→发送器映射
+        + Create(channelType string): (Sender, error) ' 根据渠道类型创建发送器
+    }
+
+    class "WechatSender (微信推送)" as WechatSender <<struct>> {
+        + Send(ctx context.Context, config datatypes.JSON, title string, content string): error ' 调用微信API推送
+    }
+    class "TelegramSender (Telegram推送)" as TelegramSender <<struct>> {
+        + Send(ctx context.Context, config datatypes.JSON, title string, content string): error ' 调用Telegram Bot API推送
+    }
+    class "DingtalkSender (钉钉推送)" as DingtalkSender <<struct>> {
+        + Send(ctx context.Context, config datatypes.JSON, title string, content string): error ' 调用钉钉机器人API推送
+    }
+    class "EmailSender (邮件推送)" as EmailSender <<struct>> {
+        + Send(ctx context.Context, config datatypes.JSON, title string, content string): error ' 调用SMTP发送邮件
+    }
+    class "WebhookSender (Webhook推送)" as WebhookSender <<struct>> {
+        + Send(ctx context.Context, config datatypes.JSON, title string, content string): error ' 发送HTTP POST到自定义URL
+    }
+    class "FeishuSender (飞书推送)" as FeishuSender <<struct>> {
+        + Send(ctx context.Context, config datatypes.JSON, title string, content string): error ' 调用飞书自定义机器人Webhook推送
+    }
+}
+
+WechatSender ..|> Sender : 实现
+TelegramSender ..|> Sender : 实现
+DingtalkSender ..|> Sender : 实现
+EmailSender ..|> Sender : 实现
+WebhookSender ..|> Sender : 实现
+FeishuSender ..|> Sender : 实现
+SenderFactory --> Sender : 创建
+
+note as SenderNote
+    设计模式：
+    - 策略模式：Sender 接口统一推送行为
+    - 工厂模式：SenderFactory 根据 channel.Type 路由
+
+    channel.Type → Sender 映射：
+    "wechat"    → WechatSender
+    "telegram"  → TelegramSender
+    "dingtalk"  → DingtalkSender
+    "email"     → EmailSender
+    "webhook"   → WebhookSender
+    "feishu"    → FeishuSender
+
+    FeishuSender 配置结构：
+    {
+      "webhook_url": "https://open.feishu.cn/open-apis/bot/v2/hook/xxx",
+      "secret": ""  // 可选，签名校验密钥
+    }
+
+    签名校验流程：
+    1. 拼接字符串: timestamp + "\n" + secret
+    2. HMAC-SHA256 计算签名
+    3. Base64 URL Safe 编码
+    4. 附加到 URL: ?timestamp=xxx&sign=xxx
+
+    并发推送策略：
+    - goroutine pool 限制最大并发数（默认 10）
+    - context.WithTimeout 单渠道超时 30s
+    - errgroup 收集所有 goroutine 结果
+    - 单渠道失败不影响其他渠道
+end note
+
+@enduml

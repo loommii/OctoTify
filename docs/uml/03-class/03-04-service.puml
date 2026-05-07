@@ -1,0 +1,60 @@
+@startuml OctoTify_Class_Service
+
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam nodesep 60
+skinparam ranksep 60
+
+title OctoTify 类图（4/6）—— Service 接口层
+
+package "internal/service (业务逻辑层)" {
+
+    interface "AuthService (认证服务)" as AuthService <<interface>> {
+        + Register(ctx context.Context, req *RegisterReq) (*TokenPair, *User, error) ' 注册账户
+        + Login(ctx context.Context, req *LoginReq) (*TokenPair, *User, error) ' 用户登录
+        + RefreshAccessToken(ctx context.Context, refreshToken string) (*TokenPair, error) ' 刷新访问令牌
+        + ChangePassword(ctx context.Context, userId int64, req *ChangePasswordReq) error ' 修改密码
+        + GetUserProfile(ctx context.Context, userId int64) (*User, error) ' 查询用户信息
+    }
+
+    interface "SourceService (消息来源服务)" as SourceService <<interface>> {
+        + CreateSource(ctx context.Context, userId int64, req *CreateSourceReq) (*Source, error) ' 创建消息来源
+        + UpdateSource(ctx context.Context, userId int64, sourceId int64, req *UpdateSourceReq) error ' 编辑消息来源
+        + GetSourceByID(ctx context.Context, userId int64, sourceId int64) (*Source, error) ' 根据ID查询来源
+        + ListSources(ctx context.Context, userId int64, page *PageReq) (*PageResult, error) ' 分页查询来源列表
+        + ResetSourceToken(ctx context.Context, userId int64, sourceId int64) (string, error) ' 重置来源Token
+        + UpdateSourceStatus(ctx context.Context, userId int64, sourceId int64, status int) error ' 更新来源状态（启用/停用）
+        + DeleteSource(ctx context.Context, userId int64, sourceId int64) error ' 软删除来源
+        + SyncSourceChannels(ctx context.Context, sourceId int64, channelIds []int64) error ' 同步来源绑定的渠道
+    }
+
+    interface "ChannelService (推送渠道服务)" as ChannelService <<interface>> {
+        + CreateChannel(ctx context.Context, userId int64, req *CreateChannelReq) (*Channel, error) ' 创建推送渠道
+        + UpdateChannel(ctx context.Context, userId int64, channelId int64, req *UpdateChannelReq) error ' 编辑推送渠道
+        + GetChannelByID(ctx context.Context, userId int64, channelId int64) (*Channel, error) ' 根据ID查询渠道
+        + ListChannels(ctx context.Context, userId int64, page *PageReq) (*PageResult, error) ' 分页查询渠道列表
+        + UpdateChannelStatus(ctx context.Context, userId int64, channelId int64, status int) error ' 更新渠道状态（启用/停用）
+        + DeleteChannel(ctx context.Context, userId int64, channelId int64) error ' 软删除渠道
+    }
+
+    interface "MessageService (消息服务)" as MessageService <<interface>> {
+        + PushMessage(ctx context.Context, sourceToken string, req *PushMessageReq) (interface{}, error) ' 推送消息入口
+        + PushToChannels(ctx context.Context, source *Source, channels []*Channel, req *PushMessageReq) ([]*Message, error) ' 并发推送到多渠道
+        + ListMessages(ctx context.Context, userId int64, page *PageReq) (*PageResult, error) ' 分页查询消息列表
+        + FilterMessages(ctx context.Context, userId int64, filter *MessageFilter) (*PageResult, error) ' 按条件筛选消息
+        + GetMessageByID(ctx context.Context, userId int64, messageId int64) (*Message, error) ' 根据ID查询消息
+        + DeleteMessage(ctx context.Context, userId int64, messageId int64) error ' 软删除消息
+    }
+}
+
+note as ServiceNote
+    Service 层设计原则：
+    1. 所有方法首参为 ctx context.Context
+    2. 接口定义在消费侧（Go 惯例）
+    3. 业务错误返回预定义 CodeError
+    4. MessageService.PushToChannels 使用
+       errgroup + context.WithTimeout(30s)
+       实现并发推送与错误隔离
+end note
+
+@enduml

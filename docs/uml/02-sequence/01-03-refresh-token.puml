@@ -1,0 +1,81 @@
+@startuml OctoTify_Sequence_RefreshToken
+
+skinparam sequenceStyle svg
+skinparam linetype ortho
+
+title 刷新令牌 (POST /api/auth/refresh)
+
+actor "前端" as Frontend
+participant "HTTPServer" as Server
+participant "AuthHandler" as Handler
+participant "AuthService" as Auth
+participant "Access JWT Helper" as AccessJWT
+participant "Refresh JWT Helper" as RefreshJWT
+database "SQLite" as DB
+
+Frontend -> Server: POST /api/auth/refresh {refresh_token}
+activate Server
+Server -> Handler: refreshToken(req)
+activate Handler
+Handler -> Auth: refreshAccessToken(refreshToken)
+activate Auth
+
+== 令牌验证 ==
+
+Auth -> RefreshJWT: validateToken(refreshToken)
+activate RefreshJWT
+
+alt 令牌无效
+    RefreshJWT --> Auth: invalid
+    deactivate RefreshJWT
+    Auth --> Handler: ErrRefreshTokenInvalid (110300)
+    Handler --> Server: {code: 110300, msg: "刷新令牌无效"}
+    Server --> Frontend: {code: 110300, msg: "刷新令牌无效"}
+    Frontend --> Frontend: 跳转登录页
+else 令牌有效
+    RefreshJWT --> Auth: claims (jti, uid, token_type)
+    deactivate RefreshJWT
+
+    == 数据库检查 ==
+
+    Auth -> DB: SELECT * FROM refresh_tokens WHERE jti = ?
+    activate DB
+    DB --> Auth: refreshToken / nil
+    deactivate DB
+
+    alt 令牌不存在
+        Auth --> Handler: ErrRefreshTokenInvalid (110300)
+        Handler --> Server: {code: 110300, msg: "刷新令牌无效"}
+        Server --> Frontend: {code: 110300, msg: "刷新令牌无效"}
+        Frontend --> Frontend: 跳转登录页
+    else 令牌存在
+        Auth -> Auth: 检查 revoked（是否已撤销）
+
+        alt 令牌已撤销
+            Auth --> Handler: ErrRefreshTokenRevoked (110301)
+            Handler --> Server: {code: 110301, msg: "刷新令牌已撤销"}
+            Server --> Frontend: {code: 110301, msg: "刷新令牌已撤销"}
+            Frontend --> Frontend: 跳转登录页
+        else 令牌未撤销
+
+            == 生成新 Access Token ==
+
+            Auth -> DB: SELECT * FROM users WHERE id = ?
+            activate DB
+            DB --> Auth: user
+            deactivate DB
+            Auth -> AccessJWT: generateToken(claims {uid, token_type: access})
+            activate AccessJWT
+            AccessJWT --> Auth: newAccessToken
+            deactivate AccessJWT
+            Auth --> Handler: {newAccessToken, refreshToken}
+            deactivate Auth
+            Handler --> Server: {code: 0, data: {access_token, refresh_token, user}}
+            deactivate Handler
+            Server --> Frontend: {code: 0, data: {access_token, refresh_token, user}}
+            deactivate Server
+        end
+    end
+end
+
+@enduml

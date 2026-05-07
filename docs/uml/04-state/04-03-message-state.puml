@@ -1,0 +1,41 @@
+@startuml OctoTify_State_Message
+
+title Message 状态机
+
+skinparam linetype ortho
+
+state "待推送\n(Pending)\nstatus = 100" as msg_pending
+state "推送成功\n(Sent)\nstatus = 200" as msg_sent
+state "推送失败\n(Failed)\nstatus = 300" as msg_failed
+state "已删除\n(Deleted)\nstatus = -1" as msg_deleted
+
+[*] --> msg_pending : 创建消息记录\n(INSERT status=100)\n并发推送启动时
+
+msg_pending --> msg_sent : Sender.Send() 成功\n(UPDATE status=200)
+msg_pending --> msg_failed : Sender.Send() 失败\n(UPDATE status=300)\n或渠道类型不支持\n或消息记录创建后\nSender 不可用
+
+msg_failed --> msg_pending : 重试推送\n(UPDATE status=100)\n[预留重试场景]
+
+msg_sent --> msg_deleted : 删除\n(DELETE /api/messages/:id)\nErrMessageAlreadyDeleted(110705)\n若已删除
+msg_failed --> msg_deleted : 删除
+msg_pending --> msg_deleted : 删除
+
+msg_deleted --> msg_deleted : 不可恢复\nErrMessageAlreadyDeleted(110705)
+
+note right of msg_pending
+    消息已入库，等待推送
+    并发推送时先创建记录
+end note
+
+note right of msg_failed
+    推送失败，记录错误原因
+    ErrMessagePushFailed(110702)
+    ErrMessageRecordFailed(110704)
+    第三方错误(200xxx)
+end note
+
+note right of msg_sent
+    推送成功，渠道已确认
+end note
+
+@enduml

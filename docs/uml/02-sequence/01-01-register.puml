@@ -1,0 +1,103 @@
+@startuml OctoTify_Sequence_Register
+
+skinparam sequenceStyle svg
+skinparam linetype ortho
+
+title 注册账户 (POST /api/user/register)
+
+actor "用户" as User
+participant "前端" as Frontend
+participant "HTTPServer" as Server
+participant "AuthHandler" as Handler
+participant "AuthService" as Auth
+participant "Access JWT Helper" as AccessJWT
+participant "Refresh JWT Helper" as RefreshJWT
+database "SQLite" as DB
+
+User -> Frontend: 输入用户名、密码
+Frontend -> Server: POST /api/user/register {username, password}
+activate Server
+Server -> Handler: register(req)
+activate Handler
+
+== 参数校验（gin binding + 自定义 validator） ==
+
+alt 参数校验失败
+    Handler --> Server: {code: 100000~110103, msg: "错误信息"}
+    Server --> Frontend: {code: 100000~110103, msg: "错误信息"}
+    Frontend --> User: 显示错误提示
+else 参数校验通过
+    Handler -> Auth: register(username, password)
+    activate Auth
+
+    == 用户名检查 ==
+
+    alt 用户名已存在
+        Auth -> DB: SELECT * FROM users WHERE username = ?
+        activate DB
+        DB --> Auth: user（用户名已存在）
+        deactivate DB
+        Auth --> Handler: ErrRegisterUsernameExists (110104)
+        Handler --> Server: {code: 110104, msg: "用户名已存在"}
+        Server --> Frontend: {code: 110104, msg: "用户名已存在"}
+        Frontend --> User: 显示错误提示
+    else 用户名可用
+        Auth -> DB: SELECT * FROM users WHERE username = ?
+        activate DB
+        DB --> Auth: nil（用户名不存在）
+        deactivate DB
+
+        == 创建用户 ==
+
+        Auth -> Auth: 密码哈希
+
+        alt 创建用户或保存令牌失败
+            Auth -> DB: BEGIN TRANSACTION
+            activate DB
+            Auth -> DB: INSERT INTO users
+            DB --> Auth: userId
+            Auth -> AccessJWT: generateToken(claims {uid, token_type: access})
+            activate AccessJWT
+            AccessJWT --> Auth: accessToken
+            deactivate AccessJWT
+            Auth -> RefreshJWT: generateToken(claims {uid, token_type: refresh, jti})
+            activate RefreshJWT
+            RefreshJWT --> Auth: refreshToken
+            deactivate RefreshJWT
+            Auth -> DB: INSERT INTO refresh_tokens (jti, user_id)
+            DB --> Auth: 失败
+            Auth -> DB: ROLLBACK
+            deactivate DB
+            Auth --> Handler: ErrRegisterFailed (110105)
+            Handler --> Server: {code: 110105, msg: "注册失败"}
+            Server --> Frontend: {code: 110105, msg: "注册失败"}
+            Frontend --> User: 显示错误提示
+        else 创建用户和保存令牌成功
+            Auth -> DB: BEGIN TRANSACTION
+            activate DB
+            Auth -> DB: INSERT INTO users
+            DB --> Auth: userId
+            Auth -> AccessJWT: generateToken(claims {uid, token_type: access})
+            activate AccessJWT
+            AccessJWT --> Auth: accessToken
+            deactivate AccessJWT
+            Auth -> RefreshJWT: generateToken(claims {uid, token_type: refresh, jti})
+            activate RefreshJWT
+            RefreshJWT --> Auth: refreshToken
+            deactivate RefreshJWT
+            Auth -> DB: INSERT INTO refresh_tokens (jti, user_id)
+            DB --> Auth: 成功
+            Auth -> DB: COMMIT
+            deactivate DB
+            Auth --> Handler: {accessToken, refreshToken}
+            deactivate Auth
+            Handler --> Server: {code: 0, data: {access_token, refresh_token, user}}
+            deactivate Handler
+            Server --> Frontend: {code: 0, data: {access_token, refresh_token, user}}
+            deactivate Server
+            Frontend --> User: 注册成功，自动登录，跳转首页
+        end
+    end
+end
+
+@enduml
