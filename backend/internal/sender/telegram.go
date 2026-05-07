@@ -191,14 +191,6 @@ func newHTTPClient(proxy string) (*http.Client, error) {
 	}, nil
 }
 
-// maskToken 对 Bot Token 进行脱敏处理
-func maskToken(token string) string {
-	if len(token) <= 8 {
-		return "****"
-	}
-	return token[:4] + "..." + token[len(token)-4:]
-}
-
 // truncateMessage 截断超长消息
 func truncateMessage(text string, maxLen int, suffix string) string {
 	if len(text) <= maxLen {

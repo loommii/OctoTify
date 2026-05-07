@@ -14,30 +14,6 @@ import (
 	"gorm.io/datatypes"
 )
 
-func TestMaskToken(t *testing.T) {
-	tests := []struct {
-		name  string
-		token string
-		want  string
-	}{
-		{"长Token应脱敏为前4后4", "1234567890:ABCdefGHIjklMNOpqrsTUVwxyz", "1234...wxyz"},
-		{"恰好8位Token返回星号", "12345678", "****"},
-		{"少于8位Token返回星号", "short", "****"},
-		{"空字符串返回星号", "", "****"},
-		{"9位Token应脱敏为前4后4", "123456789", "1234...6789"},
-		{"10位Token应脱敏为前4后4", "abcdefghij", "abcd...ghij"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := maskToken(tt.token)
-			if got != tt.want {
-				t.Errorf("maskToken(%q) = %q, want %q", tt.token, got, tt.want)
-			}
-		})
-	}
-}
-
 func TestTruncateMessage(t *testing.T) {
 	tests := []struct {
 		name   string
