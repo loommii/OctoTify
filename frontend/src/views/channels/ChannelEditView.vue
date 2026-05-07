@@ -121,6 +121,7 @@ const typeNames: Record<string, string> = {
   email: '邮件',
   webhook: 'Webhook',
   feishu: '飞书',
+  gotify: 'Gotify',
 }
 
 function getTypeName(type: string): string {
