@@ -24,7 +24,7 @@ func NewSenderFactory(logger *zap.Logger) *SenderFactory {
 		logger: logger,
 		senders: map[string]Sender{
 			"wechat":   &WechatSender{},
-			"telegram": &TelegramSender{},
+			"telegram": NewTelegramSender(logger),
 			"dingtalk": &DingtalkSender{},
 			"email":    &EmailSender{},
 			"webhook":  &WebhookSender{},
@@ -49,12 +49,6 @@ func (f *SenderFactory) Register(channelType string, snd Sender) {
 type WechatSender struct{}
 
 func (s *WechatSender) Send(ctx context.Context, config datatypes.JSON, title string, content string) error {
-	return nil
-}
-
-type TelegramSender struct{}
-
-func (s *TelegramSender) Send(ctx context.Context, config datatypes.JSON, title string, content string) error {
 	return nil
 }
 
