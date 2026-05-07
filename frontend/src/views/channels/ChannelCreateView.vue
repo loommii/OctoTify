@@ -135,6 +135,7 @@ const icons: Record<string, string> = {
   email: '📧',
   webhook: '🔗',
   feishu: '🕊️',
+  gotify: '📲',
 }
 
 function getIcon(type: string): string {

@@ -9,6 +9,7 @@ const (
 	ChannelTypeEmail    = "email"
 	ChannelTypeWebhook  = "webhook"
 	ChannelTypeFeishu   = "feishu"
+	ChannelTypeGotify   = "gotify"
 )
 
 var ValidChannelTypes = map[string]bool{
@@ -18,6 +19,7 @@ var ValidChannelTypes = map[string]bool{
 	ChannelTypeEmail:    true,
 	ChannelTypeWebhook:  true,
 	ChannelTypeFeishu:   true,
+	ChannelTypeGotify:   true,
 }
 
 // ConfigField 渠道配置字段定义
@@ -38,7 +40,7 @@ type ChannelTypeMeta struct {
 }
 
 // ChannelTypeMetas 所有支持的渠道类型元数据
-// 当前仅暴露已实现的渠道类型给前端（飞书、Telegram、邮件）
+// 当前仅暴露已实现的渠道类型给前端（飞书、Telegram、邮件、Gotify）
 var ChannelTypeMetas = []ChannelTypeMeta{
 	{
 		Type:        ChannelTypeFeishu,
@@ -142,6 +144,34 @@ var ChannelTypeMetas = []ChannelTypeMeta{
 				Type:        "string",
 				Required:    false,
 				Placeholder: "系统通知",
+			},
+		},
+	},
+	{
+		Type:        ChannelTypeGotify,
+		Name:        "Gotify",
+		Description: "Gotify 自托管消息推送",
+		ConfigFields: []ConfigField{
+			{
+				Name:        "server_url",
+				Label:       "Gotify 服务器地址",
+				Type:        "url",
+				Required:    true,
+				Placeholder: "https://gotify.example.com",
+			},
+			{
+				Name:        "app_token",
+				Label:       "App Token",
+				Type:        "password",
+				Required:    true,
+				Placeholder: "GotifyAppToken",
+			},
+			{
+				Name:        "priority",
+				Label:       "优先级（0-10）",
+				Type:        "number",
+				Required:    false,
+				Placeholder: "5",
 			},
 		},
 	},

@@ -28,6 +28,7 @@ func NewSenderFactory(logger *zap.Logger) *SenderFactory {
 			"email":    NewEmailSender(logger),
 			"webhook":  NewWebhookSender(logger),
 			"feishu":   NewFeishuSender(logger),
+			"gotify":   NewGotifySender(logger),
 		},
 	}
 }
