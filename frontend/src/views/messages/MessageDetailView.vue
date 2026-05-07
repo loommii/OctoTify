@@ -73,21 +73,21 @@ const message = ref<MessageDetailDTO | null>(null)
 const loading = ref(true)
 
 function getStatusText(status: number): string {
-  const map: Record<number, string> = { 1: '成功', 2: '失败', 3: '部分成功' }
+  const map: Record<number, string> = { 100: '待推送', 200: '成功', 300: '失败', [-1]: '已删除' }
   return map[status] || '未知'
 }
 
 function getStatusClass(status: number): string {
-  const map: Record<number, string> = { 1: 'status-success', 2: 'status-failed', 3: 'status-partial' }
+  const map: Record<number, string> = { 100: 'status-partial', 200: 'status-success', 300: 'status-failed', [-1]: '' }
   return map[status] || ''
 }
 
 function getPushStatusText(status: number): string {
-  return status === 1 ? '成功' : '失败'
+  return status === 200 ? '成功' : '失败'
 }
 
 function getPushStatusClass(status: number): string {
-  return status === 1 ? 'status-success' : 'status-failed'
+  return status === 200 ? 'status-success' : 'status-failed'
 }
 
 function formatTime(ts: number): string {

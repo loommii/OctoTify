@@ -128,12 +128,12 @@ const {
 } = useConfirm()
 
 function getStatusText(status: number): string {
-  const map: Record<number, string> = { 1: '成功', 2: '失败', 3: '部分成功' }
+  const map: Record<number, string> = { 100: '待推送', 200: '成功', 300: '失败', [-1]: '已删除' }
   return map[status] || '未知'
 }
 
 function getStatusClass(status: number): string {
-  const map: Record<number, string> = { 1: 'status-success', 2: 'status-failed', 3: 'status-partial' }
+  const map: Record<number, string> = { 100: 'status-partial', 200: 'status-success', 300: 'status-failed', [-1]: '' }
   return map[status] || ''
 }
 
