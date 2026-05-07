@@ -38,7 +38,7 @@ type ChannelTypeMeta struct {
 }
 
 // ChannelTypeMetas 所有支持的渠道类型元数据
-// 当前仅暴露已实现的渠道类型给前端（飞书、Telegram、邮件）
+// 当前仅暴露已实现的渠道类型给前端（飞书、Telegram、邮件、钉钉）
 var ChannelTypeMetas = []ChannelTypeMeta{
 	{
 		Type:        ChannelTypeFeishu,
@@ -58,6 +58,27 @@ var ChannelTypeMetas = []ChannelTypeMeta{
 				Type:        "password",
 				Required:    false,
 				Placeholder: "用于签名校验的密钥",
+			},
+		},
+	},
+	{
+		Type:        ChannelTypeDingtalk,
+		Name:        "钉钉",
+		Description: "钉钉群机器人",
+		ConfigFields: []ConfigField{
+			{
+				Name:        "webhook_url",
+				Label:       "Webhook 地址",
+				Type:        "url",
+				Required:    true,
+				Placeholder: "https://oapi.dingtalk.com/robot/send?access_token=xxx",
+			},
+			{
+				Name:        "secret",
+				Label:       "加签密钥",
+				Type:        "password",
+				Required:    true,
+				Placeholder: "SECxxxxxxxxxxxxxxxxx",
 			},
 		},
 	},
