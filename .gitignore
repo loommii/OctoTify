@@ -9,3 +9,8 @@ backend/data/octotify.db
 frontend/node_modules/
 frontend/dist/
 frontend/*.tsbuildinfo
+
+# playwright
+/tests/
+/test-results/
+/playwright-report/
