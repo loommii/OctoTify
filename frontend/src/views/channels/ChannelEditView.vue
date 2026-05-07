@@ -34,6 +34,13 @@
             v-model="form.config[field.name]"
             :placeholder="field.placeholder"
           />
+          <input
+            v-else-if="field.type === 'number'"
+            type="number"
+            v-model="form.config[field.name]"
+            :placeholder="field.placeholder"
+            :required="field.required"
+          />
           <textarea
             v-else-if="field.type === 'textarea'"
             v-model="form.config[field.name]"
@@ -173,9 +180,27 @@ function validateForm(): boolean {
   return true
 }
 
+function normalizeConfig(
+  config: Record<string, string>,
+  fields: { type: string; name: string }[]
+): Record<string, unknown> {
+  const normalized: Record<string, unknown> = {}
+  for (const field of fields) {
+    const value = config[field.name]
+    if (field.type === 'number' && value !== '' && value !== undefined) {
+      normalized[field.name] = Number(value)
+    } else {
+      normalized[field.name] = value
+    }
+  }
+  return normalized
+}
+
 function handleSubmit() {
   if (!channel.value) return
   if (!validateForm()) return
+
+  const normalizedConfig = normalizeConfig(form.value.config, configFields.value)
 
   requestConfirm(
     {
@@ -189,7 +214,7 @@ function handleSubmit() {
       try {
         await updateChannel(channel.value!.id, {
           name: form.value.name,
-          config: form.value.config,
+          config: normalizedConfig,
         })
         router.push({ name: 'ChannelDetail', params: { id: channel.value!.id } })
       } catch (err) {

@@ -44,6 +44,13 @@
               :placeholder="field.placeholder"
               :required="field.required"
             />
+            <input
+              v-else-if="field.type === 'number'"
+              type="number"
+              v-model="form.config[field.name]"
+              :placeholder="field.placeholder"
+              :required="field.required"
+            />
             <textarea
               v-else-if="field.type === 'textarea'"
               v-model="form.config[field.name]"
@@ -174,8 +181,27 @@ async function loadChannelTypes() {
   }
 }
 
+function normalizeConfig(
+  config: Record<string, string>,
+  fields: { type: string; name: string }[]
+): Record<string, unknown> {
+  const normalized: Record<string, unknown> = {}
+  for (const field of fields) {
+    const value = config[field.name]
+    if (field.type === 'number' && value !== '' && value !== undefined) {
+      normalized[field.name] = Number(value)
+    } else {
+      normalized[field.name] = value
+    }
+  }
+  return normalized
+}
+
 function handleSubmit() {
   if (!validateForm()) return
+  if (!selectedType.value) return
+
+  const normalizedConfig = normalizeConfig(form.value.config, selectedType.value.config_fields)
 
   requestConfirm(
     {
@@ -190,7 +216,7 @@ function handleSubmit() {
         await createChannel({
           type: form.value.type,
           name: form.value.name,
-          config: form.value.config,
+          config: normalizedConfig,
         })
         showSuccess('创建成功', 1500)
         setTimeout(() => {
