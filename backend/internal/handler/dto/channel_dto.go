@@ -38,7 +38,7 @@ type ChannelTypeMeta struct {
 }
 
 // ChannelTypeMetas 所有支持的渠道类型元数据
-// TODO: 以下渠道待实现：企业微信、Telegram、钉钉、邮件、Webhook
+// 当前仅暴露已实现的渠道类型给前端（飞书、Telegram、邮件）
 var ChannelTypeMetas = []ChannelTypeMeta{
 	{
 		Type:        ChannelTypeFeishu,
@@ -78,7 +78,7 @@ var ChannelTypeMetas = []ChannelTypeMeta{
 				Label:       "Chat ID",
 				Type:        "string",
 				Required:    true,
-				Placeholder: "-1001234567890 或 @channel_name",
+				Placeholder: "私聊/群组填数字ID，频道填 @频道名",
 			},
 			{
 				Name:        "proxy",
@@ -86,6 +86,62 @@ var ChannelTypeMetas = []ChannelTypeMeta{
 				Type:        "url",
 				Required:    false,
 				Placeholder: "http://127.0.0.1:7890",
+			},
+		},
+	},
+	{
+		Type:        ChannelTypeEmail,
+		Name:        "邮件",
+		Description: "邮件推送",
+		ConfigFields: []ConfigField{
+			{
+				Name:        "smtp_host",
+				Label:       "SMTP 服务器",
+				Type:        "string",
+				Required:    true,
+				Placeholder: "smtp.example.com",
+			},
+			{
+				Name:        "smtp_port",
+				Label:       "SMTP 端口",
+				Type:        "number",
+				Required:    true,
+				Placeholder: "587",
+			},
+			{
+				Name:        "username",
+				Label:       "用户名",
+				Type:        "string",
+				Required:    true,
+				Placeholder: "user@example.com",
+			},
+			{
+				Name:        "password",
+				Label:       "密码/授权码",
+				Type:        "password",
+				Required:    true,
+				Placeholder: "邮箱密码或授权码",
+			},
+			{
+				Name:        "to",
+				Label:       "收件人",
+				Type:        "string",
+				Required:    true,
+				Placeholder: "recipient@example.com",
+			},
+			{
+				Name:        "cc",
+				Label:       "抄送人（可选）",
+				Type:        "string",
+				Required:    false,
+				Placeholder: "cc1@example.com, cc2@example.com",
+			},
+			{
+				Name:        "from_name",
+				Label:       "发件人名称（可选）",
+				Type:        "string",
+				Required:    false,
+				Placeholder: "系统通知",
 			},
 		},
 	},
