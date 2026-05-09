@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"go.uber.org/zap/zaptest"
 	"gorm.io/datatypes"
@@ -299,8 +300,9 @@ func TestTelegramSender_Send_MessageTruncation(t *testing.T) {
 	if !strings.Contains(capturedBody.Text, "[消息已截断]") {
 		t.Fatalf("expected truncated message to contain '[消息已截断]', got %q", capturedBody.Text)
 	}
-	if len(capturedBody.Text) > telegramMaxMessageLen {
-		t.Fatalf("expected message length <= %d, got %d", telegramMaxMessageLen, len(capturedBody.Text))
+	// 限制是按字符数（rune count）计算，不是字节数（因为后缀包含中文字符）
+	if utf8.RuneCountInString(capturedBody.Text) > telegramMaxMessageLen {
+		t.Fatalf("expected message length <= %d (chars), got %d (chars)", telegramMaxMessageLen, utf8.RuneCountInString(capturedBody.Text))
 	}
 	if capturedBody.ChatID != "-1001234567890" {
 		t.Fatalf("expected chat_id '-1001234567890', got %q", capturedBody.ChatID)

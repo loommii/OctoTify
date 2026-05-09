@@ -27,7 +27,7 @@
         <div v-else class="channel-checkboxes">
           <label v-for="ch in channels" :key="ch.id" class="checkbox-label">
             <input type="checkbox" :value="ch.id" v-model="form.channel_ids" />
-            {{ ch.name }} ({{ getTypeName(ch.type) }})
+            {{ ch.name }} ({{ getTypeName(ch.type ?? '') }})
           </label>
         </div>
       </div>
@@ -49,12 +49,6 @@
       :loading="actionLoading"
       @confirm="handleConfirm"
     />
-
-    <Transition name="toast">
-      <div v-if="showToast" :class="['toast', 'toast-' + toastType]">
-        {{ toastMessage }}
-      </div>
-    </Transition>
   </div>
 </template>
 
@@ -64,6 +58,8 @@ import { useRouter, useRoute } from 'vue-router'
 import { getSourceDetail, updateSource, listChannels } from '@/api/channels'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import { useConfirm } from '@/composables/useConfirm'
+import { getChannelTypeName } from '@/lib/constants'
+import { useToast } from '@/composables/useToast'
 import type { SourceDetailDTO, ChannelDTO } from '@/types/api'
 
 const router = useRouter()
@@ -78,9 +74,8 @@ const form = ref({
   description: '',
   channel_ids: [] as number[],
 })
-const toastMessage = ref('')
-const toastType = ref<'success' | 'error'>('success')
-const showToast = ref(false)
+
+const { error: showError } = useToast()
 
 const {
   showDialog,
@@ -90,26 +85,8 @@ const {
   handleConfirm,
 } = useConfirm()
 
-function showResult(message: string, type: 'success' | 'error') {
-  toastMessage.value = message
-  toastType.value = type
-  showToast.value = true
-  setTimeout(() => {
-    showToast.value = false
-  }, 3000)
-}
-
-const typeNames: Record<string, string> = {
-  wechat: '企业微信',
-  telegram: 'Telegram',
-  dingtalk: '钉钉',
-  email: '邮件',
-  webhook: 'Webhook',
-  feishu: '飞书',
-}
-
 function getTypeName(type: string): string {
-  return typeNames[type] || type
+  return getChannelTypeName(type)
 }
 
 async function loadSource() {
@@ -119,9 +96,9 @@ async function loadSource() {
     const res = await getSourceDetail(id)
     if (res.data) {
       source.value = res.data
-      form.value.name = res.data.name
-      form.value.description = res.data.description
-      form.value.channel_ids = res.data.channels?.map((ch) => ch.id) || []
+      form.value.name = res.data.name ?? ''
+      form.value.description = res.data.description ?? ''
+      form.value.channel_ids = res.data.channels?.map((ch) => ch.id ?? 0).filter((id) => id > 0) || []
     }
   } catch (err) {
     console.error('加载来源详情失败', err)
@@ -135,7 +112,7 @@ async function loadChannels() {
   try {
     const res = await listChannels(1, 100)
     if (res.data) {
-      channels.value = res.data.list.filter((ch) => ch.status === 1)
+      channels.value = (res.data.list ?? []).filter((ch) => ch.status === 1)
     }
   } catch (err) {
     console.error('加载渠道列表失败', err)
@@ -146,11 +123,11 @@ async function loadChannels() {
 
 function handleSubmit() {
   if (!form.value.name) {
-    showResult('请输入来源名称', 'error')
+    showError('请输入来源名称')
     return
   }
   if (form.value.channel_ids.length === 0) {
-    showResult('请至少选择一个关联渠道', 'error')
+    showError('请至少选择一个关联渠道')
     return
   }
 
@@ -164,7 +141,7 @@ function handleSubmit() {
     async () => {
       submitting.value = true
       try {
-        await updateSource(source.value!.id, {
+        await updateSource(source.value!.id!, {
           name: form.value.name,
           description: form.value.description,
           channel_ids: form.value.channel_ids,
@@ -172,7 +149,7 @@ function handleSubmit() {
         router.push({ name: 'SourceDetail', params: { id: source.value!.id } })
       } catch (err) {
         console.error('更新来源失败', err)
-        showResult('更新来源失败，请重试', 'error')
+        showError('更新来源失败，请重试')
       } finally {
         submitting.value = false
       }
@@ -359,43 +336,5 @@ onMounted(() => {
 
 .btn-secondary:hover {
   border-color: var(--mid-border);
-}
-
-.toast {
-  position: fixed;
-  top: 24px;
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 12px 24px;
-  border-radius: var(--radius-md);
-  font-size: 0.875rem;
-  font-weight: 500;
-  z-index: 2000;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-}
-
-.toast-success {
-  background: var(--success);
-  color: var(--dark);
-}
-
-.toast-error {
-  background: var(--error);
-  color: var(--off-white);
-}
-
-.toast-enter-active,
-.toast-leave-active {
-  transition: all 0.3s ease;
-}
-
-.toast-enter-from {
-  opacity: 0;
-  transform: translateX(-50%) translateY(-20px);
-}
-
-.toast-leave-to {
-  opacity: 0;
-  transform: translateX(-50%) translateY(-20px);
 }
 </style>

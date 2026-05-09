@@ -90,6 +90,17 @@ var (
 	ErrUserProfileQueryFailed = New(110801, "查询用户信息失败")
 )
 
+// 微信ClawBot绑定模块错误 1109XX
+var (
+	ErrQRCodeFetchFailed    = New(110901, "获取绑定二维码失败")
+	ErrBindStatusFailed     = New(110902, "查询绑定状态失败")
+	ErrBindExpired          = New(110903, "绑定二维码已过期")
+
+	// 加密模块错误
+	ErrCredentialEncryptFailed = New(110904, "凭证加密失败")
+	ErrCredentialDecryptFailed = New(110905, "凭证解密失败")
+)
+
 // 第三方服务错误 2000XX
 var (
 	ErrThirdPartyCallFailed = New(200000, "第三方接口调用失败")

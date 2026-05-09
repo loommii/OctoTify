@@ -2,15 +2,22 @@ package service
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
 	"time"
 
 	"go.uber.org/zap"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 
 	"octotify/internal/handler/dto"
 	"octotify/internal/model"
 	"octotify/internal/query"
 	"octotify/internal/sender"
+	"octotify/pkg/aescipher"
 	"octotify/pkg/xerr"
 )
 
@@ -20,6 +27,8 @@ type ChannelService struct {
 	db            *gorm.DB              // 数据库连接
 	logger        *zap.Logger           // 日志记录器
 	senderFactory *sender.SenderFactory // 渠道发送器工厂，用于创建不同渠道的消息发送器
+	httpClient    *http.Client          // 复用 HTTP 客户端，用于调用外部 API
+	pollClient    *http.Client          // iLink 长轮询专用客户端，无 Timeout，由 context 控制超时
 }
 
 // NewChannelService 创建推送渠道服务实例
@@ -34,6 +43,22 @@ func NewChannelService(db *gorm.DB, logger *zap.Logger, senderFactory *sender.Se
 		db:            db,
 		logger:        logger,
 		senderFactory: senderFactory,
+		httpClient: &http.Client{
+			Timeout: 30 * time.Second,
+			Transport: &http.Transport{
+				MaxIdleConns:        100,
+				MaxIdleConnsPerHost: 10,
+				IdleConnTimeout:     90 * time.Second,
+			},
+		},
+		pollClient: &http.Client{
+			// 不设置 Timeout，由 context.WithTimeout 控制，避免截断 iLink 长轮询响应
+			Transport: &http.Transport{
+				MaxIdleConns:        100,
+				MaxIdleConnsPerHost: 10,
+				IdleConnTimeout:     90 * time.Second,
+			},
+		},
 	}
 }
 
@@ -56,17 +81,23 @@ func (s *ChannelService) GetChannelTypes() []dto.ChannelTypeMeta {
 func (s *ChannelService) CreateChannel(ctx context.Context, userID int64, req *dto.CreateChannelReq) (*dto.ChannelDTO, error) {
 	q := query.Use(s.db)
 
+	// 对微信ClawBot渠道，解密密文并校验，确保配置有效
+	configData, err := s.processChannelConfig(req.Type, req.Config.ToJSON())
+	if err != nil {
+		return nil, err
+	}
+
 	// 构建渠道模型实例
 	channel := &model.Channel{
 		UserID: userID,
 		Type:   req.Type,                  // 渠道类型（如 feishu, wechat 等）
 		Name:   req.Name,                  // 渠道名称
-		Config: req.Config,                // 渠道配置
+		Config: configData,                // 渠道配置（ClawBot 存储密文）
 		Status: model.ChannelStatusActive, // 默认启用状态
 	}
 
 	// 使用事务创建渠道，确保数据一致性
-	err := q.Transaction(func(tx *query.Query) error {
+	err = q.Transaction(func(tx *query.Query) error {
 		if err := tx.Channel.WithContext(ctx).Create(channel); err != nil {
 			return err
 		}
@@ -98,7 +129,7 @@ func (s *ChannelService) CreateChannel(ctx context.Context, userID int64, req *d
 		UserID:     channel.UserID,
 		Type:       channel.Type,
 		Name:       channel.Name,
-		Config:     channel.Config,
+		Config:     dto.FromJSON(channel.Config),
 		Status:     channel.Status,
 		CreatedAt:  channel.CreatedAt.UnixMilli(),
 		UpdatedAt:  channel.UpdatedAt.UnixMilli(),
@@ -145,15 +176,21 @@ func (s *ChannelService) UpdateChannel(ctx context.Context, userID int64, channe
 		return xerr.ErrChannelAlreadyDeleted
 	}
 
+	// 对微信ClawBot渠道，解密密文并校验，确保配置有效
+	configData, err := s.processChannelConfig(channel.Type, req.Config.ToJSON())
+	if err != nil {
+		return err
+	}
+
 	// 使用事务更新渠道信息
 	err = q.Transaction(func(tx *query.Query) error {
 		_, err := tx.Channel.WithContext(ctx).
 			Where(tx.Channel.ID.Eq(channelID), tx.Channel.UserID.Eq(userID)).
-			Updates(map[string]interface{}{
-				"name":       req.Name,
-				"config":     req.Config,
-				"updated_at": time.Now(),
-			})
+			UpdateSimple(
+				tx.Channel.Name.Value(req.Name),
+				tx.Channel.Config.Value(configData),
+				tx.Channel.UpdatedAt.Value(time.Now()),
+			)
 		return err
 	})
 	if err != nil {
@@ -235,7 +272,7 @@ func (s *ChannelService) ListChannels(ctx context.Context, userID int64, pageReq
 			UserID:     ch.UserID,
 			Type:       ch.Type,
 			Name:       ch.Name,
-			Config:     ch.Config,
+			Config:     dto.FromJSON(ch.Config),
 			Status:     ch.Status,
 			CreatedAt:  ch.CreatedAt.UnixMilli(),
 			UpdatedAt:  ch.UpdatedAt.UnixMilli(),
@@ -308,12 +345,62 @@ func (s *ChannelService) GetChannelByID(ctx context.Context, userID int64, chann
 		UserID:     channel.UserID,
 		Type:       channel.Type,
 		Name:       channel.Name,
-		Config:     channel.Config,
+		Config:     dto.FromJSON(channel.Config),
 		Status:     channel.Status,
 		CreatedAt:  channel.CreatedAt.UnixMilli(),
 		UpdatedAt:  channel.UpdatedAt.UnixMilli(),
 		LastUsedAt: lastUsedAt,
 	}, nil
+}
+
+// getChannelForUser 查询渠道并校验用户权限和状态
+// 参数:
+//   - ctx: 上下文
+//   - userID: 用户 ID
+//   - channelID: 渠道 ID
+//   - checkDeleted: 是否检查已删除状态
+//   - checkDisabled: 是否检查已停用状态
+//
+// 返回: 渠道模型实例，错误信息
+func (s *ChannelService) getChannelForUser(ctx context.Context, userID int64, channelID int64, checkDeleted bool, checkDisabled bool) (*model.Channel, error) {
+	q := query.Use(s.db)
+
+	channel, err := q.Channel.WithContext(ctx).Where(
+		q.Channel.ID.Eq(channelID),
+		q.Channel.UserID.Eq(userID),
+	).First()
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			s.logger.Error("渠道不存在",
+				zap.Int64("channel_id", channelID),
+				zap.Int64("user_id", userID),
+			)
+			return nil, xerr.ErrChannelNotFound
+		}
+		s.logger.Error("查询渠道失败",
+			zap.Error(err),
+			zap.Int64("channel_id", channelID),
+		)
+		return nil, xerr.ErrChannelQueryFailed.WithInternal(err)
+	}
+
+	// 检查渠道是否已删除
+	if checkDeleted && channel.Status == model.ChannelStatusDeleted {
+		s.logger.Error("渠道已删除",
+			zap.Int64("channel_id", channelID),
+		)
+		return nil, xerr.ErrChannelAlreadyDeleted
+	}
+
+	// 检查渠道是否已停用
+	if checkDisabled && channel.Status == model.ChannelStatusDisabled {
+		s.logger.Error("渠道已停用",
+			zap.Int64("channel_id", channelID),
+		)
+		return nil, xerr.ErrChannelAlreadyDisabled
+	}
+
+	return channel, nil
 }
 
 // TestChannel 测试渠道连接
@@ -325,42 +412,10 @@ func (s *ChannelService) GetChannelByID(ctx context.Context, userID int64, chann
 //
 // 返回: 错误信息（如果测试失败）
 func (s *ChannelService) TestChannel(ctx context.Context, userID int64, channelID int64) error {
-	q := query.Use(s.db)
-
-	// 查询渠道信息
-	channel, err := q.Channel.WithContext(ctx).Where(
-		q.Channel.ID.Eq(channelID),
-		q.Channel.UserID.Eq(userID),
-	).First()
+	// 查询渠道并校验权限和状态
+	channel, err := s.getChannelForUser(ctx, userID, channelID, true, true)
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			s.logger.Error("渠道不存在",
-				zap.Int64("channel_id", channelID),
-				zap.Int64("user_id", userID),
-			)
-			return xerr.ErrChannelNotFound
-		}
-		s.logger.Error("查询渠道失败",
-			zap.Error(err),
-			zap.Int64("channel_id", channelID),
-		)
-		return xerr.ErrChannelQueryFailed.WithInternal(err)
-	}
-
-	// 检查渠道是否已删除
-	if channel.Status == model.ChannelStatusDeleted {
-		s.logger.Error("渠道已删除",
-			zap.Int64("channel_id", channelID),
-		)
-		return xerr.ErrChannelAlreadyDeleted
-	}
-
-	// 检查渠道是否已停用
-	if channel.Status == model.ChannelStatusDisabled {
-		s.logger.Error("渠道已停用",
-			zap.Int64("channel_id", channelID),
-		)
-		return xerr.ErrChannelAlreadyDisabled
+		return err
 	}
 
 	// 根据渠道类型创建对应的发送器
@@ -399,52 +454,22 @@ func (s *ChannelService) TestChannel(ctx context.Context, userID int64, channelI
 //
 // 返回: 错误信息（如果停用失败）
 func (s *ChannelService) DisableChannel(ctx context.Context, userID int64, channelID int64) error {
+	// 查询渠道并校验权限和状态（仅校验，不使用返回的 channel 对象）
+	if _, err := s.getChannelForUser(ctx, userID, channelID, true, true); err != nil {
+		return err
+	}
+
 	q := query.Use(s.db)
 
-	// 查询渠道信息
-	channel, err := q.Channel.WithContext(ctx).Where(
-		q.Channel.ID.Eq(channelID),
-		q.Channel.UserID.Eq(userID),
-	).First()
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			s.logger.Error("渠道不存在",
-				zap.Int64("channel_id", channelID),
-				zap.Int64("user_id", userID),
-			)
-			return xerr.ErrChannelNotFound
-		}
-		s.logger.Error("查询渠道失败",
-			zap.Error(err),
-			zap.Int64("channel_id", channelID),
-		)
-		return xerr.ErrChannelQueryFailed.WithInternal(err)
-	}
-
-	// 检查渠道是否已删除
-	if channel.Status == model.ChannelStatusDeleted {
-		s.logger.Error("渠道已删除",
-			zap.Int64("channel_id", channelID),
-		)
-		return xerr.ErrChannelAlreadyDeleted
-	}
-
-	// 检查渠道是否已停用
-	if channel.Status == model.ChannelStatusDisabled {
-		s.logger.Error("渠道已停用",
-			zap.Int64("channel_id", channelID),
-		)
-		return xerr.ErrChannelAlreadyDisabled
-	}
-
 	// 使用事务更新渠道状态为停用
+	var err error
 	err = q.Transaction(func(tx *query.Query) error {
 		_, err := tx.Channel.WithContext(ctx).
 			Where(tx.Channel.ID.Eq(channelID), tx.Channel.UserID.Eq(userID)).
-			Updates(map[string]interface{}{
-				"status":     model.ChannelStatusDisabled,
-				"updated_at": time.Now(),
-			})
+			UpdateSimple(
+				tx.Channel.Status.Value(model.ChannelStatusDisabled),
+				tx.Channel.UpdatedAt.Value(time.Now()),
+			)
 		return err
 	})
 	if err != nil {
@@ -471,34 +496,10 @@ func (s *ChannelService) DisableChannel(ctx context.Context, userID int64, chann
 //
 // 返回: 错误信息（如果启用失败）
 func (s *ChannelService) EnableChannel(ctx context.Context, userID int64, channelID int64) error {
-	q := query.Use(s.db)
-
-	// 查询渠道信息
-	channel, err := q.Channel.WithContext(ctx).Where(
-		q.Channel.ID.Eq(channelID),
-		q.Channel.UserID.Eq(userID),
-	).First()
+	// 查询渠道并校验权限和状态（仅校验删除状态，不校验停用状态）
+	channel, err := s.getChannelForUser(ctx, userID, channelID, true, false)
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			s.logger.Error("渠道不存在",
-				zap.Int64("channel_id", channelID),
-				zap.Int64("user_id", userID),
-			)
-			return xerr.ErrChannelNotFound
-		}
-		s.logger.Error("查询渠道失败",
-			zap.Error(err),
-			zap.Int64("channel_id", channelID),
-		)
-		return xerr.ErrChannelQueryFailed.WithInternal(err)
-	}
-
-	// 检查渠道是否已删除
-	if channel.Status == model.ChannelStatusDeleted {
-		s.logger.Error("渠道已删除",
-			zap.Int64("channel_id", channelID),
-		)
-		return xerr.ErrChannelAlreadyDeleted
+		return err
 	}
 
 	// 检查渠道是否已启用
@@ -509,14 +510,16 @@ func (s *ChannelService) EnableChannel(ctx context.Context, userID int64, channe
 		return xerr.ErrChannelAlreadyEnabled
 	}
 
+	q := query.Use(s.db)
+
 	// 使用事务更新渠道状态为启用
 	err = q.Transaction(func(tx *query.Query) error {
 		_, err := tx.Channel.WithContext(ctx).
 			Where(tx.Channel.ID.Eq(channelID), tx.Channel.UserID.Eq(userID)).
-			Updates(map[string]interface{}{
-				"status":     model.ChannelStatusActive,
-				"updated_at": time.Now(),
-			})
+			UpdateSimple(
+				tx.Channel.Status.Value(model.ChannelStatusActive),
+				tx.Channel.UpdatedAt.Value(time.Now()),
+			)
 		return err
 	})
 	if err != nil {
@@ -543,45 +546,23 @@ func (s *ChannelService) EnableChannel(ctx context.Context, userID int64, channe
 //
 // 返回: 错误信息（如果删除失败）
 func (s *ChannelService) DeleteChannel(ctx context.Context, userID int64, channelID int64) error {
+	// 查询渠道并校验权限和状态（仅校验，不使用返回的 channel 对象）
+	if _, err := s.getChannelForUser(ctx, userID, channelID, true, false); err != nil {
+		return err
+	}
+
 	q := query.Use(s.db)
 
-	// 查询渠道信息
-	channel, err := q.Channel.WithContext(ctx).Where(
-		q.Channel.ID.Eq(channelID),
-		q.Channel.UserID.Eq(userID),
-	).First()
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			s.logger.Error("渠道不存在",
-				zap.Int64("channel_id", channelID),
-				zap.Int64("user_id", userID),
-			)
-			return xerr.ErrChannelNotFound
-		}
-		s.logger.Error("查询渠道失败",
-			zap.Error(err),
-			zap.Int64("channel_id", channelID),
-		)
-		return xerr.ErrChannelQueryFailed.WithInternal(err)
-	}
-
-	// 检查渠道是否已删除
-	if channel.Status == model.ChannelStatusDeleted {
-		s.logger.Error("渠道已删除",
-			zap.Int64("channel_id", channelID),
-		)
-		return xerr.ErrChannelAlreadyDeleted
-	}
-
 	// 使用事务删除渠道和解除来源关联
+	var err error
 	err = q.Transaction(func(tx *query.Query) error {
 		// 软删除渠道：将状态标记为已删除
 		_, err := tx.Channel.WithContext(ctx).
 			Where(tx.Channel.ID.Eq(channelID), tx.Channel.UserID.Eq(userID)).
-			Updates(map[string]interface{}{
-				"status":     model.ChannelStatusDeleted,
-				"updated_at": time.Now(),
-			})
+			UpdateSimple(
+				tx.Channel.Status.Value(model.ChannelStatusDeleted),
+				tx.Channel.UpdatedAt.Value(time.Now()),
+			)
 		if err != nil {
 			return err
 		}
@@ -589,9 +570,9 @@ func (s *ChannelService) DeleteChannel(ctx context.Context, userID int64, channe
 		// 解除该渠道与所有来源的关联关系
 		_, err = tx.SourceChannel.WithContext(ctx).
 			Where(tx.SourceChannel.ChannelID.Eq(channelID)).
-			Updates(map[string]interface{}{
-				"status": model.SourceChannelStatusDeleted,
-			})
+			UpdateSimple(
+				tx.SourceChannel.Status.Value(model.SourceChannelStatusDeleted),
+			)
 		if err != nil {
 			return err
 		}
@@ -611,4 +592,206 @@ func (s *ChannelService) DeleteChannel(ctx context.Context, userID int64, channe
 	)
 
 	return nil
+}
+
+// StartBind 发起微信ClawBot扫码绑定
+// 调用iLink API获取绑定二维码，直接返回 qrcode 和 qrcodeURL 两个字符串
+func (s *ChannelService) StartBind(ctx context.Context, userID int64) (qrcode string, qrcodeURL string, err error) {
+	s.logger.Info("发起微信ClawBot绑定",
+		zap.Int64("user_id", userID),
+	)
+
+	// 调用iLink API获取二维码
+	qrResp, err := s.fetchQRCode(ctx)
+	if err != nil {
+		s.logger.Error("获取二维码失败",
+			zap.Error(err),
+		)
+		return "", "", xerr.ErrQRCodeFetchFailed.WithInternal(err)
+	}
+
+	return qrResp.QRCode, qrResp.QRCodeImgContent, nil
+}
+
+// PollBindStatus 轮询 iLink API 查询绑定状态
+// 参数:
+//   - ctx: 上下文
+//   - qrcode: iLink 返回的二维码原始值
+//
+// 返回:
+//   - status: 当前绑定状态（iLink 原始状态值）
+//   - credentials: 绑定成功时的凭证（仅在 confirmed 时非空）
+//   - err: 错误信息（如果调用失败）
+func (s *ChannelService) PollBindStatus(ctx context.Context, qrcode string) (status string, credentials *BindCredentials, err error) {
+	// 调用 iLink API 查询状态
+	statusResp, err := s.pollQRStatus(ctx, qrcode)
+	if err != nil {
+		return "", nil, xerr.ErrBindStatusFailed.WithInternal(err)
+	}
+
+	// 直接返回 iLink 原始状态，不做映射
+	status = statusResp.Status
+
+	// 如果绑定成功，返回明文凭证（handler 层负责加密后返回前端）
+	if status == ILinkStatusConfirmed {
+		credentials = &BindCredentials{
+			BotToken:    statusResp.BotToken,
+			IlinkBotID:  statusResp.ILinkBotID,
+			IlinkUserID: statusResp.ILinkUserID,
+		}
+	}
+
+	return status, credentials, nil
+}
+
+// qrCodeResponse iLink API二维码响应
+type qrCodeResponse struct {
+	QRCode           string `json:"qrcode"`
+	QRCodeImgContent string `json:"qrcode_img_content"`
+}
+
+// qrStatusResponse iLink API状态响应
+type qrStatusResponse struct {
+	Status      string `json:"status"`
+	BotToken    string `json:"bot_token"`
+	ILinkBotID  string `json:"ilink_bot_id"`
+	ILinkUserID string `json:"ilink_user_id"`
+}
+
+// fetchQRCode 调用 iLink API 获取二维码
+func (s *ChannelService) fetchQRCode(ctx context.Context) (*qrCodeResponse, error) {
+	const qrCodeURL = "https://ilinkai.weixin.qq.com/ilink/bot/get_bot_qrcode?bot_type=3"
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, qrCodeURL, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := s.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
+	}
+
+	var result qrCodeResponse
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, err
+	}
+
+	return &result, nil
+}
+
+// processChannelConfig 处理渠道配置（针对 wechat_clawbot 类型进行解密和校验）
+// 前端提交的 config 中 bot_token 为密文格式（bot_token_ciphertext + bot_token_nonce），
+// 此方法解密后替换为明文 bot_token，存入数据库时为明文格式
+func (s *ChannelService) processChannelConfig(channelType string, config datatypes.JSON) (datatypes.JSON, error) {
+	if channelType != dto.ChannelTypeWechatClawbot {
+		return config, nil
+	}
+
+	// 解析配置
+	var cfg map[string]interface{}
+	if err := json.Unmarshal(config, &cfg); err != nil {
+		s.logger.Error("解析渠道配置失败", zap.Error(err))
+		return nil, fmt.Errorf("解析渠道配置失败: %w", err)
+	}
+
+	// 检查是否为密文格式（前端提交时加密传输）
+	cipherText, hasCipher := cfg["bot_token_ciphertext"].(string)
+	nonce, hasNonce := cfg["bot_token_nonce"].(string)
+
+	if hasCipher && hasNonce {
+		// 解密前端传来的密文，提取明文 bot_token
+		plaintext, err := aescipher.GlobalDecryptBase64(cipherText, nonce)
+		if err != nil {
+			s.logger.Error("BotToken 解密失败", zap.Error(err))
+			return nil, fmt.Errorf("凭证解密失败，请重新绑定微信ClawBot: %w", err)
+		}
+		if len(plaintext) == 0 {
+			return nil, fmt.Errorf("解密后的 BotToken 为空")
+		}
+
+		ilinkBotID, _ := cfg["ilink_bot_id"].(string)
+		ilinkUserID, _ := cfg["ilink_user_id"].(string)
+		if ilinkBotID == "" {
+			return nil, fmt.Errorf("ilink_bot_id 不能为空")
+		}
+		if ilinkUserID == "" {
+			return nil, fmt.Errorf("ilink_user_id 不能为空")
+		}
+
+		// 替换为明文格式存入数据库
+		delete(cfg, "bot_token_ciphertext")
+		delete(cfg, "bot_token_nonce")
+		cfg["bot_token"] = string(plaintext)
+
+		result, err := json.Marshal(cfg)
+		if err != nil {
+			s.logger.Error("序列化渠道配置失败", zap.Error(err))
+			return nil, fmt.Errorf("序列化渠道配置失败: %w", err)
+		}
+		return result, nil
+	}
+
+	// 兼容已有明文格式（数据库中直接存储 bot_token 明文）
+	if botToken, hasToken := cfg["bot_token"].(string); hasToken && botToken != "" {
+		ilinkBotID, _ := cfg["ilink_bot_id"].(string)
+		ilinkUserID, _ := cfg["ilink_user_id"].(string)
+		if ilinkBotID == "" {
+			return nil, fmt.Errorf("ilink_bot_id 不能为空")
+		}
+		if ilinkUserID == "" {
+			return nil, fmt.Errorf("ilink_user_id 不能为空")
+		}
+		return config, nil
+	}
+
+	return nil, fmt.Errorf("微信ClawBot配置缺少 bot_token_ciphertext/bot_token_nonce 或 bot_token 字段")
+}
+
+// pollQRStatus 调用 iLink API 查询二维码状态
+// 使用 pollClient（无客户端超时）+ context.WithTimeout(PollAPITimeout) 控制超时，
+// 避免 httpClient 的 30s 硬超时截断 iLink 长轮询响应
+func (s *ChannelService) pollQRStatus(ctx context.Context, qrcode string) (*qrStatusResponse, error) {
+	// 使用 PollAPITimeout（40s）作为 context 超时，适配 iLink 长轮询设计
+	pollCtx, cancel := context.WithTimeout(ctx, PollAPITimeout)
+	defer cancel()
+
+	reqURL := fmt.Sprintf("https://ilinkai.weixin.qq.com/ilink/bot/get_qrcode_status?qrcode=%s", url.QueryEscape(qrcode))
+
+	req, err := http.NewRequestWithContext(pollCtx, http.MethodGet, reqURL, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := s.pollClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
+	}
+
+	var result qrStatusResponse
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, err
+	}
+
+	return &result, nil
 }

@@ -5,24 +5,20 @@ import { getUserProfile, logout as apiLogout } from '@/api/auth'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<UserDTO | null>(null)
-  const accessToken = ref<string>(localStorage.getItem('access_token') || '')
-  const refreshToken = ref<string>(localStorage.getItem('refresh_token') || '')
+  const accessToken = ref<string>('')
+  const refreshToken = ref<string>('')
 
   const isAuthenticated = computed(() => !!accessToken.value)
 
   const setTokens = (access: string, refresh: string) => {
     accessToken.value = access
     refreshToken.value = refresh
-    localStorage.setItem('access_token', access)
-    localStorage.setItem('refresh_token', refresh)
   }
 
   const clearTokens = () => {
     accessToken.value = ''
     refreshToken.value = ''
     user.value = null
-    localStorage.removeItem('access_token')
-    localStorage.removeItem('refresh_token')
   }
 
   const setUser = (userData: UserDTO) => {
@@ -60,4 +56,6 @@ export const useAuthStore = defineStore('auth', () => {
     fetchProfile,
     logout,
   }
+}, {
+  persist: true,
 })

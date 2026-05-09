@@ -24,7 +24,7 @@ func TestNewSenderFactory(t *testing.T) {
 	}
 
 	// 表驱动测试：验证所有内置渠道类型均被注册
-	builtinChannels := []string{"wechat", "telegram", "dingtalk", "email", "webhook", "feishu"}
+	builtinChannels := []string{"wechat", "wechat_clawbot", "telegram", "dingtalk", "email", "webhook", "feishu"}
 
 	for _, channelType := range builtinChannels {
 		t.Run(fmt.Sprintf("内置渠道_%s应被注册", channelType), func(t *testing.T) {

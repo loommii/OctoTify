@@ -1,74 +1,116 @@
 <template>
   <div class="channel-create-page">
+    <!-- 页面头部 -->
     <div class="page-header">
       <h2>创建推送渠道</h2>
       <button class="btn-back" @click="goBack">返回</button>
     </div>
 
+    <!-- 表单容器 -->
     <div class="form-container">
+      <!-- 渠道类型选择 -->
       <div class="section-label">选择渠道类型</div>
-      
+
       <div class="type-grid">
         <div
-          v-for="t in channelTypes"
-          :key="t.type"
-          :class="['type-card', { selected: form.type === t.type }]"
-          @click="selectType(t.type)"
+          v-for="channelType in channelTypes"
+          :key="channelType.type"
+          :class="['type-card', { selected: form.type === channelType.type }]"
+          @click="handleSelectType(channelType.type ?? '')"
         >
-          <div class="type-icon">{{ getIcon(t.type) }}</div>
+          <div class="type-icon">{{ getIcon(channelType.type ?? '') }}</div>
           <div class="type-info">
-            <div class="type-name">{{ t.name }}</div>
-            <div class="type-desc">{{ t.description }}</div>
+            <div class="type-name">{{ channelType.name }}</div>
+            <div class="type-desc">{{ channelType.description }}</div>
           </div>
         </div>
       </div>
 
-      <div v-if="selectedType" class="form-divider"></div>
+      <!-- 表单区域（选择类型后显示） -->
+      <template v-if="selectedType">
+        <div class="form-divider"></div>
 
-      <div v-if="selectedType" class="form-section">
-        <div class="form-group">
-          <label>渠道名称</label>
-          <input v-model="form.name" type="text" placeholder="例如：钉钉-运维群" />
-        </div>
+        <div class="form-section">
+          <!-- 微信 ClawBot 绑定区域 -->
+          <WechatBindSection
+            v-if="isBindMode"
+            :bindQRCodeURL="bindQRCodeURL"
+            :bindStatus="bindStatus"
+            :qrcodeLoadError="qrcodeLoadError"
+            @start-bind="startBind"
+            @cancel-bind="cancelBind"
+            @qrcode-error="handleQRCodeError"
+          />
 
-        <div class="config-fields">
-          <div v-for="field in selectedType.config_fields" :key="field.name" class="form-group">
-            <label>
-              {{ field.label }}
-              <span v-if="field.required" class="required">*</span>
-            </label>
-            <input
-              v-if="field.type === 'text' || field.type === 'password' || field.type === 'url' || field.type === 'string'"
-              :type="field.type === 'password' ? 'password' : 'text'"
-              v-model="form.config[field.name]"
-              :placeholder="field.placeholder"
-              :required="field.required"
-            />
-            <input
-              v-else-if="field.type === 'number'"
-              type="number"
-              v-model="form.config[field.name]"
-              :placeholder="field.placeholder"
-              :required="field.required"
-            />
-            <textarea
-              v-else-if="field.type === 'textarea'"
-              v-model="form.config[field.name]"
-              :placeholder="field.placeholder"
-              :required="field.required"
-            ></textarea>
+          <!-- 渠道名称 -->
+          <div class="form-group">
+            <label>渠道名称</label>
+            <input v-model="form.name" type="text" placeholder="例如：微信-通知" />
+          </div>
+
+          <!-- 配置字段 -->
+          <div class="config-fields">
+            <div v-for="field in visibleConfigFields" :key="field.name" class="form-group">
+              <label>
+                {{ field.label }}
+                <span v-if="field.required" class="required">*</span>
+              </label>
+
+              <!-- 凭证字段（绑定成功后脱敏展示，不可编辑） -->
+              <template v-if="isCredentialField(field.name ?? '')">
+                <input
+                  type="text"
+                  :value="maskValue(form.config[field.name ?? ''] ?? '')"
+                  readonly
+                  disabled
+                  class="credential-masked"
+                />
+                <span class="credential-hint">已加密保护，用户无法查看或修改</span>
+              </template>
+
+              <!-- 文本/密码/URL 字段 -->
+              <input
+                v-else-if="isTextFieldType(field.type)"
+                :type="field.type === 'password' ? 'password' : 'text'"
+                v-model="form.config[field.name ?? '']"
+                :placeholder="field.placeholder"
+                :required="field.required"
+                :readonly="isBindMode && bindStatus === 'confirmed'"
+              />
+
+              <!-- 数字字段 -->
+              <input
+                v-else-if="field.type === 'number'"
+                type="number"
+                v-model="form.config[field.name ?? '']"
+                :placeholder="field.placeholder"
+                :required="field.required"
+                :readonly="isBindMode && bindStatus === 'confirmed'"
+              />
+
+              <!-- 多行文本字段 -->
+              <textarea
+                v-else-if="field.type === 'textarea'"
+                v-model="form.config[field.name ?? '']"
+                :placeholder="field.placeholder"
+                :required="field.required"
+                :readonly="isBindMode && bindStatus === 'confirmed'"
+              ></textarea>
+            </div>
+          </div>
+
+          <!-- 表单操作按钮 -->
+          <div class="form-actions">
+            <button class="btn-primary" @click="handleSubmitForm" :disabled="submitting">
+              {{ submitting ? '创建中...' : '创建' }}
+            </button>
+            <button class="btn-secondary" @click="goBack">取消</button>
           </div>
         </div>
-
-        <div class="form-actions">
-          <button class="btn-primary" @click="handleSubmit" :disabled="submitting">
-            {{ submitting ? '创建中...' : '创建' }}
-          </button>
-          <button class="btn-secondary" @click="goBack">取消</button>
-        </div>
-      </div>
+      </template>
     </div>
 
+    <!-- 确认对话框 -->
     <ConfirmDialog
       v-model:visible="showDialog"
       :title="dialogOptions.title"
@@ -78,58 +120,92 @@
       :loading="actionLoading"
       @confirm="handleConfirm"
     />
-
-    <Transition name="toast">
-      <div v-if="showToast" :class="['toast', 'toast-' + toastType]">
-        <svg v-if="toastType === 'success'" class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-          <polyline points="22 4 12 14.01 9 11.01"/>
-        </svg>
-        <svg v-else class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="10"/>
-          <line x1="15" y1="9" x2="9" y2="15"/>
-          <line x1="9" y1="9" x2="15" y2="15"/>
-        </svg>
-        <span>{{ toastMessage }}</span>
-      </div>
-    </Transition>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
-import { getChannelTypes, createChannel } from '@/api/channels'
+/**
+ * 渠道创建页面
+ *
+ * 职责：
+ * - 整合微信绑定和渠道表单两个 Composable
+ * - 管理 UI 层面的绑定模式状态
+ * - 协调凭证数据的传递
+ */
+import { ref, onMounted, watch } from 'vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
-import { useConfirm } from '@/composables/useConfirm'
-import { useToast } from '@/composables/useToast'
-import type { ChannelTypeMeta } from '@/types/api'
+import WechatBindSection from '@/components/WechatBindSection.vue'
+import { useWechatBind } from '@/composables/useWechatBind'
+import { useChannelForm } from '@/composables/useChannelForm'
 
-const router = useRouter()
-const channelTypes = ref<ChannelTypeMeta[]>([])
-const submitting = ref(false)
-const form = ref({
-  type: '',
-  name: '',
-  config: {} as Record<string, string>,
-})
+// ==================== 微信绑定状态 ====================
 
 const {
+  bindQRCodeURL,
+  bindStatus,
+  qrcodeLoadError,
+  startBind,
+  cancelBind,
+  handleQRCodeError,
+  getCredentials,
+} = useWechatBind()
+
+// ==================== UI 状态 ====================
+
+/** 是否处于绑定模式（UI 层面，由渠道类型选择控制） */
+const isBindMode = ref(false)
+
+// ==================== 凭证自动填充 ====================
+
+/**
+ * 监听绑定状态变化
+ *
+ * 绑定成功时将凭证写入 form.config，触发配置字段自动填充
+ * form.config 中保存原始值（用于提交），模板层通过 maskValue 脱敏展示
+ */
+watch(bindStatus, (newStatus) => {
+  if (newStatus === 'confirmed') {
+    const credentials = getCredentials()
+    if (credentials) {
+      Object.assign(form.value.config, credentials)
+    }
+  }
+})
+
+// ==================== 渠道表单 ====================
+
+const {
+  channelTypes,
+  form,
+  submitting,
+  selectedType,
+  visibleConfigFields,
   showDialog,
   dialogOptions,
   actionLoading,
-  requestConfirm,
   handleConfirm,
-} = useConfirm()
-
-const { visible: showToast, message: toastMessage, type: toastType, success: showSuccess, error: showError } = useToast()
-
-const selectedType = computed(() => {
-  return channelTypes.value.find((t) => t.type === form.value.type)
+  isCredentialField,
+  maskValue,
+  selectType,
+  handleSubmit,
+  loadChannelTypes,
+  goBack,
+} = useChannelForm({
+  onEnterBindMode: () => {
+    isBindMode.value = true
+  },
+  onExitBindMode: () => {
+    isBindMode.value = false
+  },
+  getBindStatus: () => bindStatus.value,
 })
 
-const icons: Record<string, string> = {
+// ==================== 辅助方法 ====================
+
+/** 渠道类型图标映射 */
+const CHANNEL_ICONS: Record<string, string> = {
   wechat: '💬',
+  wechat_clawbot: '🤖',
   telegram: '✈️',
   dingtalk: '🔔',
   email: '📧',
@@ -137,111 +213,38 @@ const icons: Record<string, string> = {
   feishu: '🕊️',
 }
 
+/** 获取渠道类型对应的图标 */
 function getIcon(type: string): string {
-  return icons[type] || '📌'
+  return CHANNEL_ICONS[type] || '📌'
 }
 
-function selectType(type: string) {
-  if (form.value.type === type) return
-  form.value.type = type
-  form.value.config = {}
+/** 处理渠道类型选择 */
+function handleSelectType(type: string): void {
+  selectType(type)
 }
 
-function validateForm(): boolean {
-  if (!form.value.type) {
-    showError('请选择渠道类型')
-    return false
-  }
-
-  if (!form.value.name) {
-    showError('请输入渠道名称')
-    return false
-  }
-
-  if (!selectedType.value) return false
-
-  for (const field of selectedType.value.config_fields) {
-    if (field.required && !form.value.config[field.name]) {
-      showError(`请填写 ${field.label}`)
-      return false
-    }
-  }
-
-  return true
+/** 判断是否为文本类型字段 */
+function isTextFieldType(type: string | undefined): boolean {
+  const textTypes = ['text', 'password', 'url', 'string']
+  return type !== undefined && textTypes.includes(type)
 }
 
-async function loadChannelTypes() {
-  try {
-    const res = await getChannelTypes()
-    if (res.data) {
-      channelTypes.value = res.data
-    }
-  } catch (err) {
-    console.error('加载渠道类型失败', err)
-  }
+/** 处理表单提交 */
+function handleSubmitForm(): void {
+  const credentials = bindStatus.value === 'confirmed' ? getCredentials() : null
+  handleSubmit(credentials)
 }
 
-function normalizeConfig(
-  config: Record<string, string>,
-  fields: { type: string; name: string }[]
-): Record<string, unknown> {
-  const normalized: Record<string, unknown> = {}
-  for (const field of fields) {
-    const value = config[field.name]
-    if (field.type === 'number' && value !== '' && value !== undefined) {
-      normalized[field.name] = Number(value)
-    } else {
-      normalized[field.name] = value
-    }
-  }
-  return normalized
-}
+// ==================== 生命周期 ====================
 
-function handleSubmit() {
-  if (!validateForm()) return
-  if (!selectedType.value) return
-
-  const normalizedConfig = normalizeConfig(form.value.config, selectedType.value.config_fields)
-
-  requestConfirm(
-    {
-      title: '创建推送渠道',
-      description: `确定要创建渠道 "${form.value.name}" 吗？`,
-      confirmText: '创建',
-      confirmType: 'primary',
-    },
-    async () => {
-      submitting.value = true
-      try {
-        await createChannel({
-          type: form.value.type,
-          name: form.value.name,
-          config: normalizedConfig,
-        })
-        showSuccess('创建成功', 1500)
-        setTimeout(() => {
-          router.push({ name: 'ChannelList' })
-        }, 1500)
-      } catch (err) {
-        console.error('创建渠道失败', err)
-        showError('创建失败，请重试')
-      } finally {
-        submitting.value = false
-      }
-    }
-  )
-}
-
-function goBack() {
-  router.back()
-}
-
+/** 组件挂载时加载渠道类型 */
 onMounted(() => {
   loadChannelTypes()
 })
 </script>
 
 <style scoped>
+/* 页面布局 */
 .channel-create-page {
   padding: var(--space-8);
 }
@@ -276,6 +279,7 @@ onMounted(() => {
   border-color: var(--mid-border);
 }
 
+/* 表单容器 */
 .form-container {
   max-width: 800px;
   margin: 0 auto;
@@ -294,6 +298,7 @@ onMounted(() => {
   margin-bottom: var(--space-4);
 }
 
+/* 类型选择网格 */
 .type-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -359,6 +364,7 @@ onMounted(() => {
   text-overflow: ellipsis;
 }
 
+/* 分隔线 */
 .form-divider {
   margin-top: var(--space-8);
   border-top: 1px solid var(--border-dark);
@@ -368,6 +374,7 @@ onMounted(() => {
   margin-top: var(--space-8);
 }
 
+/* 表单组 */
 .form-group {
   margin-bottom: var(--space-6);
 }
@@ -413,12 +420,28 @@ onMounted(() => {
   color: var(--error);
 }
 
+/* 凭证字段样式 */
+.credential-masked {
+  background: var(--near-black) !important;
+  color: var(--mid-gray) !important;
+  cursor: not-allowed !important;
+  letter-spacing: 0.15em;
+}
+
+.credential-hint {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 0.75rem;
+  color: var(--mid-gray);
+}
+
 .config-fields {
   margin-top: var(--space-8);
   padding-top: var(--space-6);
   border-top: 1px solid var(--border-dark);
 }
 
+/* 表单操作按钮 */
 .form-actions {
   display: flex;
   gap: var(--space-4);
@@ -460,57 +483,5 @@ onMounted(() => {
 
 .btn-secondary:hover {
   border-color: var(--mid-border);
-}
-
-.toast {
-  position: fixed;
-  top: 32px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 14px 28px;
-  border-radius: var(--radius-md);
-  font-size: 0.9375rem;
-  font-weight: 500;
-  z-index: 9999;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(8px);
-  min-width: 200px;
-  justify-content: center;
-}
-
-.toast-icon {
-  width: 20px;
-  height: 20px;
-  flex-shrink: 0;
-}
-
-.toast-success {
-  background: rgba(0, 197, 115, 0.95);
-  color: var(--dark);
-  border: 1px solid rgba(0, 197, 115, 0.3);
-}
-
-.toast-error {
-  background: rgba(239, 68, 68, 0.95);
-  color: white;
-  border: 1px solid rgba(239, 68, 68, 0.3);
-}
-
-.toast-enter-active,
-.toast-leave-active {
-  transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-}
-
-.toast-enter-from {
-  opacity: 0;
-  transform: translateX(-50%) translateY(-20px);
-}
-
-.toast-leave-to {
-  opacity: 0;
-  transform: translateX(-50%) translateY(-20px);
 }
 </style>

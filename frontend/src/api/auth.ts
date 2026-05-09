@@ -33,7 +33,7 @@ export const refreshToken = (data: RefreshReq) => {
 }
 
 export const logout = () => {
-  return request({
+  return request<null>({
     url: '/auth/logout',
     method: 'post',
   })
@@ -47,7 +47,7 @@ export const getUserProfile = () => {
 }
 
 export const changePassword = (data: ChangePasswordReq) => {
-  return request({
+  return request<null>({
     url: '/user/password',
     method: 'put',
     data,

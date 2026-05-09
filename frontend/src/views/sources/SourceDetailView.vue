@@ -4,6 +4,8 @@ import { useRouter, useRoute } from 'vue-router'
 import { getSourceDetail } from '@/api/channels'
 import PasswordConfirmDialog from '@/components/PasswordConfirmDialog.vue'
 import { usePasswordConfirm } from '@/composables/usePasswordConfirm'
+import { getChannelTypeName, getStatusText, getStatusClass } from '@/lib/constants'
+import { useToast } from '@/composables/useToast'
 import type { SourceDetailDTO, ChannelDTO } from '@/types/api'
 
 const router = useRouter()
@@ -12,8 +14,8 @@ const source = ref<SourceDetailDTO | null>(null)
 const channels = ref<ChannelDTO[]>([])
 const loading = ref(true)
 const tokenResult = ref<string | null>(null)
-const toastMessage = ref('')
-const showToast = ref(false)
+
+const { success: showSuccess, error: showError } = useToast()
 
 const {
   showDialog,
@@ -23,35 +25,8 @@ const {
   handleConfirm,
 } = usePasswordConfirm()
 
-function showResult(message: string) {
-  toastMessage.value = message
-  showToast.value = true
-  setTimeout(() => {
-    showToast.value = false
-  }, 3000)
-}
-
-const typeNames: Record<string, string> = {
-  wechat: '企业微信',
-  telegram: 'Telegram',
-  dingtalk: '钉钉',
-  email: '邮件',
-  webhook: 'Webhook',
-  feishu: '飞书',
-}
-
 function getTypeName(type: string): string {
-  return typeNames[type] || type
-}
-
-function getStatusText(status: number): string {
-  const map: Record<number, string> = { 1: '正常', 2: '已停用', '-1': '已删除' }
-  return map[status] || '未知'
-}
-
-function getStatusClass(status: number): string {
-  const map: Record<number, string> = { 1: 'status-active', 2: 'status-disabled', '-1': 'status-deleted' }
-  return map[status] || ''
+  return getChannelTypeName(type)
 }
 
 function formatTime(ts: number): string {
@@ -84,18 +59,22 @@ function handleViewToken() {
     },
     async (pwd: string) => {
       const { getSourceToken } = await import('@/api/channels')
-      const res = await getSourceToken(source.value!.id, pwd)
-      if (res.data) {
+      const res = await getSourceToken(source.value!.id!, pwd)
+      if (res.data?.token) {
         tokenResult.value = res.data.token
       }
     }
   )
 }
 
-function copyToken() {
+async function copyToken() {
   if (tokenResult.value) {
-    navigator.clipboard.writeText(tokenResult.value)
-    showResult('令牌已复制到剪贴板')
+    try {
+      await navigator.clipboard.writeText(tokenResult.value)
+      showSuccess('令牌已复制到剪贴板')
+    } catch {
+      showError('复制失败，请手动复制')
+    }
   }
 }
 
@@ -130,7 +109,7 @@ onMounted(() => {
         <h3>基本信息</h3>
         <div class="detail-row">
           <span class="label">来源名称</span>
-          <span class="value">{{ source.name }}</span>
+          <span class="value">{{ source.name || '-' }}</span>
         </div>
         <div class="detail-row">
           <span class="label">描述</span>
@@ -138,17 +117,17 @@ onMounted(() => {
         </div>
         <div class="detail-row">
           <span class="label">状态</span>
-          <span :class="['value', 'status-badge', getStatusClass(source.status)]">
-            {{ getStatusText(source.status) }}
+          <span :class="['value', 'status-badge', getStatusClass(source.status ?? 0)]">
+            {{ getStatusText(source.status ?? 0) }}
           </span>
         </div>
         <div class="detail-row">
           <span class="label">创建时间</span>
-          <span class="value">{{ formatTime(source.created_at) }}</span>
+          <span class="value">{{ formatTime(source.created_at ?? 0) }}</span>
         </div>
         <div class="detail-row">
           <span class="label">更新时间</span>
-          <span class="value">{{ formatTime(source.updated_at) }}</span>
+          <span class="value">{{ formatTime(source.updated_at ?? 0) }}</span>
         </div>
         <div class="detail-row" v-if="source.last_used_at">
           <span class="label">最后使用时间</span>
@@ -161,9 +140,9 @@ onMounted(() => {
         <div v-if="channels.length > 0" class="channel-list">
           <div v-for="ch in channels" :key="ch.id" class="channel-item">
             <span>{{ ch.name }}</span>
-            <span class="channel-type">{{ getTypeName(ch.type) }}</span>
-            <span :class="['status-badge', getStatusClass(ch.status)]">
-              {{ getStatusText(ch.status) }}
+            <span class="channel-type">{{ getTypeName(ch.type ?? '') }}</span>
+            <span :class="['status-badge', getStatusClass(ch.status ?? 0)]">
+              {{ getStatusText(ch.status ?? 0) }}
             </span>
           </div>
         </div>
@@ -187,12 +166,6 @@ onMounted(() => {
       :loading="actionLoading"
       @confirm="handleConfirm"
     />
-
-    <Transition name="toast">
-      <div v-if="showToast" class="toast toast-success">
-        {{ toastMessage }}
-      </div>
-    </Transition>
 
     <div v-if="tokenResult" class="modal-overlay" @click.self="tokenResult = null">
       <div class="modal">
@@ -437,38 +410,5 @@ onMounted(() => {
   display: flex;
   gap: var(--space-4);
   justify-content: flex-end;
-}
-
-.toast {
-  position: fixed;
-  top: 24px;
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 12px 24px;
-  border-radius: var(--radius-md);
-  font-size: 0.875rem;
-  font-weight: 500;
-  z-index: 2000;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-}
-
-.toast-success {
-  background: var(--success);
-  color: var(--dark);
-}
-
-.toast-enter-active,
-.toast-leave-active {
-  transition: all 0.3s ease;
-}
-
-.toast-enter-from {
-  opacity: 0;
-  transform: translateX(-50%) translateY(-20px);
-}
-
-.toast-leave-to {
-  opacity: 0;
-  transform: translateX(-50%) translateY(-20px);
 }
 </style>

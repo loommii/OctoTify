@@ -20,21 +20,21 @@
         </div>
         <div class="detail-row">
           <span class="label">渠道类型</span>
-          <span class="value">{{ getTypeName(channel.type) }}</span>
+          <span class="value">{{ getTypeName(channel.type ?? '') }}</span>
         </div>
         <div class="detail-row">
           <span class="label">状态</span>
-          <span :class="['value', 'status-badge', getStatusClass(channel.status)]">
-            {{ getStatusText(channel.status) }}
+          <span :class="['value', 'status-badge', getStatusClass(channel.status ?? 0)]">
+            {{ getStatusText(channel.status ?? 0) }}
           </span>
         </div>
         <div class="detail-row">
           <span class="label">创建时间</span>
-          <span class="value">{{ formatTime(channel.created_at) }}</span>
+          <span class="value">{{ formatTime(channel.created_at ?? 0) }}</span>
         </div>
         <div class="detail-row">
           <span class="label">更新时间</span>
-          <span class="value">{{ formatTime(channel.updated_at) }}</span>
+          <span class="value">{{ formatTime(channel.updated_at ?? 0) }}</span>
         </div>
         <div class="detail-row" v-if="channel.last_used_at">
           <span class="label">最后使用时间</span>
@@ -60,21 +60,6 @@
       :loading="actionLoading"
       @confirm="handleConfirm"
     />
-
-    <Transition name="toast">
-      <div v-if="showToast" :class="['toast', 'toast-' + toastType]">
-        <svg v-if="toastType === 'success'" class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-          <polyline points="22 4 12 14.01 9 11.01"/>
-        </svg>
-        <svg v-else class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="10"/>
-          <line x1="15" y1="9" x2="9" y2="15"/>
-          <line x1="9" y1="9" x2="15" y2="15"/>
-        </svg>
-        <span>{{ toastMessage }}</span>
-      </div>
-    </Transition>
   </div>
 </template>
 
@@ -84,6 +69,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { getChannelDetail, testChannel } from '@/api/channels'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import { useConfirm } from '@/composables/useConfirm'
+import { getChannelTypeName, getStatusText, getStatusClass } from '@/lib/constants'
 import { useToast } from '@/composables/useToast'
 import type { ChannelDTO } from '@/types/api'
 
@@ -100,29 +86,10 @@ const {
   handleConfirm,
 } = useConfirm()
 
-const { visible: showToast, message: toastMessage, type: toastType, success: showSuccess, error: showError } = useToast()
-
-const typeNames: Record<string, string> = {
-  wechat: '企业微信',
-  telegram: 'Telegram',
-  dingtalk: '钉钉',
-  email: '邮件',
-  webhook: 'Webhook',
-  feishu: '飞书',
-}
+const { success: showSuccess, error: showError } = useToast()
 
 function getTypeName(type: string): string {
-  return typeNames[type] || type
-}
-
-function getStatusText(status: number): string {
-  const map: Record<number, string> = { 1: '正常', 2: '已停用', '-1': '已删除' }
-  return map[status] || '未知'
-}
-
-function getStatusClass(status: number): string {
-  const map: Record<number, string> = { 1: 'status-active', 2: 'status-disabled', '-1': 'status-deleted' }
-  return map[status] || ''
+  return getChannelTypeName(type)
 }
 
 function formatTime(ts: number): string {
@@ -155,7 +122,7 @@ function handleTest() {
     },
     async () => {
       try {
-        await testChannel(channel.value!.id)
+        await testChannel(channel.value!.id!)
         showSuccess('测试消息已推送')
       } catch (err) {
         console.error('测试渠道连接失败', err)
@@ -319,57 +286,5 @@ onMounted(() => {
 .status-deleted {
   background: rgba(240, 95, 95, 0.15);
   color: var(--error);
-}
-
-.toast {
-  position: fixed;
-  top: 32px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 14px 28px;
-  border-radius: var(--radius-md);
-  font-size: 0.9375rem;
-  font-weight: 500;
-  z-index: 9999;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(8px);
-  min-width: 200px;
-  justify-content: center;
-}
-
-.toast-icon {
-  width: 20px;
-  height: 20px;
-  flex-shrink: 0;
-}
-
-.toast-success {
-  background: rgba(0, 197, 115, 0.95);
-  color: var(--dark);
-  border: 1px solid rgba(0, 197, 115, 0.3);
-}
-
-.toast-error {
-  background: rgba(239, 68, 68, 0.95);
-  color: white;
-  border: 1px solid rgba(239, 68, 68, 0.3);
-}
-
-.toast-enter-active,
-.toast-leave-active {
-  transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-}
-
-.toast-enter-from {
-  opacity: 0;
-  transform: translateX(-50%) translateY(-20px);
-}
-
-.toast-leave-to {
-  opacity: 0;
-  transform: translateX(-50%) translateY(-20px);
 }
 </style>

@@ -2,6 +2,7 @@
 package service
 
 import (
+	"net/http"
 	"testing"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"gorm.io/gorm"
 
 	"octotify/internal/model"
+	"octotify/internal/sender"
 	pkgjwtx "octotify/pkg/jwtx"
 )
 
@@ -191,4 +193,16 @@ func AssertJWTTokenValid(t *testing.T, helper *pkgjwtx.JWTHelper, tokenStr strin
 	require.NotNil(t, claims, "JWT Claims 不应为 nil")
 
 	return claims
+}
+
+// NewChannelServiceForTest 创建绑定测试用的 ChannelService（可注入自定义 HTTP 客户端）
+// 此函数仅供测试使用，允许 Handler 层测试模拟 iLink API
+func NewChannelServiceForTest(db *gorm.DB, logger *zap.Logger, senderFactory *sender.SenderFactory, httpClient, pollClient *http.Client) *ChannelService {
+	return &ChannelService{
+		db:            db,
+		logger:        logger,
+		senderFactory: senderFactory,
+		httpClient:    httpClient,
+		pollClient:    pollClient,
+	}
 }

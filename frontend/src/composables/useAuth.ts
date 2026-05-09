@@ -20,9 +20,11 @@ export function useAuth() {
 
     try {
       const response = await login(data)
-      if (response.data) {
+      if (response.data?.access_token && response.data?.refresh_token) {
         authStore.setTokens(response.data.access_token, response.data.refresh_token)
-        authStore.setUser(response.data.user)
+        if (response.data.user) {
+          authStore.setUser(response.data.user)
+        }
       }
       router.push({ name: 'Dashboard' })
     } catch (error) {
@@ -39,9 +41,11 @@ export function useAuth() {
 
     try {
       const response = await register(data)
-      if (response.data) {
+      if (response.data?.access_token && response.data?.refresh_token) {
         authStore.setTokens(response.data.access_token, response.data.refresh_token)
-        authStore.setUser(response.data.user)
+        if (response.data.user) {
+          authStore.setUser(response.data.user)
+        }
       }
       router.push({ name: 'Dashboard' })
     } catch (error) {

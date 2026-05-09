@@ -24,17 +24,17 @@
         </div>
         <div class="detail-row">
           <span class="label">内容</span>
-          <span class="value content-text">{{ message.message }}</span>
+          <span class="value content-text">{{ message.content }}</span>
         </div>
         <div class="detail-row">
           <span class="label">状态</span>
-          <span :class="['value', 'status-badge', getStatusClass(message.status)]">
-            {{ getStatusText(message.status) }}
+          <span :class="['value', 'status-badge', getMessageStatusClass(message.status ?? 0)]">
+            {{ getMessageStatusText(message.status ?? 0) }}
           </span>
         </div>
         <div class="detail-row">
           <span class="label">推送时间</span>
-          <span class="value">{{ formatTime(message.created_at) }}</span>
+          <span class="value">{{ formatTime(message.created_at ?? 0) }}</span>
         </div>
       </div>
 
@@ -43,15 +43,15 @@
         <div v-if="message.push_results && message.push_results.length > 0" class="push-results">
           <div v-for="result in message.push_results" :key="result.channel_id" class="push-result-item">
             <div class="result-header">
-              <span class="channel-name">{{ result.channel_name }}</span>
-              <span :class="['status-badge', getPushStatusClass(result.status)]">
-                {{ getPushStatusText(result.status) }}
+              <span class="channel-name">{{ result.channel_name || '未知渠道' }}</span>
+              <span :class="['status-badge', getPushStatusClass(result)]">
+                {{ getPushStatusText(result) }}
               </span>
             </div>
             <div class="result-detail">
-              <span>类型: {{ result.channel_type }}</span>
-              <span v-if="result.error_message" class="error-msg">错误: {{ result.error_message }}</span>
-              <span>推送时间: {{ formatTime(result.pushed_at) }}</span>
+              <span>渠道 ID: {{ result.channel_id }}</span>
+              <span v-if="result.error" class="error-msg">错误: {{ result.error }}</span>
+              <span>消息 ID: {{ result.message_id }}</span>
             </div>
           </div>
         </div>
@@ -65,33 +65,25 @@
 import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { getMessageDetail } from '@/api/channels'
-import type { MessageDetailDTO } from '@/types/api'
+import { getMessageStatusText, getMessageStatusClass } from '@/lib/constants'
+import type { MessageDetailDTO, PushResult } from '@/types/api'
 
 const router = useRouter()
 const route = useRoute()
 const message = ref<MessageDetailDTO | null>(null)
 const loading = ref(true)
 
-function getStatusText(status: number): string {
-  const map: Record<number, string> = { 100: '待推送', 200: '成功', 300: '失败', [-1]: '已删除' }
-  return map[status] || '未知'
-}
-
-function getStatusClass(status: number): string {
-  const map: Record<number, string> = { 100: 'status-partial', 200: 'status-success', 300: 'status-failed', [-1]: '' }
-  return map[status] || ''
-}
-
-function getPushStatusText(status: number): string {
-  return status === 200 ? '成功' : '失败'
-}
-
-function getPushStatusClass(status: number): string {
-  return status === 200 ? 'status-success' : 'status-failed'
-}
-
 function formatTime(ts: number): string {
   return new Date(ts).toLocaleString('zh-CN')
+}
+
+function getPushStatusText(result: PushResult): string {
+  if (result.success) return '成功'
+  return '失败'
+}
+
+function getPushStatusClass(result: PushResult): string {
+  return result.success ? 'status-success' : 'status-failed'
 }
 
 async function loadMessage() {

@@ -22,13 +22,14 @@ func NewSenderFactory(logger *zap.Logger) *SenderFactory {
 	return &SenderFactory{
 		logger: logger,
 		senders: map[string]Sender{
-			"wechat":   NewWechatSender(logger),
-			"telegram": NewTelegramSender(logger),
-			"dingtalk": NewDingtalkSender(logger),
-			"email":    NewEmailSender(logger),
-			"webhook":  NewWebhookSender(logger),
-			"feishu":   NewFeishuSender(logger),
-		},
+		"wechat":          NewWechatSender(logger),
+		"wechat_clawbot":  NewWechatClawbotSender(logger),
+		"telegram":        NewTelegramSender(logger),
+		"dingtalk":        NewDingtalkSender(logger),
+		"email":           NewEmailSender(logger),
+		"webhook":         NewWebhookSender(logger),
+		"feishu":          NewFeishuSender(logger),
+	},
 	}
 }
 

@@ -309,6 +309,97 @@ const docTemplate = `{
                 }
             }
         },
+        "/channels/wechat-clawbot/bind": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "获取微信ClawBot绑定二维码，用户扫码后完成绑定。\n## 使用场景\n1. 创建微信ClawBot渠道时发起绑定\n2. 重新绑定微信账号\n## 注意事项\n- 二维码有效期由 iLink 平台控制，过期后需重新获取\n- 前端需保存返回的 qrcode 值，用于后续调用 /bind/status 查询状态\n## 错误码说明\n- 100001: 未提供认证令牌\n- 110901: 获取二维码失败",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "微信ClawBot绑定"
+                ],
+                "summary": "发起微信ClawBot扫码绑定",
+                "responses": {
+                    "200": {
+                        "description": "获取成功，返回 qrcode_url 和 qrcode",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/octotify_pkg_response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/octotify_internal_handler_dto.StartBindResp"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/channels/wechat-clawbot/bind/status": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "通过 qrcode 调用 iLink API 查询绑定状态（长轮询，40s 超时）。\n## 工作原理\n1. 前端传 qrcode 字符串给后端\n2. 后端直接调用 iLink API 查询状态（iLink 本身是长轮询设计，40s 超时）\n3. iLink 返回状态时立即返回给前端\n4. 如果 iLink 超时，返回 pending，前端可重新发起请求\n## 返回状态\n- pending: 仍在等待中（超时返回）\n- scanned: 用户已扫码，待确认\n- confirmed: 绑定成功，返回凭证\n- expired: 二维码已过期\n## 错误码说明\n- 100001: 未提供认证令牌\n- 100000: 请求参数格式错误",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "微信ClawBot绑定"
+                ],
+                "summary": "查询微信ClawBot绑定状态",
+                "parameters": [
+                    {
+                        "description": "查询绑定状态请求参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/octotify_internal_handler_dto.GetBindStatusReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "查询成功，返回绑定状态",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/octotify_pkg_response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/octotify_internal_handler_dto.BindStatusResp"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
         "/channels/{id}": {
             "get": {
                 "security": [
@@ -1525,6 +1616,44 @@ const docTemplate = `{
                 }
             }
         },
+        "octotify_internal_handler_dto.BindCredentialsDTO": {
+            "type": "object",
+            "properties": {
+                "bot_token_ciphertext": {
+                    "description": "加密后的 Bot Token（密文）",
+                    "type": "string"
+                },
+                "bot_token_nonce": {
+                    "description": "Token 加密使用的 Nonce",
+                    "type": "string"
+                },
+                "ilink_bot_id": {
+                    "description": "iLink 平台分配的 Bot ID",
+                    "type": "string"
+                },
+                "ilink_user_id": {
+                    "description": "iLink 平台的用户 ID",
+                    "type": "string"
+                }
+            }
+        },
+        "octotify_internal_handler_dto.BindStatusResp": {
+            "type": "object",
+            "properties": {
+                "credentials": {
+                    "description": "绑定成功时返回的凭证",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/octotify_internal_handler_dto.BindCredentialsDTO"
+                        }
+                    ]
+                },
+                "status": {
+                    "description": "绑定状态：pending/scanned/confirmed/expired",
+                    "type": "string"
+                }
+            }
+        },
         "octotify_internal_handler_dto.ChangePasswordReq": {
             "description": "修改用户登录密码",
             "type": "object",
@@ -1545,13 +1674,21 @@ const docTemplate = `{
                 }
             }
         },
+        "octotify_internal_handler_dto.ChannelConfig": {
+            "type": "object",
+            "additionalProperties": {}
+        },
         "octotify_internal_handler_dto.ChannelDTO": {
             "description": "推送渠道的详细信息",
             "type": "object",
             "properties": {
                 "config": {
                     "description": "渠道配置，JSON 格式",
-                    "type": "object"
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/octotify_internal_handler_dto.ChannelConfig"
+                        }
+                    ]
                 },
                 "created_at": {
                     "description": "创建时间（Unix 毫秒时间戳）",
@@ -1655,7 +1792,11 @@ const docTemplate = `{
             "properties": {
                 "config": {
                     "description": "渠道配置，JSON 对象，不同渠道类型配置不同",
-                    "type": "object"
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/octotify_internal_handler_dto.ChannelConfig"
+                        }
+                    ]
                 },
                 "name": {
                     "description": "渠道名称，1-128 个字符",
@@ -1702,6 +1843,18 @@ const docTemplate = `{
                     "maxLength": 128,
                     "minLength": 1,
                     "example": "CI Pipeline"
+                }
+            }
+        },
+        "octotify_internal_handler_dto.GetBindStatusReq": {
+            "type": "object",
+            "required": [
+                "qrcode"
+            ],
+            "properties": {
+                "qrcode": {
+                    "description": "iLink 返回的二维码原始值",
+                    "type": "string"
                 }
             }
         },
@@ -1847,9 +2000,8 @@ const docTemplate = `{
                     "example": "Build #123 passed"
                 },
                 "title": {
-                    "description": "消息标题，1-256 个字符",
+                    "description": "消息标题，不能为空",
                     "type": "string",
-                    "maxLength": 256,
                     "minLength": 1,
                     "example": "CI Build"
                 }
@@ -2064,6 +2216,19 @@ const docTemplate = `{
                 }
             }
         },
+        "octotify_internal_handler_dto.StartBindResp": {
+            "type": "object",
+            "properties": {
+                "qrcode": {
+                    "description": "二维码原始值，用于后续查询绑定状态",
+                    "type": "string"
+                },
+                "qrcode_url": {
+                    "description": "二维码 URL，用户扫码使用",
+                    "type": "string"
+                }
+            }
+        },
         "octotify_internal_handler_dto.UpdateChannelReq": {
             "description": "编辑已有推送渠道的名称和配置信息 ## 渠道配置示例 - wechat: {\"webhook\": \"https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx\"} - telegram: {\"bot_token\": \"xxx\", \"chat_id\": \"xxx\"} - dingtalk: {\"webhook\": \"https://oapi.dingtalk.com/robot/send?access_token=xxx\"} - email: {\"smtp_host\": \"smtp.example.com\", \"smtp_port\": 587, \"username\": \"xxx\", \"password\": \"xxx\", \"to\": \"xxx@example.com\"} - webhook: {\"url\": \"https://example.com/webhook\", \"method\": \"POST\", \"headers\": {\"Content-Type\": \"application/json\"}}",
             "type": "object",
@@ -2074,7 +2239,11 @@ const docTemplate = `{
             "properties": {
                 "config": {
                     "description": "渠道配置，JSON 对象，不同渠道类型配置不同",
-                    "type": "object"
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/octotify_internal_handler_dto.ChannelConfig"
+                        }
+                    ]
                 },
                 "name": {
                     "description": "渠道名称，1-128 个字符",
@@ -2086,12 +2255,24 @@ const docTemplate = `{
             }
         },
         "octotify_internal_handler_dto.UpdateSourceReq": {
-            "description": "编辑已有消息来源的名称和描述",
+            "description": "编辑已有消息来源的名称、描述和绑定渠道",
             "type": "object",
             "required": [
                 "name"
             ],
             "properties": {
+                "channel_ids": {
+                    "description": "关联的渠道ID列表",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    },
+                    "example": [
+                        1,
+                        2,
+                        3
+                    ]
+                },
                 "description": {
                     "description": "来源描述，最多 512 个字符",
                     "type": "string",
@@ -2233,6 +2414,10 @@ const docTemplate = `{
         {
             "description": "外部系统通过 Source Token 推送消息到平台",
             "name": "消息推送"
+        },
+        {
+            "description": "发起绑定、轮询绑定状态等微信ClawBot绑定相关接口",
+            "name": "微信ClawBot绑定"
         }
     ]
 }`

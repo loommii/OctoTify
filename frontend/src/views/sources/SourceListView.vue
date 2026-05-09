@@ -10,9 +10,12 @@ import {
 } from '@/api/channels'
 import PasswordConfirmDialog from '@/components/PasswordConfirmDialog.vue'
 import { usePasswordConfirm } from '@/composables/usePasswordConfirm'
+import { useToast } from '@/composables/useToast'
+import { getStatusText, getStatusClass } from '@/lib/constants'
 import type { SourceDTO } from '@/types/api'
 
 const router = useRouter()
+const { success: showSuccess, error: showError } = useToast()
 const sources = ref<SourceDTO[]>([])
 const loading = ref(true)
 const page = ref(1)
@@ -28,16 +31,6 @@ const {
   handleConfirm,
 } = usePasswordConfirm()
 
-function getStatusText(status: number): string {
-  const map: Record<number, string> = { 1: '正常', 2: '已停用', '-1': '已删除' }
-  return map[status] || '未知'
-}
-
-function getStatusClass(status: number): string {
-  const map: Record<number, string> = { 1: 'status-active', 2: 'status-disabled', '-1': 'status-deleted' }
-  return map[status] || ''
-}
-
 function formatTime(ts: number): string {
   return new Date(ts).toLocaleString('zh-CN')
 }
@@ -47,8 +40,8 @@ async function loadSources() {
   try {
     const res = await listSources(page.value, pageSize.value)
     if (res.data) {
-      sources.value = res.data.list
-      total.value = res.data.total
+      sources.value = res.data.list ?? []
+      total.value = res.data.total ?? 0
     }
   } catch (err) {
     console.error('加载来源列表失败', err)
@@ -83,7 +76,7 @@ function handleViewToken(id: number) {
     },
     async (pwd: string) => {
       const res = await getSourceToken(id, pwd)
-      if (res.data) {
+      if (res.data?.token) {
         tokenResult.value = res.data.token
       }
     }
@@ -126,15 +119,20 @@ function handleDelete(id: number) {
       confirmText: '删除',
     },
     async (pwd: string) => {
-      await deleteSource(id, pwd)
+      await deleteSource(id!, pwd)
       await loadSources()
     }
   )
 }
 
-function copyToken() {
+async function copyToken() {
   if (tokenResult.value) {
-    navigator.clipboard.writeText(tokenResult.value)
+    try {
+      await navigator.clipboard.writeText(tokenResult.value)
+      showSuccess('令牌已复制到剪贴板')
+    } catch {
+      showError('复制失败，请手动复制')
+    }
   }
 }
 
@@ -173,30 +171,30 @@ onMounted(() => {
             <td>{{ source.name }}</td>
             <td class="desc-cell">{{ source.description || '-' }}</td>
             <td>
-              <span :class="['status-badge', getStatusClass(source.status)]">
-                {{ getStatusText(source.status) }}
+              <span :class="['status-badge', getStatusClass(source.status ?? 0)]">
+                {{ getStatusText(source.status ?? 0) }}
               </span>
             </td>
-            <td>{{ formatTime(source.created_at) }}</td>
+            <td>{{ formatTime(source.created_at ?? 0) }}</td>
             <td class="actions">
-              <button class="btn-link" @click="goToDetail(source.id)">详情</button>
-              <button class="btn-link" @click="goToEdit(source.id)">编辑</button>
-              <button class="btn-link" @click="handleViewToken(source.id)">查看令牌</button>
+              <button class="btn-link" @click="goToDetail(source.id!)">详情</button>
+              <button class="btn-link" @click="goToEdit(source.id!)">编辑</button>
+              <button class="btn-link" @click="handleViewToken(source.id!)">查看令牌</button>
               <button
                 v-if="source.status === 1"
                 class="btn-link btn-warning"
-                @click="handleDisable(source.id)"
+                @click="handleDisable(source.id!)"
               >
                 停用
               </button>
               <button
                 v-else-if="source.status === 2"
                 class="btn-link btn-success"
-                @click="handleEnable(source.id)"
+                @click="handleEnable(source.id!)"
               >
                 启用
               </button>
-              <button class="btn-link btn-danger" @click="handleDelete(source.id)">删除</button>
+              <button class="btn-link btn-danger" @click="handleDelete(source.id!)">删除</button>
             </td>
           </tr>
         </tbody>

@@ -63,7 +63,7 @@ func (s *DingtalkSender) Send(ctx context.Context, config datatypes.JSON, title 
 	}
 
 	s.logger.Debug("钉钉渠道配置",
-		zap.String("webhook_url", cfg.WebhookURL),
+		zap.String("webhook_url", maskURL(cfg.WebhookURL)),
 		zap.Bool("has_secret", cfg.Secret != ""),
 	)
 

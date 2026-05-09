@@ -2,8 +2,13 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -47,7 +52,7 @@ func TestChannelService_CreateChannel(t *testing.T) {
 			req: &dto.CreateChannelReq{
 				Type:   "feishu",
 				Name:   "飞书-运维群",
-				Config: datatypes.JSON(`{"webhook_url":"https://open.feishu.cn/open-apis/bot/v2/hook/test"}`),
+				Config: dto.ChannelConfig{"webhook_url": "https://open.feishu.cn/open-apis/bot/v2/hook/test"},
 			},
 			wantErrCode: 0,
 			wantSuccess: true,
@@ -58,7 +63,7 @@ func TestChannelService_CreateChannel(t *testing.T) {
 			req: &dto.CreateChannelReq{
 				Type:   "dingtalk",
 				Name:   "钉钉-告警群",
-				Config: datatypes.JSON(`{"webhook":"https://oapi.dingtalk.com/robot/send?access_token=test"}`),
+				Config: dto.ChannelConfig{"webhook": "https://oapi.dingtalk.com/robot/send?access_token=test"},
 			},
 			wantErrCode: 0,
 			wantSuccess: true,
@@ -69,7 +74,7 @@ func TestChannelService_CreateChannel(t *testing.T) {
 			req: &dto.CreateChannelReq{
 				Type:   "webhook",
 				Name:   "DB Error Channel",
-				Config: datatypes.JSON(`{"url":"https://example.com"}`),
+				Config: dto.ChannelConfig{"url": "https://example.com"},
 			},
 			setup: func() {
 				sqlDB, err := db.DB()
@@ -245,7 +250,7 @@ func TestChannelService_UpdateChannel(t *testing.T) {
 			userID:    testUser.ID,
 			req: &dto.UpdateChannelReq{
 				Name:   "Updated Channel Name",
-				Config: datatypes.JSON(`{"webhook_url":"https://open.feishu.cn/updated"}`),
+				Config: dto.ChannelConfig{"webhook_url": "https://open.feishu.cn/updated"},
 			},
 			wantErrCode: 0,
 			wantSuccess: true,
@@ -256,7 +261,7 @@ func TestChannelService_UpdateChannel(t *testing.T) {
 			userID:    testUser.ID,
 			req: &dto.UpdateChannelReq{
 				Name:   "Non-existent Channel",
-				Config: datatypes.JSON(`{}`),
+				Config: dto.ChannelConfig{},
 			},
 			wantErrCode: xerr.ErrChannelNotFound.Code,
 			wantSuccess: false,
@@ -267,7 +272,7 @@ func TestChannelService_UpdateChannel(t *testing.T) {
 			userID:    testUser.ID,
 			req: &dto.UpdateChannelReq{
 				Name:   "Updated Deleted Channel",
-				Config: datatypes.JSON(`{}`),
+				Config: dto.ChannelConfig{},
 			},
 			wantErrCode: xerr.ErrChannelAlreadyDeleted.Code,
 			wantSuccess: false,
@@ -278,7 +283,7 @@ func TestChannelService_UpdateChannel(t *testing.T) {
 			userID:    testUser.ID,
 			req: &dto.UpdateChannelReq{
 				Name:   "Hacked Channel Name",
-				Config: datatypes.JSON(`{}`),
+				Config: dto.ChannelConfig{},
 			},
 			wantErrCode: xerr.ErrChannelNotFound.Code,
 			wantSuccess: false,
@@ -813,6 +818,225 @@ func TestChannelService_TestChannel(t *testing.T) {
 				appErr, ok := err.(*xerr.AppError)
 				assert.True(t, ok, "错误类型应为 *xerr.AppError")
 				assert.Equal(t, tt.wantErrCode, appErr.Code, "错误码不匹配")
+			}
+		})
+	}
+}
+
+// ============================================================================
+// 微信ClawBot绑定流程测试
+// ============================================================================
+
+// bindRedirectTransport 将 HTTP 请求重定向到测试服务器的 RoundTripper
+// 用于模拟 iLink API，无需修改生产代码中的硬编码 URL
+type bindRedirectTransport struct {
+	targetURL string
+}
+
+func (t *bindRedirectTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	target, _ := url.Parse(t.targetURL)
+	newURL := &url.URL{
+		Scheme:   target.Scheme,
+		Host:     target.Host,
+		Path:     req.URL.Path,
+		RawQuery: req.URL.RawQuery,
+	}
+	newReq := req.Clone(req.Context())
+	newReq.URL = newURL
+	return http.DefaultTransport.RoundTrip(newReq)
+}
+
+// newBindTestService 创建绑定测试用的 ChannelService
+// HTTP 请求通过 bindRedirectTransport 重定向到模拟 iLink 服务器
+func newBindTestService(t *testing.T, targetURL string) *ChannelService {
+	t.Helper()
+	db := SetupTestDB(t)
+	logger := SetupTestLogger(t)
+	factory := sender.NewSenderFactory(logger)
+	transport := &bindRedirectTransport{targetURL: targetURL}
+	return &ChannelService{
+		db:            db,
+		logger:        logger,
+		senderFactory: factory,
+		httpClient:    &http.Client{Transport: transport, Timeout: 30 * time.Second},
+		pollClient:    &http.Client{Transport: transport},
+	}
+}
+
+// TestChannelService_StartBind 测试发起微信ClawBot扫码绑定
+// 覆盖场景：成功获取二维码、iLink API 返回错误
+func TestChannelService_StartBind(t *testing.T) {
+	ctx := context.Background()
+
+	tests := []struct {
+		name         string
+		iLinkHandler http.HandlerFunc
+		wantQRCode   string
+		wantURL      string
+		wantErr      bool
+		wantErrCode  int
+	}{
+		{
+			name: "成功：iLink API 返回 QRCode 和 QRCodeImgContent",
+			iLinkHandler: func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(map[string]string{
+					"qrcode":             "test-qrcode-abc123",
+					"qrcode_img_content": "data:image/png;base64,iVBORw0KGgo=",
+				})
+			},
+			wantQRCode: "test-qrcode-abc123",
+			wantURL:    "data:image/png;base64,iVBORw0KGgo=",
+			wantErr:    false,
+		},
+		{
+			name: "失败：iLink API 返回 HTTP 500",
+			iLinkHandler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte("internal server error"))
+			},
+			wantQRCode:  "",
+			wantURL:     "",
+			wantErr:     true,
+			wantErrCode: xerr.ErrQRCodeFetchFailed.Code,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// 创建模拟 iLink 服务器
+			iLinkServer := httptest.NewServer(tt.iLinkHandler)
+			defer iLinkServer.Close()
+
+			svc := newBindTestService(t, iLinkServer.URL)
+			qrcode, qrcodeURL, err := svc.StartBind(ctx, 1)
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				appErr, ok := err.(*xerr.AppError)
+				assert.True(t, ok, "错误类型应为 *xerr.AppError")
+				assert.Equal(t, tt.wantErrCode, appErr.Code, "错误码不匹配")
+				assert.Empty(t, qrcode)
+				assert.Empty(t, qrcodeURL)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.wantQRCode, qrcode)
+				assert.Equal(t, tt.wantURL, qrcodeURL)
+			}
+		})
+	}
+}
+
+// TestChannelService_PollBindStatus 测试轮询微信ClawBot绑定状态
+// 覆盖场景：pending、scanned、confirmed（含加密凭证验证）、expired、iLink API 失败
+func TestChannelService_PollBindStatus(t *testing.T) {
+	ctx := context.Background()
+
+	tests := []struct {
+		name            string
+		iLinkHandler    http.HandlerFunc
+		wantStatus      string
+		wantCreds       bool   // 是否期望返回凭证
+		wantErr         bool   // 是否期望返回错误
+		errContains     string // 错误信息应包含的子串
+		wantILinkBotID  string
+		wantILinkUserID string
+	}{
+		{
+			name: "成功：iLink 返回 wait 状态",
+			iLinkHandler: func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(map[string]string{
+					"status": ILinkStatusWait,
+				})
+			},
+			wantStatus: ILinkStatusWait,
+			wantCreds:  false,
+			wantErr:    false,
+		},
+		{
+			name: "成功：iLink 返回 scanned 状态",
+			iLinkHandler: func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(map[string]string{
+					"status": ILinkStatusScanned,
+				})
+			},
+			wantStatus: ILinkStatusScanned,
+			wantCreds:  false,
+			wantErr:    false,
+		},
+		{
+			name: "成功：iLink 返回 confirmed 状态，包含加密凭证",
+			iLinkHandler: func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(map[string]string{
+					"status":        ILinkStatusConfirmed,
+					"bot_token":     "test-bot-token-xyz",
+					"ilink_bot_id":  "bot-789",
+					"ilink_user_id": "user-012",
+				})
+			},
+			wantStatus:      ILinkStatusConfirmed,
+			wantCreds:       true,
+			wantErr:         false,
+			wantILinkBotID:  "bot-789",
+			wantILinkUserID: "user-012",
+		},
+		{
+			name: "成功：iLink 返回 expired 状态",
+			iLinkHandler: func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(map[string]string{
+					"status": ILinkStatusExpired,
+				})
+			},
+			wantStatus: ILinkStatusExpired,
+			wantCreds:  false,
+			wantErr:    false,
+		},
+		{
+			name: "失败：iLink API 返回 HTTP 500，应返回错误和空状态",
+			iLinkHandler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte("internal server error"))
+			},
+			wantStatus:  "",
+			wantCreds:   false,
+			wantErr:     true,
+			errContains: "HTTP 500",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			iLinkServer := httptest.NewServer(tt.iLinkHandler)
+			defer iLinkServer.Close()
+
+			svc := newBindTestService(t, iLinkServer.URL)
+			status, credentials, err := svc.PollBindStatus(ctx, "test-qrcode")
+
+			// 验证状态
+			assert.Equal(t, tt.wantStatus, status)
+
+			if tt.wantCreds {
+				// 验证凭证结构完整（明文格式）
+				assert.NoError(t, err)
+				require.NotNil(t, credentials)
+				assert.NotEmpty(t, credentials.BotToken, "BotToken 不应为空")
+				assert.Equal(t, tt.wantILinkBotID, credentials.IlinkBotID)
+				assert.Equal(t, tt.wantILinkUserID, credentials.IlinkUserID)
+			} else {
+				assert.Nil(t, credentials)
+			}
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				if tt.errContains != "" {
+					assert.Contains(t, err.Error(), tt.errContains)
+				}
+			} else {
+				assert.NoError(t, err)
 			}
 		})
 	}

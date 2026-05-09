@@ -20,18 +20,18 @@
           <label>状态</label>
           <select v-model="filter.status">
             <option value="">全部</option>
-            <option value="1">成功</option>
-            <option value="2">失败</option>
-            <option value="3">部分成功</option>
+            <option value="200">成功</option>
+            <option value="300">失败</option>
+            <option value="100">待推送</option>
           </select>
         </div>
         <div class="filter-group">
           <label>开始时间</label>
-          <input v-model="filter.start_time" type="datetime-local" />
+          <input v-model="filter.start_date" type="datetime-local" />
         </div>
         <div class="filter-group">
           <label>结束时间</label>
-          <input v-model="filter.end_time" type="datetime-local" />
+          <input v-model="filter.end_date" type="datetime-local" />
         </div>
         <div class="filter-actions">
           <button class="btn-primary" @click="applyFilter">应用筛选</button>
@@ -61,17 +61,17 @@
         <tbody>
           <tr v-for="msg in messages" :key="msg.id">
             <td>{{ msg.id }}</td>
-            <td>{{ msg.source_name }}</td>
-            <td class="title-cell">{{ msg.title }}</td>
+            <td>{{ msg.source_name || '-' }}</td>
+            <td class="title-cell">{{ msg.title || '' }}</td>
             <td>
-              <span :class="['status-badge', getStatusClass(msg.status)]">
-                {{ getStatusText(msg.status) }}
+              <span :class="['status-badge', getMessageStatusClass(msg.status ?? 0)]">
+                {{ getMessageStatusText(msg.status ?? 0) }}
               </span>
             </td>
-            <td>{{ formatTime(msg.created_at) }}</td>
+            <td>{{ formatTime(msg.created_at ?? 0) }}</td>
             <td class="actions">
-              <button class="btn-link" @click="goToDetail(msg.id)">详情</button>
-              <button class="btn-link btn-danger" @click="handleDelete(msg.id)">删除</button>
+              <button class="btn-link" @click="goToDetail(msg.id!)">详情</button>
+              <button class="btn-link btn-danger" @click="handleDelete(msg.id!)">删除</button>
             </td>
           </tr>
         </tbody>
@@ -102,6 +102,7 @@ import { useRouter } from 'vue-router'
 import { listMessages, filterMessages, deleteMessage, listSources } from '@/api/channels'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import { useConfirm } from '@/composables/useConfirm'
+import { getMessageStatusText, getMessageStatusClass } from '@/lib/constants'
 import type { MessageDTO, SourceDTO } from '@/types/api'
 
 const router = useRouter()
@@ -115,8 +116,8 @@ const showFilter = ref(false)
 const filter = ref({
   source_id: '',
   status: '',
-  start_time: '',
-  end_time: '',
+  start_date: '',
+  end_date: '',
 })
 
 const {
@@ -127,16 +128,6 @@ const {
   handleConfirm,
 } = useConfirm()
 
-function getStatusText(status: number): string {
-  const map: Record<number, string> = { 100: '待推送', 200: '成功', 300: '失败', [-1]: '已删除' }
-  return map[status] || '未知'
-}
-
-function getStatusClass(status: number): string {
-  const map: Record<number, string> = { 100: 'status-partial', 200: 'status-success', 300: 'status-failed', [-1]: '' }
-  return map[status] || ''
-}
-
 function formatTime(ts: number): string {
   return new Date(ts).toLocaleString('zh-CN')
 }
@@ -146,8 +137,8 @@ async function loadMessages() {
   try {
     const res = await listMessages(page.value, pageSize.value)
     if (res.data) {
-      messages.value = res.data.list
-      total.value = res.data.total
+      messages.value = res.data.list ?? []
+      total.value = res.data.total ?? 0
     }
   } catch (err) {
     console.error('加载消息列表失败', err)
@@ -160,7 +151,7 @@ async function loadSources() {
   try {
     const res = await listSources(1, 100)
     if (res.data) {
-      sources.value = res.data.list
+      sources.value = res.data.list ?? []
     }
   } catch (err) {
     console.error('加载来源列表失败', err)
@@ -173,18 +164,17 @@ function changePage(newPage: number) {
 }
 
 async function applyFilter() {
-  const params: Record<string, unknown> = {}
-  if (filter.value.source_id) params.source_id = Number(filter.value.source_id)
-  if (filter.value.status) params.status = Number(filter.value.status)
-  if (filter.value.start_time) params.start_time = new Date(filter.value.start_time).getTime()
-  if (filter.value.end_time) params.end_time = new Date(filter.value.end_time).getTime()
-
   loading.value = true
   try {
-    const res = await filterMessages(params)
+    const res = await filterMessages({
+      source_id: filter.value.source_id ? Number(filter.value.source_id) : undefined,
+      status: filter.value.status ? Number(filter.value.status) : undefined,
+      start_date: filter.value.start_date ? new Date(filter.value.start_date).getTime() : undefined,
+      end_date: filter.value.end_date ? new Date(filter.value.end_date).getTime() : undefined,
+    })
     if (res.data) {
-      messages.value = res.data.list
-      total.value = res.data.total
+      messages.value = res.data.list ?? []
+      total.value = res.data.total ?? 0
       page.value = 1
     }
   } catch (err) {
@@ -198,8 +188,8 @@ function resetFilter() {
   filter.value = {
     source_id: '',
     status: '',
-    start_time: '',
-    end_time: '',
+    start_date: '',
+    end_date: '',
   }
   page.value = 1
   loadMessages()

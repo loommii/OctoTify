@@ -13,6 +13,10 @@ import type {
   MessageDTO,
   MessageDetailDTO,
   VerifyPasswordReq,
+  SourceDetailResponse,
+  GetBindStatusReq,
+  BindStatusResp,
+  StartBindResp,
 } from '@/types/api'
 
 export function getChannelTypes() {
@@ -31,7 +35,7 @@ export function createChannel(data: CreateChannelReq) {
 }
 
 export function updateChannel(id: number, data: UpdateChannelReq) {
-  return request<ChannelDTO>({
+  return request<null>({
     url: `/channels/${id}`,
     method: 'PUT',
     data,
@@ -54,7 +58,7 @@ export function getChannelDetail(id: number) {
 }
 
 export function testChannel(id: number) {
-  return request<{ status: string; message: string }>({
+  return request<null>({
     url: `/channels/${id}/test`,
     method: 'POST',
   })
@@ -81,6 +85,28 @@ export function deleteChannel(id: number) {
   })
 }
 
+export function startWechatClawbotBind() {
+  return request<StartBindResp>({
+    url: '/channels/wechat-clawbot/bind',
+    method: 'POST',
+  })
+}
+
+// 长轮询查询绑定状态（最长等待 60 秒）
+// 注意：此处的 timeout 配置会覆盖 request.ts 中 Axios 实例的全局默认超时（30s）
+// Axios 的请求级配置优先级高于实例级配置，因此 65s 超时能正确生效
+export function checkBindStatus(qrcode: string, timeoutMs: number = 65000, signal?: AbortSignal) {
+  const data: GetBindStatusReq = { qrcode }
+  return request<BindStatusResp>({
+    url: '/channels/wechat-clawbot/bind/status',
+    method: 'POST',
+    data,
+    // 设置更长的超时时间以匹配后端长轮询超时
+    timeout: timeoutMs,
+    signal,
+  })
+}
+
 export function createSource(data: CreateSourceReq) {
   return request<SourceDTO>({
     url: '/sources',
@@ -90,7 +116,7 @@ export function createSource(data: CreateSourceReq) {
 }
 
 export function updateSource(id: number, data: UpdateSourceReq) {
-  return request<SourceDTO>({
+  return request<null>({
     url: `/sources/${id}`,
     method: 'PUT',
     data,
@@ -105,24 +131,31 @@ export function listSources(page = 1, pageSize = 20) {
   })
 }
 
+/**
+ * 获取来源详情，将后端返回的嵌套结构（source + channels）
+ * 扁平化为 SourceDetailDTO 供前端使用
+ */
 export async function getSourceDetail(id: number) {
-  const res = await request<{ source: SourceDetailDTO; channels: ChannelDTO[] }>({
+  const res = await request<SourceDetailResponse>({
     url: `/sources/${id}`,
     method: 'GET',
   })
-  
-  // 在 API 层做数据转换，将后端嵌套结构扁平化
+
   if (res.data) {
+    const { source, channels } = res.data
     return {
       ...res,
       data: {
-        ...res.data.source,
-        channels: res.data.channels,
+        ...source,
+        channels: channels ?? [],
       } as SourceDetailDTO,
     }
   }
-  
-  return res as unknown as ReturnType<typeof request<SourceDetailDTO>>
+
+  return {
+    ...res,
+    data: null as SourceDetailDTO | null,
+  }
 }
 
 export function getSourceToken(id: number, password: string) {

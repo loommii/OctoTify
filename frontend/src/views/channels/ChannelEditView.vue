@@ -10,7 +10,7 @@
     <div v-else-if="channel" class="form-container">
       <div class="form-group">
         <label>渠道类型</label>
-        <input :value="getTypeName(channel.type)" disabled />
+        <input :value="getTypeName(channel.type ?? '')" disabled />
       </div>
 
       <div class="form-group">
@@ -31,19 +31,19 @@
           <input
             v-if="field.type === 'text' || field.type === 'password' || field.type === 'url' || field.type === 'string'"
             :type="field.type === 'password' ? 'password' : 'text'"
-            v-model="form.config[field.name]"
+            v-model="form.config[field.name ?? '']"
             :placeholder="field.placeholder"
           />
           <input
             v-else-if="field.type === 'number'"
             type="number"
-            v-model="form.config[field.name]"
+            v-model="form.config[field.name ?? '']"
             :placeholder="field.placeholder"
             :required="field.required"
           />
           <textarea
             v-else-if="field.type === 'textarea'"
-            v-model="form.config[field.name]"
+            v-model="form.config[field.name ?? '']"
             :placeholder="field.placeholder"
           ></textarea>
         </div>
@@ -66,12 +66,6 @@
       :loading="actionLoading"
       @confirm="handleConfirm"
     />
-
-    <Transition name="toast">
-      <div v-if="showToast" :class="['toast', 'toast-' + toastType]">
-        {{ toastMessage }}
-      </div>
-    </Transition>
   </div>
 </template>
 
@@ -81,6 +75,8 @@ import { useRouter, useRoute } from 'vue-router'
 import { getChannelDetail, updateChannel, getChannelTypes } from '@/api/channels'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import { useConfirm } from '@/composables/useConfirm'
+import { getChannelTypeName } from '@/lib/constants'
+import { useToast } from '@/composables/useToast'
 import type { ChannelDTO, ChannelTypeMeta } from '@/types/api'
 
 const router = useRouter()
@@ -93,9 +89,8 @@ const form = ref({
   name: '',
   config: {} as Record<string, string>,
 })
-const toastMessage = ref('')
-const toastType = ref<'success' | 'error'>('success')
-const showToast = ref(false)
+
+const { error: showError } = useToast()
 
 const {
   showDialog,
@@ -105,26 +100,8 @@ const {
   handleConfirm,
 } = useConfirm()
 
-function showResult(message: string, type: 'success' | 'error') {
-  toastMessage.value = message
-  toastType.value = type
-  showToast.value = true
-  setTimeout(() => {
-    showToast.value = false
-  }, 3000)
-}
-
-const typeNames: Record<string, string> = {
-  wechat: '企业微信',
-  telegram: 'Telegram',
-  dingtalk: '钉钉',
-  email: '邮件',
-  webhook: 'Webhook',
-  feishu: '飞书',
-}
-
 function getTypeName(type: string): string {
-  return typeNames[type] || type
+  return getChannelTypeName(type)
 }
 
 // 根据渠道类型动态获取配置字段元数据
@@ -141,7 +118,7 @@ async function loadChannel() {
     const res = await getChannelDetail(id)
     if (res.data) {
       channel.value = res.data
-      form.value.name = res.data.name
+      form.value.name = res.data.name ?? ''
       form.value.config = { ...res.data.config } as Record<string, string>
     }
   } catch (err) {
@@ -166,13 +143,14 @@ async function loadChannelTypes() {
 // 校验必填字段
 function validateForm(): boolean {
   if (!form.value.name) {
-    showResult('请输入渠道名称', 'error')
+    showError('请输入渠道名称')
     return false
   }
 
   for (const field of configFields.value) {
-    if (field.required && !form.value.config[field.name]) {
-      showResult(`请填写 ${field.label}`, 'error')
+    const fieldName = field.name ?? ''
+    if (field.required && !form.value.config[fieldName]) {
+      showError(`请填写 ${field.label}`)
       return false
     }
   }
@@ -182,15 +160,16 @@ function validateForm(): boolean {
 
 function normalizeConfig(
   config: Record<string, string>,
-  fields: { type: string; name: string }[]
+  fields: { type?: string; name?: string }[]
 ): Record<string, unknown> {
   const normalized: Record<string, unknown> = {}
   for (const field of fields) {
-    const value = config[field.name]
+    const fieldName = field.name ?? ''
+    const value = config[fieldName]
     if (field.type === 'number' && value !== '' && value !== undefined) {
-      normalized[field.name] = Number(value)
+      normalized[fieldName] = Number(value)
     } else {
-      normalized[field.name] = value
+      normalized[fieldName] = value
     }
   }
   return normalized
@@ -212,14 +191,14 @@ function handleSubmit() {
     async () => {
       submitting.value = true
       try {
-        await updateChannel(channel.value!.id, {
+        await updateChannel(channel.value!.id!, {
           name: form.value.name,
           config: normalizedConfig,
         })
         router.push({ name: 'ChannelDetail', params: { id: channel.value!.id } })
       } catch (err) {
         console.error('更新渠道失败', err)
-        showResult('更新失败，请重试', 'error')
+        showError('更新失败，请重试')
       } finally {
         submitting.value = false
       }
@@ -400,43 +379,5 @@ onMounted(() => {
 
 .btn-secondary:hover {
   border-color: var(--mid-border);
-}
-
-.toast {
-  position: fixed;
-  top: 24px;
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 12px 24px;
-  border-radius: var(--radius-md);
-  font-size: 0.875rem;
-  font-weight: 500;
-  z-index: 2000;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-}
-
-.toast-success {
-  background: var(--success);
-  color: var(--dark);
-}
-
-.toast-error {
-  background: var(--error);
-  color: var(--off-white);
-}
-
-.toast-enter-active,
-.toast-leave-active {
-  transition: all 0.3s ease;
-}
-
-.toast-enter-from {
-  opacity: 0;
-  transform: translateX(-50%) translateY(-20px);
-}
-
-.toast-leave-to {
-  opacity: 0;
-  transform: translateX(-50%) translateY(-20px);
 }
 </style>

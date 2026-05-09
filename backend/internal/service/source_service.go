@@ -350,12 +350,14 @@ func (s *SourceService) GetSourceDetail(ctx context.Context, sourceID int64, use
 	channelDTOs := make([]*dto.ChannelDTO, 0, len(channels))
 	for _, ch := range channels {
 		channelDTOs = append(channelDTOs, &dto.ChannelDTO{
-			ID:        ch.ID,
-			UserID:    ch.UserID,
-			Type:      ch.Type,
-			Name:      ch.Name,
-			Status:    ch.Status,
-			CreatedAt: ch.CreatedAt.UnixMilli(),
+			ID:         ch.ID,
+			UserID:     ch.UserID,
+			Type:       ch.Type,
+			Name:       ch.Name,
+			Config:     dto.FromJSON(ch.Config),
+			Status:     ch.Status,
+			CreatedAt:  ch.CreatedAt.UnixMilli(),
+			UpdatedAt:  ch.UpdatedAt.UnixMilli(),
 		})
 	}
 

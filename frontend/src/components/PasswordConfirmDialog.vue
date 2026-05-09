@@ -42,12 +42,6 @@ function handleConfirm() {
   error.value = ''
   emit('confirm', password.value)
 }
-
-function handleKeyup(e: KeyboardEvent) {
-  if (e.key === 'Enter') {
-    handleConfirm()
-  }
-}
 </script>
 
 <template>
@@ -66,7 +60,7 @@ function handleKeyup(e: KeyboardEvent) {
           class="form-input"
           placeholder="请输入密码"
           :disabled="loading"
-          @keyup="handleKeyup"
+          @keyup.enter="handleConfirm"
         />
         <p v-if="error" class="error-msg">{{ error }}</p>
       </div>

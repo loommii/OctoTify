@@ -192,21 +192,28 @@ func newHTTPClient(proxy string) (*http.Client, error) {
 }
 
 // truncateMessage 截断超长消息
+// 注意：Telegram 的 4096 限制是字符数（rune count），不是字节数
 func truncateMessage(text string, maxLen int, suffix string) string {
-	if len(text) <= maxLen {
+	charCount := utf8.RuneCountInString(text)
+	if charCount <= maxLen {
 		return text
 	}
-	availableLen := maxLen - len(suffix)
+	suffixCharCount := utf8.RuneCountInString(suffix)
+	availableLen := maxLen - suffixCharCount
 	if availableLen <= 0 {
 		availableLen = maxLen
 	}
-	for availableLen > 0 && !utf8.RuneStart(text[availableLen]) {
-		availableLen--
+	// 将字符数转换为字节索引，确保不截断多字节字符
+	byteIndex := 0
+	charIndex := 0
+	for _, r := range text {
+		if charIndex >= availableLen {
+			break
+		}
+		byteIndex += utf8.RuneLen(r)
+		charIndex++
 	}
-	if availableLen <= 0 {
-		return text[:maxLen]
-	}
-	return text[:availableLen] + suffix
+	return text[:byteIndex] + suffix
 }
 
 // escapeHTML 转义 HTML 特殊字符，防止 Telegram 解析错误

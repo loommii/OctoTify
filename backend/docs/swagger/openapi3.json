@@ -1,0 +1,2451 @@
+{
+  "components": {
+    "schemas": {
+      "octotify_internal_handler_dto.AuthResp": {
+        "description": "认证成功后返回的 Access Token、Refresh Token 和用户信息",
+        "properties": {
+          "access_token": {
+            "description": "访问令牌，有效期 1 小时",
+            "example": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...",
+            "type": "string"
+          },
+          "refresh_token": {
+            "description": "刷新令牌，有效期 7 天",
+            "example": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...",
+            "type": "string"
+          },
+          "user": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/octotify_internal_handler_dto.UserDTO"
+              }
+            ],
+            "description": "用户信息"
+          }
+        },
+        "type": "object"
+      },
+      "octotify_internal_handler_dto.BindCredentialsDTO": {
+        "properties": {
+          "bot_token_ciphertext": {
+            "description": "加密后的 Bot Token（密文）",
+            "type": "string"
+          },
+          "bot_token_nonce": {
+            "description": "Token 加密使用的 Nonce",
+            "type": "string"
+          },
+          "ilink_bot_id": {
+            "description": "iLink 平台分配的 Bot ID",
+            "type": "string"
+          },
+          "ilink_user_id": {
+            "description": "iLink 平台的用户 ID",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "octotify_internal_handler_dto.BindStatusResp": {
+        "properties": {
+          "credentials": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/octotify_internal_handler_dto.BindCredentialsDTO"
+              }
+            ],
+            "description": "绑定成功时返回的凭证"
+          },
+          "status": {
+            "description": "绑定状态：pending/scanned/confirmed/expired",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "octotify_internal_handler_dto.ChangePasswordReq": {
+        "description": "修改用户登录密码",
+        "properties": {
+          "new_password": {
+            "description": "新密码，8-128 个字符，需包含大小写字母和数字",
+            "example": "NewP@ssw0rd123",
+            "type": "string"
+          },
+          "old_password": {
+            "description": "旧密码",
+            "example": "OldP@ssw0rd123",
+            "type": "string"
+          }
+        },
+        "required": [
+          "new_password",
+          "old_password"
+        ],
+        "type": "object"
+      },
+      "octotify_internal_handler_dto.ChannelConfig": {
+        "additionalProperties": {},
+        "type": "object"
+      },
+      "octotify_internal_handler_dto.ChannelDTO": {
+        "description": "推送渠道的详细信息",
+        "properties": {
+          "config": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/octotify_internal_handler_dto.ChannelConfig"
+              }
+            ],
+            "description": "渠道配置，JSON 格式"
+          },
+          "created_at": {
+            "description": "创建时间（Unix 毫秒时间戳）",
+            "example": 1714636800000,
+            "type": "integer"
+          },
+          "id": {
+            "description": "渠道 ID",
+            "example": 1,
+            "type": "integer"
+          },
+          "last_used_at": {
+            "description": "最后使用时间（Unix 毫秒时间戳，0 表示未使用）",
+            "example": 1714636800000,
+            "type": "integer"
+          },
+          "name": {
+            "description": "渠道名称",
+            "example": "钉钉-运维群",
+            "type": "string"
+          },
+          "status": {
+            "description": "状态：1-启用 2-停用 -1-已删除",
+            "example": 1,
+            "type": "integer"
+          },
+          "type": {
+            "description": "渠道类型：wechat, telegram, dingtalk, email, webhook",
+            "example": "dingtalk",
+            "type": "string"
+          },
+          "updated_at": {
+            "description": "更新时间（Unix 毫秒时间戳）",
+            "example": 1714636800000,
+            "type": "integer"
+          },
+          "user_id": {
+            "description": "所属用户 ID",
+            "example": 1,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "octotify_internal_handler_dto.ChannelTypeMeta": {
+        "properties": {
+          "config_fields": {
+            "description": "配置字段定义",
+            "items": {
+              "$ref": "#/components/schemas/octotify_internal_handler_dto.ConfigField"
+            },
+            "type": "array"
+          },
+          "description": {
+            "description": "描述",
+            "type": "string"
+          },
+          "name": {
+            "description": "渠道类型名称",
+            "type": "string"
+          },
+          "type": {
+            "description": "渠道类型标识",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "octotify_internal_handler_dto.ConfigField": {
+        "properties": {
+          "label": {
+            "description": "字段标签",
+            "type": "string"
+          },
+          "name": {
+            "description": "字段名称",
+            "type": "string"
+          },
+          "placeholder": {
+            "description": "占位符提示",
+            "type": "string"
+          },
+          "required": {
+            "description": "是否必填",
+            "type": "boolean"
+          },
+          "type": {
+            "description": "字段类型：string, number, password, url",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "octotify_internal_handler_dto.CreateChannelReq": {
+        "description": "创建新的推送渠道，需要指定渠道类型、名称和配置信息 ## 渠道配置示例 - wechat: {\"webhook\": \"https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx\"} - telegram: {\"bot_token\": \"xxx\", \"chat_id\": \"xxx\"} - dingtalk: {\"webhook\": \"https://oapi.dingtalk.com/robot/send?access_token=xxx\"} - email: {\"smtp_host\": \"smtp.example.com\", \"smtp_port\": 587, \"username\": \"xxx\", \"password\": \"xxx\", \"to\": \"xxx@example.com\"} - webhook: {\"url\": \"https://example.com/webhook\", \"method\": \"POST\", \"headers\": {\"Content-Type\": \"application/json\"}} - feishu: {\"webhook_url\": \"https://open.feishu.cn/open-apis/bot/v2/hook/xxx\", \"secret\": \"\"}",
+        "properties": {
+          "config": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/octotify_internal_handler_dto.ChannelConfig"
+              }
+            ],
+            "description": "渠道配置，JSON 对象，不同渠道类型配置不同"
+          },
+          "name": {
+            "description": "渠道名称，1-128 个字符",
+            "example": "钉钉-运维群",
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": {
+            "description": "渠道类型，可选值：wechat, telegram, dingtalk, email, webhook",
+            "example": "dingtalk",
+            "type": "string"
+          }
+        },
+        "required": [
+          "config",
+          "name",
+          "type"
+        ],
+        "type": "object"
+      },
+      "octotify_internal_handler_dto.CreateSourceReq": {
+        "description": "创建新的消息来源，系统自动生成 Source Token",
+        "properties": {
+          "channel_ids": {
+            "description": "关联的渠道ID列表",
+            "example": [
+              1,
+              2,
+              3
+            ],
+            "items": {
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "description": {
+            "description": "来源描述，最多 512 个字符",
+            "example": "GitHub Actions 构建通知",
+            "maxLength": 512,
+            "type": "string"
+          },
+          "name": {
+            "description": "来源名称，1-128 个字符",
+            "example": "CI Pipeline",
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "octotify_internal_handler_dto.GetBindStatusReq": {
+        "properties": {
+          "qrcode": {
+            "description": "iLink 返回的二维码原始值",
+            "type": "string"
+          }
+        },
+        "required": [
+          "qrcode"
+        ],
+        "type": "object"
+      },
+      "octotify_internal_handler_dto.LoginReq": {
+        "description": "用户登录时使用的请求参数",
+        "properties": {
+          "password": {
+            "description": "密码，8-128 个字符，需包含大小写字母和数字",
+            "example": "P@ssw0rd123",
+            "type": "string"
+          },
+          "username": {
+            "description": "用户名，3-64 个字符，仅允许字母、数字和下划线",
+            "example": "octotify",
+            "type": "string"
+          }
+        },
+        "required": [
+          "password",
+          "username"
+        ],
+        "type": "object"
+      },
+      "octotify_internal_handler_dto.MessageDTO": {
+        "description": "消息列表中的单条消息记录",
+        "properties": {
+          "channel_id": {
+            "description": "渠道 ID",
+            "example": 1,
+            "type": "integer"
+          },
+          "content": {
+            "description": "消息内容",
+            "example": "Build #123 passed",
+            "type": "string"
+          },
+          "created_at": {
+            "description": "创建时间（Unix 毫秒时间戳）",
+            "example": 1714636800000,
+            "type": "integer"
+          },
+          "id": {
+            "description": "消息 ID",
+            "example": 1,
+            "type": "integer"
+          },
+          "source_id": {
+            "description": "来源 ID",
+            "example": 1,
+            "type": "integer"
+          },
+          "status": {
+            "description": "推送状态：100-待推送 200-成功 300-失败 -1-已删除",
+            "example": 200,
+            "type": "integer"
+          },
+          "title": {
+            "description": "消息标题",
+            "example": "CI Build",
+            "type": "string"
+          },
+          "updated_at": {
+            "description": "更新时间（Unix 毫秒时间戳）",
+            "example": 1714636800000,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "octotify_internal_handler_dto.MessageDetailDTO": {
+        "description": "单条消息的详细信息，包含来源名称、渠道名称和类型",
+        "properties": {
+          "channel_id": {
+            "description": "渠道 ID",
+            "example": 1,
+            "type": "integer"
+          },
+          "channel_name": {
+            "description": "渠道名称",
+            "example": "钉钉-运维群",
+            "type": "string"
+          },
+          "channel_type": {
+            "description": "渠道类型：wechat, telegram, dingtalk, email, webhook",
+            "example": "dingtalk",
+            "type": "string"
+          },
+          "content": {
+            "description": "消息内容",
+            "example": "Build #123 passed",
+            "type": "string"
+          },
+          "created_at": {
+            "description": "创建时间（Unix 毫秒时间戳）",
+            "example": 1714636800000,
+            "type": "integer"
+          },
+          "id": {
+            "description": "消息 ID",
+            "example": 1,
+            "type": "integer"
+          },
+          "source_id": {
+            "description": "来源 ID",
+            "example": 1,
+            "type": "integer"
+          },
+          "source_name": {
+            "description": "来源名称",
+            "example": "CI Pipeline",
+            "type": "string"
+          },
+          "status": {
+            "description": "推送状态：100-待推送 200-成功 300-失败 -1-已删除",
+            "example": 200,
+            "type": "integer"
+          },
+          "title": {
+            "description": "消息标题",
+            "example": "CI Build",
+            "type": "string"
+          },
+          "updated_at": {
+            "description": "更新时间（Unix 毫秒时间戳）",
+            "example": 1714636800000,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "octotify_internal_handler_dto.PushMessageReq": {
+        "description": "外部系统通过 Source Token 推送消息时使用的请求参数",
+        "properties": {
+          "message": {
+            "description": "消息内容，不能为空",
+            "example": "Build #123 passed",
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": {
+            "description": "消息标题，不能为空",
+            "example": "CI Build",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "message",
+          "title"
+        ],
+        "type": "object"
+      },
+      "octotify_internal_handler_dto.PushResponse": {
+        "description": "消息推送接口的返回结果，包含各渠道的推送详情",
+        "properties": {
+          "failed": {
+            "description": "推送失败数",
+            "type": "integer"
+          },
+          "results": {
+            "description": "各渠道推送结果详情",
+            "items": {
+              "$ref": "#/components/schemas/octotify_internal_handler_dto.PushResult"
+            },
+            "type": "array"
+          },
+          "success": {
+            "description": "推送成功数",
+            "type": "integer"
+          },
+          "total": {
+            "description": "推送渠道总数",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "octotify_internal_handler_dto.PushResult": {
+        "description": "并发推送到多个渠道时，单个渠道的推送结果",
+        "properties": {
+          "channel_id": {
+            "description": "渠道 ID",
+            "type": "integer"
+          },
+          "channel_name": {
+            "description": "渠道名称",
+            "type": "string"
+          },
+          "error": {
+            "description": "失败时的错误信息",
+            "type": "string"
+          },
+          "message_id": {
+            "description": "消息 ID",
+            "type": "integer"
+          },
+          "success": {
+            "description": "是否推送成功",
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "octotify_internal_handler_dto.RefreshReq": {
+        "description": "使用 Refresh Token 获取新的 Access Token",
+        "properties": {
+          "refresh_token": {
+            "description": "Refresh Token，登录时获取",
+            "example": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...",
+            "type": "string"
+          }
+        },
+        "required": [
+          "refresh_token"
+        ],
+        "type": "object"
+      },
+      "octotify_internal_handler_dto.RegisterReq": {
+        "description": "注册新用户时使用的请求参数",
+        "properties": {
+          "password": {
+            "description": "密码，8-128 个字符，需包含大小写字母和数字",
+            "example": "P@ssw0rd123",
+            "type": "string"
+          },
+          "username": {
+            "description": "用户名，3-64 个字符，仅允许字母、数字和下划线",
+            "example": "octotify",
+            "type": "string"
+          }
+        },
+        "required": [
+          "password",
+          "username"
+        ],
+        "type": "object"
+      },
+      "octotify_internal_handler_dto.SourceDTO": {
+        "description": "消息来源的基本信息，不包含 Token",
+        "properties": {
+          "created_at": {
+            "description": "创建时间（Unix 毫秒时间戳）",
+            "example": 1714636800000,
+            "type": "integer"
+          },
+          "description": {
+            "description": "来源描述",
+            "example": "GitHub Actions 构建通知",
+            "type": "string"
+          },
+          "id": {
+            "description": "来源 ID",
+            "example": 1,
+            "type": "integer"
+          },
+          "name": {
+            "description": "来源名称",
+            "example": "CI Pipeline",
+            "type": "string"
+          },
+          "status": {
+            "description": "状态：1-启用 2-停用 -1-已删除",
+            "example": 1,
+            "type": "integer"
+          },
+          "token": {
+            "description": "推送 Token（仅创建时返回）",
+            "example": "src0196a3b2c4d50000a1b2c3d4e5f67890",
+            "type": "string"
+          },
+          "user_id": {
+            "description": "所属用户 ID",
+            "example": 1,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "octotify_internal_handler_dto.SourceDetailDTO": {
+        "description": "消息来源的详细信息，包含 Token 和使用时间",
+        "properties": {
+          "created_at": {
+            "description": "创建时间（Unix 毫秒时间戳）",
+            "example": 1714636800000,
+            "type": "integer"
+          },
+          "description": {
+            "description": "来源描述",
+            "example": "GitHub Actions 构建通知",
+            "type": "string"
+          },
+          "id": {
+            "description": "来源 ID",
+            "example": 1,
+            "type": "integer"
+          },
+          "last_used_at": {
+            "description": "最后使用时间（Unix 毫秒时间戳，0 表示未使用）",
+            "example": 1714636800000,
+            "type": "integer"
+          },
+          "name": {
+            "description": "来源名称",
+            "example": "CI Pipeline",
+            "type": "string"
+          },
+          "status": {
+            "description": "状态：1-启用 2-停用 -1-已删除",
+            "example": 1,
+            "type": "integer"
+          },
+          "token": {
+            "description": "推送 Token",
+            "example": "src0196a3b2c4d50000a1b2c3d4e5f67890",
+            "type": "string"
+          },
+          "updated_at": {
+            "description": "更新时间（Unix 毫秒时间戳）",
+            "example": 1714636800000,
+            "type": "integer"
+          },
+          "user_id": {
+            "description": "所属用户 ID",
+            "example": 1,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "octotify_internal_handler_dto.SourceDetailResponse": {
+        "description": "来源详情及其已绑定的有效渠道列表",
+        "properties": {
+          "channels": {
+            "description": "已绑定渠道列表",
+            "items": {
+              "$ref": "#/components/schemas/octotify_internal_handler_dto.ChannelDTO"
+            },
+            "type": "array"
+          },
+          "source": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/octotify_internal_handler_dto.SourceDetailDTO"
+              }
+            ],
+            "description": "来源详情"
+          }
+        },
+        "type": "object"
+      },
+      "octotify_internal_handler_dto.SourceTokenResponse": {
+        "description": "查看或重置来源令牌时返回的 Token 值",
+        "properties": {
+          "token": {
+            "description": "推送 Token",
+            "example": "src0196a3b2c4d50000a1b2c3d4e5f67890",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "octotify_internal_handler_dto.StartBindResp": {
+        "properties": {
+          "qrcode": {
+            "description": "二维码原始值，用于后续查询绑定状态",
+            "type": "string"
+          },
+          "qrcode_url": {
+            "description": "二维码 URL，用户扫码使用",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "octotify_internal_handler_dto.UpdateChannelReq": {
+        "description": "编辑已有推送渠道的名称和配置信息 ## 渠道配置示例 - wechat: {\"webhook\": \"https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx\"} - telegram: {\"bot_token\": \"xxx\", \"chat_id\": \"xxx\"} - dingtalk: {\"webhook\": \"https://oapi.dingtalk.com/robot/send?access_token=xxx\"} - email: {\"smtp_host\": \"smtp.example.com\", \"smtp_port\": 587, \"username\": \"xxx\", \"password\": \"xxx\", \"to\": \"xxx@example.com\"} - webhook: {\"url\": \"https://example.com/webhook\", \"method\": \"POST\", \"headers\": {\"Content-Type\": \"application/json\"}}",
+        "properties": {
+          "config": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/octotify_internal_handler_dto.ChannelConfig"
+              }
+            ],
+            "description": "渠道配置，JSON 对象，不同渠道类型配置不同"
+          },
+          "name": {
+            "description": "渠道名称，1-128 个字符",
+            "example": "钉钉-运维群",
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "config",
+          "name"
+        ],
+        "type": "object"
+      },
+      "octotify_internal_handler_dto.UpdateSourceReq": {
+        "description": "编辑已有消息来源的名称、描述和绑定渠道",
+        "properties": {
+          "channel_ids": {
+            "description": "关联的渠道ID列表",
+            "example": [
+              1,
+              2,
+              3
+            ],
+            "items": {
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "description": {
+            "description": "来源描述，最多 512 个字符",
+            "example": "GitHub Actions 构建通知",
+            "maxLength": 512,
+            "type": "string"
+          },
+          "name": {
+            "description": "来源名称，1-128 个字符",
+            "example": "CI Pipeline",
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "octotify_internal_handler_dto.UserDTO": {
+        "description": "用户基本信息，用于登录/注册/刷新令牌等接口返回",
+        "properties": {
+          "created_at": {
+            "description": "创建时间（Unix 时间戳）",
+            "example": 1714636800,
+            "type": "integer"
+          },
+          "id": {
+            "description": "用户 ID",
+            "example": 1,
+            "type": "integer"
+          },
+          "username": {
+            "description": "用户名",
+            "example": "octotify",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "octotify_internal_handler_dto.UserProfileResp": {
+        "description": "查询用户个人信息时返回的响应结构",
+        "properties": {
+          "user": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/octotify_internal_handler_dto.UserDTO"
+              }
+            ],
+            "description": "用户信息"
+          }
+        },
+        "type": "object"
+      },
+      "octotify_internal_handler_dto.VerifyPasswordReq": {
+        "description": "需要密码二次验证的接口（查看令牌、重置令牌、停用/启用/删除来源）",
+        "properties": {
+          "password": {
+            "description": "用户密码",
+            "example": "P@ssw0rd123",
+            "type": "string"
+          }
+        },
+        "required": [
+          "password"
+        ],
+        "type": "object"
+      },
+      "octotify_pkg_response.PageResult": {
+        "description": "所有分页接口返回的数据结构",
+        "properties": {
+          "list": {
+            "description": "数据列表"
+          },
+          "page": {
+            "description": "当前页码",
+            "type": "integer"
+          },
+          "page_size": {
+            "description": "每页条数",
+            "type": "integer"
+          },
+          "total": {
+            "description": "总记录数",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "octotify_pkg_response.Response": {
+        "description": "所有 API 接口返回的统一格式，包含业务状态码、消息和数据",
+        "properties": {
+          "code": {
+            "description": "业务状态码，0 表示成功，非 0 表示失败",
+            "type": "integer"
+          },
+          "data": {
+            "description": "业务数据，成功时返回业务数据，失败时可能为空或错误详情"
+          },
+          "msg": {
+            "description": "提示信息，成功时为\"请求成功\"，失败时为错误描述",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "BearerAuth": {
+        "description": "输入格式：Bearer {access_token}，例如：Bearer eyJhbGciOiJSUzI1NiIs...",
+        "in": "header",
+        "name": "Authorization",
+        "type": "apiKey"
+      },
+      "SourceTokenAuth": {
+        "description": "推送消息时使用 Source Token，输入格式：Bearer src{uuid}，例如：Bearer src0196a3b2c4d50000a1b2c3d4e5f67890",
+        "in": "header",
+        "name": "Authorization",
+        "type": "apiKey"
+      }
+    }
+  },
+  "info": {
+    "contact": {
+      "name": "OctoTify API Support",
+      "url": "https://github.com/OctoTify"
+    },
+    "description": "OctoTify 是一个消息总线平台，支持多种消息来源和推送渠道。\n核心功能：消息来源管理、推送渠道管理、消息推送与记录。\n本文档为前端开发人员提供完整的 API 接口说明，包含请求参数、响应格式、错误码等详细信息。",
+    "license": {
+      "name": "MIT",
+      "url": "https://opensource.org/licenses/MIT"
+    },
+    "termsOfService": "http://swagger.io/terms/",
+    "title": "OctoTify API",
+    "version": "1.0"
+  },
+  "openapi": "3.0.3",
+  "paths": {
+    "/auth/login": {
+      "post": {
+        "description": "使用用户名和密码登录系统，登录成功后返回 Access Token 和 Refresh Token。\nAccess Token 有效期 1 小时，用于调用需要认证的接口。\nRefresh Token 有效期 7 天，用于刷新 Access Token。\n## 密码要求\n- 8-128 个字符\n- 必须包含小写字母\n- 必须包含大写字母\n- 必须包含数字\n## 使用场景\n1. 用户首次访问系统时进行登录\n2. Refresh Token 过期后重新登录\n## 注意事项\n- 登录成功后请妥善保存 Access Token 和 Refresh Token\n- Access Token 过期后请使用 Refresh Token 调用刷新接口\n- 连续多次登录失败不会锁定账户\n## 错误码说明\n- 110200: 用户名或密码错误\n- 110201: 登录失败",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/octotify_internal_handler_dto.LoginReq"
+              }
+            }
+          },
+          "description": "登录请求参数",
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/octotify_pkg_response.Response"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/octotify_internal_handler_dto.AuthResp"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "登录成功，返回认证信息"
+          }
+        },
+        "summary": "用户登录",
+        "tags": [
+          "用户认证"
+        ]
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "description": "撤销当前用户的所有 Refresh Token，退出登录后需要重新登录才能访问系统。\n## 注意事项\n- Access Token 在过期前仍有效（JWT 无状态特性，最长 1 小时后自动失效）\n- 前端需主动清除本地存储的 Access Token 和 Refresh Token\n- 退出登录后，所有使用旧 Refresh Token 的刷新请求都会失败\n## 错误码说明\n- 100001: 未提供认证令牌或认证令牌无效或已过期\n- 110304: 退出登录失败",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/octotify_pkg_response.Response"
+                }
+              }
+            },
+            "description": "退出成功"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "退出登录",
+        "tags": [
+          "用户认证"
+        ]
+      }
+    },
+    "/auth/refresh": {
+      "post": {
+        "description": "使用 Refresh Token 获取新的 Access Token 和 Refresh Token。\n每次刷新都会返回新的 Access Token 和 Refresh Token，旧 Refresh Token 继续有效。\n## 使用场景\n1. Access Token 过期（1 小时后）时调用此接口\n2. 前端应在请求收到 401 响应时自动调用此接口\n## 注意事项\n- Refresh Token 有效期 7 天，过期后需重新登录\n- 刷新成功后请更新本地存储的 Access Token 和 Refresh Token\n- 如果 Refresh Token 已被撤销（如退出登录、修改密码），则无法刷新\n## 错误码说明\n- 110300: 刷新令牌无效\n- 110301: 刷新令牌已撤销\n- 110302: 刷新令牌已过期\n- 110303: 刷新令牌失败",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/octotify_internal_handler_dto.RefreshReq"
+              }
+            }
+          },
+          "description": "刷新令牌请求参数",
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/octotify_pkg_response.Response"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/octotify_internal_handler_dto.AuthResp"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "刷新成功"
+          }
+        },
+        "summary": "刷新令牌",
+        "tags": [
+          "用户认证"
+        ]
+      }
+    },
+    "/channel-types": {
+      "get": {
+        "description": "获取系统支持的所有推送渠道类型及其配置字段定义，用于前端动态渲染创建渠道表单。\n## 使用场景\n1. 打开创建渠道页面时获取支持的渠道类型列表\n2. 根据 config_fields 动态生成配置表单\n## 返回数据说明\n每个渠道类型包含：\n- type: 渠道类型标识（如 feishu, dingtalk, wechat 等）\n- name: 渠道类型名称（如 飞书, 钉钉, 企业微信 等）\n- description: 渠道类型描述\n- config_fields: 配置字段定义列表，用于前端动态表单渲染\n## 错误码说明\n- 100001: 未提供认证令牌",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/octotify_pkg_response.Response"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "items": {
+                            "$ref": "#/components/schemas/octotify_internal_handler_dto.ChannelTypeMeta"
+                          },
+                          "type": "array"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "获取成功"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "获取渠道类型元数据",
+        "tags": [
+          "推送渠道管理"
+        ]
+      }
+    },
+    "/channels": {
+      "get": {
+        "description": "分页查询当前用户的所有推送渠道列表，返回渠道基本信息。\n## 使用场景\n1. 渠道管理页面展示渠道列表\n2. 下拉选择器获取渠道选项\n## 注意事项\n- 列表按创建时间倒序排列\n- 已删除的渠道不会出现在列表中\n## 错误码说明\n- 100001: 未提供认证令牌",
+        "parameters": [
+          {
+            "description": "页码，从 1 开始，默认 1",
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数，默认 20，最大 100",
+            "in": "query",
+            "name": "page_size",
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/octotify_pkg_response.Response"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "allOf": [
+                            {
+                              "$ref": "#/components/schemas/octotify_pkg_response.PageResult"
+                            },
+                            {
+                              "properties": {
+                                "list": {
+                                  "items": {
+                                    "$ref": "#/components/schemas/octotify_internal_handler_dto.ChannelDTO"
+                                  },
+                                  "type": "array"
+                                }
+                              },
+                              "type": "object"
+                            }
+                          ]
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "查询成功"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "查看推送渠道列表",
+        "tags": [
+          "推送渠道管理"
+        ]
+      },
+      "post": {
+        "description": "创建一个新的推送渠道，配置渠道类型、名称和凭证信息。\n## 支持的渠道类型\n- **wechat**: 企业微信群机器人\n- **telegram**: Telegram Bot\n- **dingtalk**: 钉钉群机器人\n- **email**: 邮件推送\n- **webhook**: 自定义 Webhook\n- **feishu**: 飞书自定义机器人\n## 使用场景\n1. 配置企业微信群机器人\n2. 配置 Telegram Bot\n3. 配置钉钉群机器人\n## 注意事项\n- 不同渠道类型需要不同的 Config 配置\n- 创建后默认启用状态\n- 建议创建后使用测试接口验证配置\n## 错误码说明\n- 100001: 未提供认证令牌\n- 120200: 渠道类型不支持\n- 120201: 渠道名称已存在\n- 120202: 创建渠道失败",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/octotify_internal_handler_dto.CreateChannelReq"
+              }
+            }
+          },
+          "description": "创建推送渠道请求参数",
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/octotify_pkg_response.Response"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/octotify_internal_handler_dto.ChannelDTO"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "创建成功"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "创建推送渠道",
+        "tags": [
+          "推送渠道管理"
+        ]
+      }
+    },
+    "/channels/wechat-clawbot/bind": {
+      "post": {
+        "description": "获取微信ClawBot绑定二维码，用户扫码后完成绑定。\n## 使用场景\n1. 创建微信ClawBot渠道时发起绑定\n2. 重新绑定微信账号\n## 注意事项\n- 二维码有效期由 iLink 平台控制，过期后需重新获取\n- 前端需保存返回的 qrcode 值，用于后续调用 /bind/status 查询状态\n## 错误码说明\n- 100001: 未提供认证令牌\n- 110901: 获取二维码失败",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/octotify_pkg_response.Response"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/octotify_internal_handler_dto.StartBindResp"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "获取成功，返回 qrcode_url 和 qrcode"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "发起微信ClawBot扫码绑定",
+        "tags": [
+          "微信ClawBot绑定"
+        ]
+      }
+    },
+    "/channels/wechat-clawbot/bind/status": {
+      "post": {
+        "description": "通过 qrcode 调用 iLink API 查询绑定状态（长轮询，40s 超时）。\n## 工作原理\n1. 前端传 qrcode 字符串给后端\n2. 后端直接调用 iLink API 查询状态（iLink 本身是长轮询设计，40s 超时）\n3. iLink 返回状态时立即返回给前端\n4. 如果 iLink 超时，返回 pending，前端可重新发起请求\n## 返回状态\n- pending: 仍在等待中（超时返回）\n- scanned: 用户已扫码，待确认\n- confirmed: 绑定成功，返回凭证\n- expired: 二维码已过期\n## 错误码说明\n- 100001: 未提供认证令牌\n- 100000: 请求参数格式错误",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/octotify_internal_handler_dto.GetBindStatusReq"
+              }
+            }
+          },
+          "description": "查询绑定状态请求参数",
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/octotify_pkg_response.Response"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/octotify_internal_handler_dto.BindStatusResp"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "查询成功，返回绑定状态"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "查询微信ClawBot绑定状态",
+        "tags": [
+          "微信ClawBot绑定"
+        ]
+      }
+    },
+    "/channels/{id}": {
+      "delete": {
+        "description": "软删除指定推送渠道，同时解除与所有来源的关联关系。删除后渠道和所有关联数据不可恢复。\n## 使用场景\n1. 永久删除不再使用的渠道\n2. 清理测试数据\n## 注意事项\n- 删除是软删除，数据库中标记为已删除状态\n- 删除后该渠道与所有来源的绑定关系解除\n- 只能删除自己创建的渠道\n## 错误码说明\n- 100001: 未提供认证令牌\n- 120203: 渠道不存在\n- 120204: 无权限操作\n- 120208: 删除渠道失败",
+        "parameters": [
+          {
+            "description": "渠道ID，在路径中传递",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/octotify_pkg_response.Response"
+                }
+              }
+            },
+            "description": "删除成功"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "删除推送渠道",
+        "tags": [
+          "推送渠道管理"
+        ]
+      },
+      "get": {
+        "description": "查询指定推送渠道的详细信息，包括渠道类型、名称、配置和状态。\n## 使用场景\n1. 渠道详情页展示\n2. 查看渠道配置信息\n## 注意事项\n- 只能查看自己创建的渠道\n- Config 字段包含渠道的完整配置信息\n## 错误码说明\n- 100001: 未提供认证令牌\n- 120203: 渠道不存在\n- 120204: 无权限查看",
+        "parameters": [
+          {
+            "description": "渠道ID，在路径中传递",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/octotify_pkg_response.Response"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/octotify_internal_handler_dto.ChannelDTO"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "查询成功"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "查看渠道详情",
+        "tags": [
+          "推送渠道管理"
+        ]
+      },
+      "put": {
+        "description": "编辑推送渠道的名称和配置信息，不影响已推送的消息。\n## 使用场景\n1. 修改渠道名称使其更易识别\n2. 更新渠道配置（如更换 Webhook 地址）\n## 注意事项\n- 只能编辑自己创建的渠道\n- 名称不能与其他渠道重复\n- 修改配置后建议重新测试\n## 错误码说明\n- 100001: 未提供认证令牌\n- 120200: 渠道类型不支持\n- 120201: 渠道名称已存在\n- 120203: 渠道不存在\n- 120204: 无权限编辑",
+        "parameters": [
+          {
+            "description": "渠道ID，在路径中传递",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/octotify_internal_handler_dto.UpdateChannelReq"
+              }
+            }
+          },
+          "description": "编辑推送渠道请求参数",
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/octotify_pkg_response.Response"
+                }
+              }
+            },
+            "description": "编辑成功"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "编辑推送渠道",
+        "tags": [
+          "推送渠道管理"
+        ]
+      }
+    },
+    "/channels/{id}/disable": {
+      "put": {
+        "description": "停用指定推送渠道，停用后该渠道不再接收消息推送。\n## 使用场景\n1. 临时停止某个渠道的消息推送\n2. 渠道维护期间停用\n## 注意事项\n- 停用后推送到该渠道的消息会失败\n- 已推送的历史消息不受影响\n- 可以随时重新启用\n- 只能停用自己创建的渠道\n## 错误码说明\n- 100001: 未提供认证令牌\n- 120203: 渠道不存在\n- 120204: 无权限操作\n- 120205: 渠道已停用",
+        "parameters": [
+          {
+            "description": "渠道ID，在路径中传递",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/octotify_pkg_response.Response"
+                }
+              }
+            },
+            "description": "停用成功"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "停用推送渠道",
+        "tags": [
+          "推送渠道管理"
+        ]
+      }
+    },
+    "/channels/{id}/enable": {
+      "put": {
+        "description": "启用指定推送渠道，恢复消息推送功能。\n## 使用场景\n1. 重新启用之前停用的渠道\n2. 恢复某个渠道的消息推送能力\n## 注意事项\n- 只能启用已停用的渠道\n- 启用后该渠道立即可以接收消息\n- 只能启用自己创建的渠道\n## 错误码说明\n- 100001: 未提供认证令牌\n- 120203: 渠道不存在\n- 120204: 无权限操作\n- 120207: 渠道已启用",
+        "parameters": [
+          {
+            "description": "渠道ID，在路径中传递",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/octotify_pkg_response.Response"
+                }
+              }
+            },
+            "description": "启用成功"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "启用推送渠道",
+        "tags": [
+          "推送渠道管理"
+        ]
+      }
+    },
+    "/channels/{id}/test": {
+      "post": {
+        "description": "发送测试消息到指定渠道，验证渠道配置是否正确。\n## 使用场景\n1. 创建渠道后验证配置\n2. 修改渠道配置后验证连接\n## 注意事项\n- 测试消息会真实推送到目标渠道\n- 测试失败时返回详细错误信息\n- 只能测试自己创建的渠道\n## 错误码说明\n- 100001: 未提供认证令牌\n- 120203: 渠道不存在\n- 120204: 无权限测试\n- 120205: 渠道已停用\n- 120206: 测试推送失败",
+        "parameters": [
+          {
+            "description": "渠道ID，在路径中传递",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/octotify_pkg_response.Response"
+                }
+              }
+            },
+            "description": "测试成功"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "测试渠道连接",
+        "tags": [
+          "推送渠道管理"
+        ]
+      }
+    },
+    "/messages": {
+      "get": {
+        "description": "查看当前用户的消息记录列表，按创建时间倒序排列。\n## 使用场景\n1. 消息管理页面展示消息列表\n2. 查看最近推送的消息\n## 注意事项\n- 列表按创建时间倒序排列\n- 已删除的消息不会出现在列表中\n- 返回的消息不包含完整的内容详情\n## 错误码说明\n- 100001: 未提供认证令牌",
+        "parameters": [
+          {
+            "description": "页码，从 1 开始，默认 1",
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数，默认 20，最大 100",
+            "in": "query",
+            "name": "page_size",
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/octotify_pkg_response.Response"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "allOf": [
+                            {
+                              "$ref": "#/components/schemas/octotify_pkg_response.PageResult"
+                            },
+                            {
+                              "properties": {
+                                "list": {
+                                  "items": {
+                                    "$ref": "#/components/schemas/octotify_internal_handler_dto.MessageDTO"
+                                  },
+                                  "type": "array"
+                                }
+                              },
+                              "type": "object"
+                            }
+                          ]
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "查询成功"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "查看消息列表",
+        "tags": [
+          "消息管理"
+        ]
+      }
+    },
+    "/messages/filter": {
+      "get": {
+        "description": "根据来源、渠道、状态、时间范围等条件筛选消息，支持多条件组合查询。\n## 筛选条件说明\n- **source_id**: 按消息来源筛选\n- **channel_id**: 按推送渠道筛选\n- **status**: 按推送状态筛选（100-待推送 200-成功 300-失败）\n- **start_date/end_date**: 按时间范围筛选（Unix 毫秒时间戳）\n- **keyword**: 按关键词搜索消息标题和内容\n## 使用场景\n1. 查看某个来源的所有消息\n2. 查看某个渠道的所有消息\n3. 查看推送失败的消息\n4. 查看某个时间段内的消息\n## 注意事项\n- 所有筛选条件都是可选的，可以组合使用\n- 多个条件之间是 AND 关系\n- 结果按创建时间倒序排列\n## 错误码说明\n- 100001: 未提供认证令牌",
+        "parameters": [
+          {
+            "description": "来源 ID（可选）",
+            "in": "query",
+            "name": "source_id",
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "渠道 ID（可选）",
+            "in": "query",
+            "name": "channel_id",
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "推送状态（可选）：100-待推送 200-成功 300-失败",
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "description": "开始时间（可选，Unix 毫秒时间戳）",
+            "in": "query",
+            "name": "start_date",
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "结束时间（可选，Unix 毫秒时间戳）",
+            "in": "query",
+            "name": "end_date",
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "关键词（可选，搜索标题和内容）",
+            "in": "query",
+            "name": "keyword",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "页码，从 1 开始，默认 1",
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数，默认 20，最大 100",
+            "in": "query",
+            "name": "page_size",
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/octotify_pkg_response.Response"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "allOf": [
+                            {
+                              "$ref": "#/components/schemas/octotify_pkg_response.PageResult"
+                            },
+                            {
+                              "properties": {
+                                "list": {
+                                  "items": {
+                                    "$ref": "#/components/schemas/octotify_internal_handler_dto.MessageDTO"
+                                  },
+                                  "type": "array"
+                                }
+                              },
+                              "type": "object"
+                            }
+                          ]
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "查询成功"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "筛选消息",
+        "tags": [
+          "消息管理"
+        ]
+      }
+    },
+    "/messages/{id}": {
+      "delete": {
+        "description": "删除单条消息记录（软删除），删除后消息不再显示在列表中。\n## 使用场景\n1. 清理不需要的消息记录\n2. 删除敏感消息\n## 注意事项\n- 删除是软删除，数据库中标记为已删除状态\n- 只能删除自己用户下的消息\n- 删除后无法恢复\n## 错误码说明\n- 100001: 未提供认证令牌\n- 120300: 消息不存在\n- 120302: 无权限删除\n- 120303: 删除消息失败",
+        "parameters": [
+          {
+            "description": "消息ID，在路径中传递",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/octotify_pkg_response.Response"
+                }
+              }
+            },
+            "description": "删除成功"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "删除消息",
+        "tags": [
+          "消息管理"
+        ]
+      },
+      "get": {
+        "description": "查看单条消息的详细信息，包含消息内容、来源名称、渠道名称和推送状态。\n## 使用场景\n1. 消息详情页展示\n2. 查看消息的完整内容\n3. 查看消息的推送状态\n## 注意事项\n- 只能查看自己用户下的消息\n- 包含完整的消息内容\n- 包含来源和渠道的详细信息\n## 错误码说明\n- 100001: 未提供认证令牌\n- 120300: 消息不存在\n- 120301: 无权限查看",
+        "parameters": [
+          {
+            "description": "消息ID，在路径中传递",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/octotify_pkg_response.Response"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/octotify_internal_handler_dto.MessageDetailDTO"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "查询成功"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "查看消息详情",
+        "tags": [
+          "消息管理"
+        ]
+      }
+    },
+    "/push/{token}": {
+      "post": {
+        "description": "外部系统通过 Source Token 推送消息到平台，消息会被并发推送到所有绑定的有效渠道。\n## 认证方式\n使用 Source Token 进行认证，而非用户 Access Token。\nToken 格式：src{uuid}，例如：src0196a3b2c4d50000a1b2c3d4e5f67890\n## 推送流程\n1. 系统验证 Source Token 有效性\n2. 查找该来源绑定的所有启用状态的渠道\n3. 并发推送到所有渠道\n4. 返回各渠道的推送结果\n## 使用场景\n1. CI/CD 流水线推送构建结果\n2. 监控系统推送告警信息\n3. 业务系统推送通知消息\n## 注意事项\n- Source Token 通过 URL 路径参数传递\n- 消息会并发推送到所有绑定的有效渠道\n- 返回结果包含每个渠道的推送状态\n- 推送失败不影响其他渠道的推送\n- 来源被停用后无法推送消息\n## 错误码说明\n- 120400: 来源 Token 无效\n- 120401: 来源已停用\n- 120402: 来源不存在\n- 120403: 没有可用的推送渠道\n- 120404: 推送消息失败",
+        "parameters": [
+          {
+            "description": "来源 Token，格式为 src{uuid}",
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/octotify_internal_handler_dto.PushMessageReq"
+              }
+            }
+          },
+          "description": "推送消息请求参数",
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/octotify_pkg_response.Response"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/octotify_internal_handler_dto.PushResponse"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "推送成功"
+          }
+        },
+        "security": [
+          {
+            "SourceTokenAuth": []
+          }
+        ],
+        "summary": "推送消息",
+        "tags": [
+          "消息推送"
+        ]
+      }
+    },
+    "/sources": {
+      "get": {
+        "description": "分页查询当前用户的所有消息来源列表，返回来源基本信息（不包含 Token）。\n## 使用场景\n1. 来源管理页面展示来源列表\n2. 下拉选择器获取来源选项\n## 注意事项\n- 列表按创建时间倒序排列\n- 返回的来源不包含 Token 字段\n- 已删除的来源不会出现在列表中\n## 错误码说明\n- 100001: 未提供认证令牌",
+        "parameters": [
+          {
+            "description": "页码，从 1 开始，默认 1",
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数，默认 20，最大 100",
+            "in": "query",
+            "name": "page_size",
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/octotify_pkg_response.Response"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "allOf": [
+                            {
+                              "$ref": "#/components/schemas/octotify_pkg_response.PageResult"
+                            },
+                            {
+                              "properties": {
+                                "list": {
+                                  "items": {
+                                    "$ref": "#/components/schemas/octotify_internal_handler_dto.SourceDTO"
+                                  },
+                                  "type": "array"
+                                }
+                              },
+                              "type": "object"
+                            }
+                          ]
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "查询成功"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "查看消息来源列表",
+        "tags": [
+          "消息来源管理"
+        ]
+      },
+      "post": {
+        "description": "创建一个新的消息来源，系统自动生成 Source Token，用于外部系统推送消息。\n## 使用场景\n1. CI/CD 流水线创建为消息来源\n2. 监控系统创建为消息来源\n3. 业务系统创建为消息来源\n## 注意事项\n- Source Token 仅在创建时返回一次，请妥善保存\n- 如忘记 Token，可通过查看令牌接口获取（需密码验证）\n- 来源创建后默认启用状态\n- 每个来源可绑定多个推送渠道\n## 错误码说明\n- 100001: 未提供认证令牌\n- 120100: 来源名称已存在\n- 120101: 创建来源失败",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/octotify_internal_handler_dto.CreateSourceReq"
+              }
+            }
+          },
+          "description": "创建消息来源请求参数",
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/octotify_pkg_response.Response"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/octotify_internal_handler_dto.SourceDTO"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "创建成功"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "创建消息来源",
+        "tags": [
+          "消息来源管理"
+        ]
+      }
+    },
+    "/sources/{id}": {
+      "delete": {
+        "description": "软删除指定消息来源及其关联渠道关系，需要密码二次验证。删除后来源和所有关联数据不可恢复。\n## 使用场景\n1. 永久删除不再使用的来源\n2. 清理测试数据\n## 注意事项\n- 删除是软删除，数据库中标记为已删除状态\n- 删除后该来源的 Token 立即失效\n- 关联的渠道关系也会被删除\n- 只能删除自己创建的来源\n- 注意：DELETE 请求需在 Body 中传递密码（{\"password\": \"xxx\"}），主流网关均支持此用法\n## 错误码说明\n- 100001: 未提供认证令牌\n- 110200: 密码错误\n- 120102: 来源不存在\n- 120103: 无权限操作\n- 120107: 删除来源失败",
+        "parameters": [
+          {
+            "description": "来源ID，在路径中传递",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/octotify_internal_handler_dto.VerifyPasswordReq"
+              }
+            }
+          },
+          "description": "密码验证请求参数",
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/octotify_pkg_response.Response"
+                }
+              }
+            },
+            "description": "删除成功"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "删除消息来源",
+        "tags": [
+          "消息来源管理"
+        ]
+      },
+      "get": {
+        "description": "查询指定消息来源的详细信息，包含来源 Token、使用时间和已绑定的有效渠道列表。\n## 使用场景\n1. 来源详情页展示\n2. 查看来源绑定的渠道\n3. 查看来源的推送 Token\n## 注意事项\n- 返回的 Token 可用于推送消息接口\n- 渠道列表只包含启用状态的渠道\n- 只能查看自己创建的来源\n## 错误码说明\n- 100001: 未提供认证令牌\n- 120102: 来源不存在\n- 120103: 无权限查看",
+        "parameters": [
+          {
+            "description": "来源ID，在路径中传递",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/octotify_pkg_response.Response"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/octotify_internal_handler_dto.SourceDetailResponse"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "查询成功"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "查看来源详情",
+        "tags": [
+          "消息来源管理"
+        ]
+      },
+      "put": {
+        "description": "编辑消息来源的名称和描述，不影响已绑定的渠道和推送功能。\n## 使用场景\n1. 修改来源名称使其更易识别\n2. 更新来源描述信息\n## 注意事项\n- 只能编辑自己创建的来源\n- 名称不能与其他来源重复\n- 编辑后不影响 Source Token\n## 错误码说明\n- 100001: 未提供认证令牌\n- 120100: 来源名称已存在\n- 120102: 来源不存在\n- 120103: 无权限编辑",
+        "parameters": [
+          {
+            "description": "来源ID，在路径中传递",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/octotify_internal_handler_dto.UpdateSourceReq"
+              }
+            }
+          },
+          "description": "编辑消息来源请求参数",
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/octotify_pkg_response.Response"
+                }
+              }
+            },
+            "description": "编辑成功"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "编辑消息来源",
+        "tags": [
+          "消息来源管理"
+        ]
+      }
+    },
+    "/sources/{id}/disable": {
+      "put": {
+        "description": "停用指定消息来源，需要密码二次验证，停用后该来源无法推送消息。\n## 使用场景\n1. 临时停止某个来源的消息推送\n2. 来源不再使用时停用而非删除\n## 注意事项\n- 停用后使用该 Token 推送的消息会被拒绝\n- 已推送的历史消息不受影响\n- 可以随时重新启用\n- 只能停用自己创建的来源\n## 错误码说明\n- 100001: 未提供认证令牌\n- 110200: 密码错误\n- 120102: 来源不存在\n- 120103: 无权限操作\n- 120105: 来源已停用",
+        "parameters": [
+          {
+            "description": "来源ID，在路径中传递",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/octotify_internal_handler_dto.VerifyPasswordReq"
+              }
+            }
+          },
+          "description": "密码验证请求参数",
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/octotify_pkg_response.Response"
+                }
+              }
+            },
+            "description": "停用成功"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "停用消息来源",
+        "tags": [
+          "消息来源管理"
+        ]
+      }
+    },
+    "/sources/{id}/enable": {
+      "put": {
+        "description": "启用指定消息来源，需要密码二次验证，恢复消息推送功能。\n## 使用场景\n1. 重新启用之前停用的来源\n2. 恢复某个来源的消息推送能力\n## 注意事项\n- 只能启用已停用的来源\n- 启用后该来源的 Token 立即生效\n- 只能启用自己创建的来源\n## 错误码说明\n- 100001: 未提供认证令牌\n- 110200: 密码错误\n- 120102: 来源不存在\n- 120103: 无权限操作\n- 120106: 来源已启用",
+        "parameters": [
+          {
+            "description": "来源ID，在路径中传递",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/octotify_internal_handler_dto.VerifyPasswordReq"
+              }
+            }
+          },
+          "description": "密码验证请求参数",
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/octotify_pkg_response.Response"
+                }
+              }
+            },
+            "description": "启用成功"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "启用消息来源",
+        "tags": [
+          "消息来源管理"
+        ]
+      }
+    },
+    "/sources/{id}/token": {
+      "post": {
+        "description": "查询指定消息来源的 Token，需要密码二次验证以确保安全性。\n## 使用场景\n1. 忘记 Token 时查看\n2. 配置外部系统推送时获取 Token\n## 注意事项\n- 必须提供正确的用户密码才能查看\n- Token 格式为 src{uuid}，例如：src0196a3b2c4d50000a1b2c3d4e5f67890\n- 只能查看自己创建的来源\n## 错误码说明\n- 100001: 未提供认证令牌\n- 110200: 密码错误\n- 120102: 来源不存在\n- 120103: 无权限查看",
+        "parameters": [
+          {
+            "description": "来源ID，在路径中传递",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/octotify_internal_handler_dto.VerifyPasswordReq"
+              }
+            }
+          },
+          "description": "密码验证请求参数",
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/octotify_pkg_response.Response"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/octotify_internal_handler_dto.SourceTokenResponse"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "查看成功"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "查看来源令牌",
+        "tags": [
+          "消息来源管理"
+        ]
+      },
+      "put": {
+        "description": "重置指定消息来源的 Token，需要密码二次验证，旧 Token 立即失效。\n## 使用场景\n1. Token 泄露时紧急重置\n2. 定期更换 Token 以提高安全性\n## 注意事项\n- 重置后旧 Token 立即失效，使用旧 Token 推送会失败\n- 必须更新所有使用旧 Token 的外部系统配置\n- 新 Token 仅在重置时返回一次，请妥善保存\n- 只能重置自己创建的来源\n## 错误码说明\n- 100001: 未提供认证令牌\n- 110200: 密码错误\n- 120102: 来源不存在\n- 120103: 无权限操作\n- 120104: 重置令牌失败",
+        "parameters": [
+          {
+            "description": "来源ID，在路径中传递",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/octotify_internal_handler_dto.VerifyPasswordReq"
+              }
+            }
+          },
+          "description": "密码验证请求参数",
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/octotify_pkg_response.Response"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/octotify_internal_handler_dto.SourceTokenResponse"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "重置成功"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "重置来源令牌",
+        "tags": [
+          "消息来源管理"
+        ]
+      }
+    },
+    "/user/password": {
+      "put": {
+        "description": "修改当前用户的登录密码，修改成功后所有 Refresh Token 将被撤销，需要重新登录。\n## 密码要求\n- 8-128 个字符\n- 必须包含小写字母\n- 必须包含大写字母\n- 必须包含数字\n## 使用场景\n1. 用户定期修改密码\n2. 用户怀疑密码泄露时修改密码\n## 注意事项\n- 修改密码后所有已登录的设备都需要重新登录\n- 旧密码必须正确才能修改\n- 新密码不能与旧密码相同\n## 错误码说明\n- 100001: 未提供认证令牌\n- 110200: 旧密码错误\n- 110102: 修改密码失败",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/octotify_internal_handler_dto.ChangePasswordReq"
+              }
+            }
+          },
+          "description": "修改密码请求参数",
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/octotify_pkg_response.Response"
+                }
+              }
+            },
+            "description": "修改成功"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "修改密码",
+        "tags": [
+          "用户管理"
+        ]
+      }
+    },
+    "/user/profile": {
+      "get": {
+        "description": "获取当前登录用户的个人信息，包括用户 ID、用户名和创建时间。\n## 使用场景\n1. 页面加载时获取用户信息展示在导航栏\n2. 用户中心页面展示个人信息\n## 注意事项\n- 需要提供有效的 Access Token\n- 只能查询自己的信息，不能查询其他用户\n## 错误码说明\n- 100001: 未提供认证令牌或认证令牌无效或已过期\n- 110103: 用户不存在",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/octotify_pkg_response.Response"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/octotify_internal_handler_dto.UserProfileResp"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "查询成功"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "查询用户信息",
+        "tags": [
+          "用户管理"
+        ]
+      }
+    },
+    "/user/register": {
+      "post": {
+        "description": "注册新用户账号，注册成功后自动登录并返回 Access Token 和 Refresh Token。\n## 密码要求\n- 8-128 个字符\n- 必须包含小写字母\n- 必须包含大写字母\n- 必须包含数字\n## 使用场景\n1. 新用户首次创建账号\n2. 管理员为用户创建账号\n## 注意事项\n- 用户名唯一，重复注册会返回错误\n- 注册成功后请妥善保存返回的 Token\n- 密码加密存储，系统无法查看原始密码\n## 错误码说明\n- 110100: 用户名已存在\n- 110101: 注册失败",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/octotify_internal_handler_dto.RegisterReq"
+              }
+            }
+          },
+          "description": "注册请求参数",
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/octotify_pkg_response.Response"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/octotify_internal_handler_dto.AuthResp"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "注册成功"
+          }
+        },
+        "summary": "用户注册",
+        "tags": [
+          "用户管理"
+        ]
+      }
+    }
+  },
+  "servers": [
+    {
+      "url": "https://localhost:34123/api"
+    }
+  ],
+  "tags": [
+    {
+      "description": "用户登录、退出登录、刷新令牌等认证相关接口",
+      "name": "用户认证"
+    },
+    {
+      "description": "用户注册、修改密码、查询用户信息等管理接口",
+      "name": "用户管理"
+    },
+    {
+      "description": "创建、编辑、删除消息来源，管理来源令牌等接口",
+      "name": "消息来源管理"
+    },
+    {
+      "description": "创建、编辑、删除推送渠道，测试渠道连接等接口",
+      "name": "推送渠道管理"
+    },
+    {
+      "description": "查询消息列表、筛选消息、查看消息详情、删除消息等接口",
+      "name": "消息管理"
+    },
+    {
+      "description": "外部系统通过 Source Token 推送消息到平台",
+      "name": "消息推送"
+    },
+    {
+      "description": "发起绑定、轮询绑定状态等微信ClawBot绑定相关接口",
+      "name": "微信ClawBot绑定"
+    }
+  ]
+}

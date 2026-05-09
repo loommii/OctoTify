@@ -41,11 +41,18 @@ package main
 // @tag.description             查询消息列表、筛选消息、查看消息详情、删除消息等接口
 // @tag.name                    消息推送
 // @tag.description             外部系统通过 Source Token 推送消息到平台
+// @tag.name                    微信ClawBot绑定
+// @tag.description             发起绑定、轮询绑定状态等微信ClawBot绑定相关接口
 
 import (
+	"context"
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -92,7 +99,40 @@ func main() {
 	addr := fmt.Sprintf(":%d", cfg.Server.Port)
 	srv := server.New(addr, cfg, db, logger)
 
-	if err := srv.Run(); err != nil {
-		logger.Fatal("server run failed", zap.Error(err))
+	// 启动 HTTP 服务器（使用标准库 http.Server 包装，支持优雅关闭）
+	httpSrv := &http.Server{
+		Addr:    addr,
+		Handler: srv.GetEngine(),
 	}
+
+	// 在独立 goroutine 中启动服务
+	go func() {
+		logger.Info("服务器启动", zap.String("addr", addr))
+		if err := httpSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Fatal("server run failed", zap.Error(err))
+		}
+	}()
+
+	// 监听系统信号，实现优雅关闭
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	logger.Info("收到关闭信号，开始优雅关闭...")
+
+	// 设置关闭超时时间
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// 关闭 HTTP 服务器（停止接收新请求，等待已有请求完成）
+	if err := httpSrv.Shutdown(ctx); err != nil {
+		logger.Error("HTTP 服务器关闭失败", zap.Error(err))
+	}
+
+	// 关闭后台资源
+	if err := srv.Shutdown(ctx); err != nil {
+		logger.Error("服务器资源关闭失败", zap.Error(err))
+	}
+
+	logger.Info("服务器已优雅关闭")
 }

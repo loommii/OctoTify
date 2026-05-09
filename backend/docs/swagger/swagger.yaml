@@ -16,6 +16,31 @@ definitions:
         - $ref: '#/definitions/octotify_internal_handler_dto.UserDTO'
         description: 用户信息
     type: object
+  octotify_internal_handler_dto.BindCredentialsDTO:
+    properties:
+      bot_token_ciphertext:
+        description: 加密后的 Bot Token（密文）
+        type: string
+      bot_token_nonce:
+        description: Token 加密使用的 Nonce
+        type: string
+      ilink_bot_id:
+        description: iLink 平台分配的 Bot ID
+        type: string
+      ilink_user_id:
+        description: iLink 平台的用户 ID
+        type: string
+    type: object
+  octotify_internal_handler_dto.BindStatusResp:
+    properties:
+      credentials:
+        allOf:
+        - $ref: '#/definitions/octotify_internal_handler_dto.BindCredentialsDTO'
+        description: 绑定成功时返回的凭证
+      status:
+        description: 绑定状态：pending/scanned/confirmed/expired
+        type: string
+    type: object
   octotify_internal_handler_dto.ChangePasswordReq:
     description: 修改用户登录密码
     properties:
@@ -31,12 +56,16 @@ definitions:
     - new_password
     - old_password
     type: object
+  octotify_internal_handler_dto.ChannelConfig:
+    additionalProperties: {}
+    type: object
   octotify_internal_handler_dto.ChannelDTO:
     description: 推送渠道的详细信息
     properties:
       config:
+        allOf:
+        - $ref: '#/definitions/octotify_internal_handler_dto.ChannelConfig'
         description: 渠道配置，JSON 格式
-        type: object
       created_at:
         description: 创建时间（Unix 毫秒时间戳）
         example: 1714636800000
@@ -115,8 +144,9 @@ definitions:
       ""}'
     properties:
       config:
+        allOf:
+        - $ref: '#/definitions/octotify_internal_handler_dto.ChannelConfig'
         description: 渠道配置，JSON 对象，不同渠道类型配置不同
-        type: object
       name:
         description: 渠道名称，1-128 个字符
         example: 钉钉-运维群
@@ -157,6 +187,14 @@ definitions:
         type: string
     required:
     - name
+    type: object
+  octotify_internal_handler_dto.GetBindStatusReq:
+    properties:
+      qrcode:
+        description: iLink 返回的二维码原始值
+        type: string
+    required:
+    - qrcode
     type: object
   octotify_internal_handler_dto.LoginReq:
     description: 用户登录时使用的请求参数
@@ -266,9 +304,8 @@ definitions:
         minLength: 1
         type: string
       title:
-        description: 消息标题，1-256 个字符
+        description: 消息标题，不能为空
         example: CI Build
-        maxLength: 256
         minLength: 1
         type: string
     required:
@@ -430,6 +467,15 @@ definitions:
         example: src0196a3b2c4d50000a1b2c3d4e5f67890
         type: string
     type: object
+  octotify_internal_handler_dto.StartBindResp:
+    properties:
+      qrcode:
+        description: 二维码原始值，用于后续查询绑定状态
+        type: string
+      qrcode_url:
+        description: 二维码 URL，用户扫码使用
+        type: string
+    type: object
   octotify_internal_handler_dto.UpdateChannelReq:
     description: '编辑已有推送渠道的名称和配置信息 ## 渠道配置示例 - wechat: {"webhook": "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx"}
       - telegram: {"bot_token": "xxx", "chat_id": "xxx"} - dingtalk: {"webhook": "https://oapi.dingtalk.com/robot/send?access_token=xxx"}
@@ -438,8 +484,9 @@ definitions:
       "method": "POST", "headers": {"Content-Type": "application/json"}}'
     properties:
       config:
+        allOf:
+        - $ref: '#/definitions/octotify_internal_handler_dto.ChannelConfig'
         description: 渠道配置，JSON 对象，不同渠道类型配置不同
-        type: object
       name:
         description: 渠道名称，1-128 个字符
         example: 钉钉-运维群
@@ -451,8 +498,17 @@ definitions:
     - name
     type: object
   octotify_internal_handler_dto.UpdateSourceReq:
-    description: 编辑已有消息来源的名称和描述
+    description: 编辑已有消息来源的名称、描述和绑定渠道
     properties:
+      channel_ids:
+        description: 关联的渠道ID列表
+        example:
+        - 1
+        - 2
+        - 3
+        items:
+          type: integer
+        type: array
       description:
         description: 来源描述，最多 512 个字符
         example: GitHub Actions 构建通知
@@ -1030,6 +1086,81 @@ paths:
       summary: 测试渠道连接
       tags:
       - 推送渠道管理
+  /channels/wechat-clawbot/bind:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        获取微信ClawBot绑定二维码，用户扫码后完成绑定。
+        ## 使用场景
+        1. 创建微信ClawBot渠道时发起绑定
+        2. 重新绑定微信账号
+        ## 注意事项
+        - 二维码有效期由 iLink 平台控制，过期后需重新获取
+        - 前端需保存返回的 qrcode 值，用于后续调用 /bind/status 查询状态
+        ## 错误码说明
+        - 100001: 未提供认证令牌
+        - 110901: 获取二维码失败
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 获取成功，返回 qrcode_url 和 qrcode
+          schema:
+            allOf:
+            - $ref: '#/definitions/octotify_pkg_response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/octotify_internal_handler_dto.StartBindResp'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: 发起微信ClawBot扫码绑定
+      tags:
+      - 微信ClawBot绑定
+  /channels/wechat-clawbot/bind/status:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        通过 qrcode 调用 iLink API 查询绑定状态（长轮询，40s 超时）。
+        ## 工作原理
+        1. 前端传 qrcode 字符串给后端
+        2. 后端直接调用 iLink API 查询状态（iLink 本身是长轮询设计，40s 超时）
+        3. iLink 返回状态时立即返回给前端
+        4. 如果 iLink 超时，返回 pending，前端可重新发起请求
+        ## 返回状态
+        - pending: 仍在等待中（超时返回）
+        - scanned: 用户已扫码，待确认
+        - confirmed: 绑定成功，返回凭证
+        - expired: 二维码已过期
+        ## 错误码说明
+        - 100001: 未提供认证令牌
+        - 100000: 请求参数格式错误
+      parameters:
+      - description: 查询绑定状态请求参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/octotify_internal_handler_dto.GetBindStatusReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 查询成功，返回绑定状态
+          schema:
+            allOf:
+            - $ref: '#/definitions/octotify_pkg_response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/octotify_internal_handler_dto.BindStatusResp'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: 查询微信ClawBot绑定状态
+      tags:
+      - 微信ClawBot绑定
   /messages:
     get:
       consumes:
@@ -1869,3 +2000,5 @@ tags:
   name: 消息管理
 - description: 外部系统通过 Source Token 推送消息到平台
   name: 消息推送
+- description: 发起绑定、轮询绑定状态等微信ClawBot绑定相关接口
+  name: 微信ClawBot绑定

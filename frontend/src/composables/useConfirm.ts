@@ -19,6 +19,10 @@ export function useConfirm() {
   const pendingAction = ref<(() => Promise<void>) | null>(null)
 
   function requestConfirm(options: ConfirmOptions, action: () => Promise<void>) {
+    // 如果已有对话框打开，拒绝新请求，防止 pendingAction 被覆盖
+    if (showDialog.value) {
+      return
+    }
     dialogOptions.value = {
       title: options.title,
       description: options.description,

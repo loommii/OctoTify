@@ -26,31 +26,31 @@
         <tbody>
           <tr v-for="channel in channels" :key="channel.id">
             <td>{{ channel.name }}</td>
-            <td>{{ getTypeName(channel.type) }}</td>
+            <td>{{ getTypeName(channel.type ?? '') }}</td>
             <td>
-              <span :class="['status-badge', getStatusClass(channel.status)]">
-                {{ getStatusText(channel.status) }}
+              <span :class="['status-badge', getStatusClass(channel.status ?? 0)]">
+                {{ getStatusText(channel.status ?? 0) }}
               </span>
             </td>
-            <td>{{ formatTime(channel.created_at) }}</td>
+            <td>{{ formatTime(channel.created_at ?? 0) }}</td>
             <td class="actions">
-              <button class="btn-link" @click="goToDetail(channel.id)">详情</button>
-              <button class="btn-link" @click="goToEdit(channel.id)">编辑</button>
+              <button class="btn-link" @click="goToDetail(channel.id!)">详情</button>
+              <button class="btn-link" @click="goToEdit(channel.id!)">编辑</button>
               <button
                 v-if="channel.status === 1"
                 class="btn-link btn-warning"
-                @click="handleDisable(channel.id)"
+                @click="handleDisable(channel.id!)"
               >
                 停用
               </button>
               <button
                 v-else-if="channel.status === 2"
                 class="btn-link btn-success"
-                @click="handleEnable(channel.id)"
+                @click="handleEnable(channel.id!)"
               >
                 启用
               </button>
-              <button class="btn-link btn-danger" @click="handleDelete(channel.id)">删除</button>
+              <button class="btn-link btn-danger" @click="handleDelete(channel.id!)">删除</button>
             </td>
           </tr>
         </tbody>
@@ -81,6 +81,7 @@ import { useRouter } from 'vue-router'
 import { listChannels, disableChannel, enableChannel, deleteChannel } from '@/api/channels'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import { useConfirm } from '@/composables/useConfirm'
+import { getChannelTypeName, getStatusText, getStatusClass } from '@/lib/constants'
 import type { ChannelDTO } from '@/types/api'
 
 const router = useRouter()
@@ -98,27 +99,8 @@ const {
   handleConfirm,
 } = useConfirm()
 
-const typeNames: Record<string, string> = {
-  wechat: '企业微信',
-  telegram: 'Telegram',
-  dingtalk: '钉钉',
-  email: '邮件',
-  webhook: 'Webhook',
-  feishu: '飞书',
-}
-
 function getTypeName(type: string): string {
-  return typeNames[type] || type
-}
-
-function getStatusText(status: number): string {
-  const map: Record<number, string> = { 1: '正常', 2: '已停用', '-1': '已删除' }
-  return map[status] || '未知'
-}
-
-function getStatusClass(status: number): string {
-  const map: Record<number, string> = { 1: 'status-active', 2: 'status-disabled', '-1': 'status-deleted' }
-  return map[status] || ''
+  return getChannelTypeName(type)
 }
 
 function formatTime(ts: number): string {
@@ -130,8 +112,8 @@ async function loadChannels() {
   try {
     const res = await listChannels(page.value, pageSize.value)
     if (res.data) {
-      channels.value = res.data.list
-      total.value = res.data.total
+      channels.value = res.data.list ?? []
+      total.value = res.data.total ?? 0
     }
   } catch (err) {
     console.error('加载渠道列表失败', err)

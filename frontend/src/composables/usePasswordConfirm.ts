@@ -17,6 +17,10 @@ export function usePasswordConfirm() {
   const pendingAction = ref<((password: string) => Promise<void>) | null>(null)
 
   function requestPassword(options: PasswordConfirmOptions, action: (password: string) => Promise<void>) {
+    // 如果已有对话框打开，拒绝新请求，防止 pendingAction 被覆盖
+    if (showDialog.value) {
+      return
+    }
     dialogOptions.value = {
       title: options.title,
       description: options.description,

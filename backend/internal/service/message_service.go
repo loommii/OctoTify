@@ -140,13 +140,12 @@ func (s *MessageService) FilterMessages(ctx context.Context, userID int64, filte
 		baseQuery = baseQuery.Where(q.Message.CreatedAt.Lte(time.UnixMilli(*filter.EndDate)))
 	}
 	// 关键词搜索：搜索标题和内容
-	// 注意：使用 Where().Or() 确保在基础查询范围内搜索，不会绕过用户隔离条件
+	// 注意：使用嵌套 Where 确保 OR 条件被括号包裹，不会绕过用户隔离条件
 	if filter.Keyword != "" {
 		keyword := "%" + filter.Keyword + "%"
 		baseQuery = baseQuery.Where(
-			q.Message.Title.Like(keyword),
-		).Or(
-			q.Message.Content.Like(keyword),
+			baseQuery.Where(q.Message.Title.Like(keyword)).
+				Or(q.Message.Content.Like(keyword)),
 		)
 	}
 

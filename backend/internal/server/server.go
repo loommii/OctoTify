@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"os"
 
 	"github.com/gin-gonic/gin"
@@ -125,7 +126,7 @@ func (s *Server) initDependencies(cfg *config.Config, db *gorm.DB, logger *zap.L
 	// 初始化渠道服务及处理器
 	senderFactory := sender.NewSenderFactory(s.logger)
 	channelService := service.NewChannelService(db, logger, senderFactory)
-	s.channelHandler = handler.NewChannelHandler(channelService)
+	s.channelHandler = handler.NewChannelHandler(channelService, logger)
 
 	// 初始化消息服务及处理器
 	messageService := service.NewMessageService(db, logger, senderFactory)
@@ -228,6 +229,14 @@ func (s *Server) setupChannelRoutes(api *gin.RouterGroup) {
 
 	// 渠道类型元数据接口（在 channels 组外，避免与 :id 路由冲突）
 	api.GET("/channel-types", middleware.JWTAuth(s.accessJWTHelper), s.channelHandler.GetChannelTypes) // 获取渠道类型元数据
+
+	// 微信ClawBot绑定路由
+	wechatClawbot := api.Group("/channels/wechat-clawbot")
+	wechatClawbot.Use(middleware.JWTAuth(s.accessJWTHelper)) // 需 JWT 认证
+	{
+		wechatClawbot.POST("/bind", s.channelHandler.StartBind)            // 发起扫码绑定
+		wechatClawbot.POST("/bind/status", s.channelHandler.GetBindStatus) // 查询绑定状态
+	}
 }
 
 // setupMessageRoutes 注册消息管理相关路由
@@ -256,5 +265,23 @@ func (s *Server) Run() error {
 	if err := s.engine.Run(s.addr); err != nil {
 		return err
 	}
+	return nil
+}
+
+// GetEngine 获取 Gin 引擎实例（用于 http.Server 包装）
+func (s *Server) GetEngine() *gin.Engine {
+	return s.engine
+}
+
+// Close 优雅关闭服务器资源
+func (s *Server) Close() {
+	s.logger.Info("服务器资源已关闭")
+}
+
+// Shutdown 优雅关闭服务器资源
+// 参数:
+//   - ctx: 关闭超时上下文
+func (s *Server) Shutdown(ctx context.Context) error {
+	s.logger.Info("服务器资源已关闭")
 	return nil
 }
