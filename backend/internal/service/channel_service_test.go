@@ -8,12 +8,12 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/datatypes"
 
+	"octotify/internal/client/ilink"
 	"octotify/internal/handler/dto"
 	"octotify/internal/model"
 	"octotify/internal/sender"
@@ -854,12 +854,15 @@ func newBindTestService(t *testing.T, targetURL string) *ChannelService {
 	logger := SetupTestLogger(t)
 	factory := sender.NewSenderFactory(logger)
 	transport := &bindRedirectTransport{targetURL: targetURL}
+	ilinkClient := ilink.NewClient(
+		ilink.WithHTTPClient(&http.Client{Transport: transport}),
+		ilink.WithBaseURL(targetURL),
+	)
 	return &ChannelService{
 		db:            db,
 		logger:        logger,
 		senderFactory: factory,
-		httpClient:    &http.Client{Transport: transport, Timeout: 30 * time.Second},
-		pollClient:    &http.Client{Transport: transport},
+		ilinkClient:   ilinkClient,
 	}
 }
 
@@ -947,10 +950,10 @@ func TestChannelService_PollBindStatus(t *testing.T) {
 			iLinkHandler: func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
 				json.NewEncoder(w).Encode(map[string]string{
-					"status": ILinkStatusWait,
+					"status": ilink.StatusWait,
 				})
 			},
-			wantStatus: ILinkStatusWait,
+			wantStatus: ilink.StatusWait,
 			wantCreds:  false,
 			wantErr:    false,
 		},
@@ -959,10 +962,10 @@ func TestChannelService_PollBindStatus(t *testing.T) {
 			iLinkHandler: func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
 				json.NewEncoder(w).Encode(map[string]string{
-					"status": ILinkStatusScanned,
+					"status": ilink.StatusScanned,
 				})
 			},
-			wantStatus: ILinkStatusScanned,
+			wantStatus: ilink.StatusScanned,
 			wantCreds:  false,
 			wantErr:    false,
 		},
@@ -971,13 +974,13 @@ func TestChannelService_PollBindStatus(t *testing.T) {
 			iLinkHandler: func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
 				json.NewEncoder(w).Encode(map[string]string{
-					"status":        ILinkStatusConfirmed,
+					"status":        ilink.StatusConfirmed,
 					"bot_token":     "test-bot-token-xyz",
 					"ilink_bot_id":  "bot-789",
 					"ilink_user_id": "user-012",
 				})
 			},
-			wantStatus:      ILinkStatusConfirmed,
+			wantStatus:      ilink.StatusConfirmed,
 			wantCreds:       true,
 			wantErr:         false,
 			wantILinkBotID:  "bot-789",
@@ -988,10 +991,10 @@ func TestChannelService_PollBindStatus(t *testing.T) {
 			iLinkHandler: func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
 				json.NewEncoder(w).Encode(map[string]string{
-					"status": ILinkStatusExpired,
+					"status": ilink.StatusExpired,
 				})
 			},
-			wantStatus: ILinkStatusExpired,
+			wantStatus: ilink.StatusExpired,
 			wantCreds:  false,
 			wantErr:    false,
 		},

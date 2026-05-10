@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 
+	"octotify/internal/client/ilink"
 	"octotify/internal/handler/dto"
 	"octotify/internal/middleware"
 	"octotify/internal/service"
@@ -551,9 +552,9 @@ func (h *ChannelHandler) GetBindStatus(c *gin.Context) {
 
 // sendBindResponse 统一发送绑定状态响应
 // service 层返回明文凭证，handler 层负责加密后返回前端（API 传输层加密）
-func (h *ChannelHandler) sendBindResponse(c *gin.Context, status string, credentials *service.BindCredentials) {
+func (h *ChannelHandler) sendBindResponse(c *gin.Context, status string, credentials *ilink.Credentials) {
 	resp := dto.BindStatusResp{Status: status}
-	if status == service.ILinkStatusConfirmed && credentials != nil {
+	if status == ilink.StatusConfirmed && credentials != nil {
 		cipherB64, nonceB64, err := aescipher.GlobalEncryptBase64([]byte(credentials.BotToken))
 		if err != nil {
 			h.logger.Error("凭证加密失败", zap.Error(err))

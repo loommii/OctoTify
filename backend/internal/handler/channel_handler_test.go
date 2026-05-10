@@ -8,12 +8,12 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"octotify/internal/client/ilink"
 	"octotify/internal/middleware"
 	"octotify/internal/sender"
 	"octotify/internal/service"
@@ -62,10 +62,13 @@ func setupBindHandlerTest(t *testing.T, iLinkHandler http.HandlerFunc, userID *i
 
 	// 创建 ChannelService，HTTP 请求重定向到模拟 iLink 服务器
 	transport := &handlerRedirectTransport{targetURL: iLinkServer.URL}
+	ilinkClient := ilink.NewClient(
+		ilink.WithHTTPClient(&http.Client{Transport: transport}),
+		ilink.WithBaseURL(iLinkServer.URL),
+	)
 	svc := service.NewChannelServiceForTest(
 		db, logger, factory,
-		&http.Client{Transport: transport, Timeout: 30 * time.Second},
-		&http.Client{Transport: transport},
+		ilinkClient,
 	)
 
 	// 创建 ChannelHandler
@@ -187,12 +190,12 @@ func TestChannelHandler_GetBindStatus(t *testing.T) {
 			iLinkHandler: func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
 				json.NewEncoder(w).Encode(map[string]string{
-					"status": service.ILinkStatusWait,
+					"status": ilink.StatusWait,
 				})
 			},
 			wantHTTPCode: http.StatusOK,
 			wantBizCode:  0,
-			wantStatus:   service.ILinkStatusWait,
+			wantStatus:   ilink.StatusWait,
 		},
 		{
 			name:        "成功：返回 confirmed 状态和凭证",
@@ -201,7 +204,7 @@ func TestChannelHandler_GetBindStatus(t *testing.T) {
 			iLinkHandler: func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
 				json.NewEncoder(w).Encode(map[string]string{
-					"status":        service.ILinkStatusConfirmed,
+					"status":        ilink.StatusConfirmed,
 					"bot_token":     "handler-bot-token",
 					"ilink_bot_id":  "h-bot-1",
 					"ilink_user_id": "h-user-1",
@@ -209,7 +212,7 @@ func TestChannelHandler_GetBindStatus(t *testing.T) {
 			},
 			wantHTTPCode: http.StatusOK,
 			wantBizCode:  0,
-			wantStatus:   service.ILinkStatusConfirmed,
+			wantStatus:   ilink.StatusConfirmed,
 			wantCreds:    true,
 		},
 		{

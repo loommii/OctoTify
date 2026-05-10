@@ -4,15 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
-	"net/url"
 	"time"
 
 	"go.uber.org/zap"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 
+	"octotify/internal/client/ilink"
 	"octotify/internal/handler/dto"
 	"octotify/internal/model"
 	"octotify/internal/query"
@@ -27,8 +25,7 @@ type ChannelService struct {
 	db            *gorm.DB              // 数据库连接
 	logger        *zap.Logger           // 日志记录器
 	senderFactory *sender.SenderFactory // 渠道发送器工厂，用于创建不同渠道的消息发送器
-	httpClient    *http.Client          // 复用 HTTP 客户端，用于调用外部 API
-	pollClient    *http.Client          // iLink 长轮询专用客户端，无 Timeout，由 context 控制超时
+	ilinkClient   *ilink.Client         // iLink 平台 API 客户端
 }
 
 // NewChannelService 创建推送渠道服务实例
@@ -43,22 +40,7 @@ func NewChannelService(db *gorm.DB, logger *zap.Logger, senderFactory *sender.Se
 		db:            db,
 		logger:        logger,
 		senderFactory: senderFactory,
-		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
-			Transport: &http.Transport{
-				MaxIdleConns:        100,
-				MaxIdleConnsPerHost: 10,
-				IdleConnTimeout:     90 * time.Second,
-			},
-		},
-		pollClient: &http.Client{
-			// 不设置 Timeout，由 context.WithTimeout 控制，避免截断 iLink 长轮询响应
-			Transport: &http.Transport{
-				MaxIdleConns:        100,
-				MaxIdleConnsPerHost: 10,
-				IdleConnTimeout:     90 * time.Second,
-			},
-		},
+		ilinkClient:   ilink.NewClient(),
 	}
 }
 
@@ -594,15 +576,22 @@ func (s *ChannelService) DeleteChannel(ctx context.Context, userID int64, channe
 	return nil
 }
 
-// StartBind 发起微信ClawBot扫码绑定
-// 调用iLink API获取绑定二维码，直接返回 qrcode 和 qrcodeURL 两个字符串
+// StartBind 发起微信ClawBot绑定流程
+// 参数:
+//   - ctx: 上下文
+//   - userID: 用户 ID
+//
+// 返回:
+//   - qrcode: 二维码原始值（用于轮询状态）
+//   - qrcodeURL: 二维码图片内容（用于前端展示）
+//   - err: 错误信息
 func (s *ChannelService) StartBind(ctx context.Context, userID int64) (qrcode string, qrcodeURL string, err error) {
 	s.logger.Info("发起微信ClawBot绑定",
 		zap.Int64("user_id", userID),
 	)
 
-	// 调用iLink API获取二维码
-	qrResp, err := s.fetchQRCode(ctx)
+	// 调用 iLink API 获取二维码
+	qrResp, err := s.ilinkClient.GetQRCode(ctx)
 	if err != nil {
 		s.logger.Error("获取二维码失败",
 			zap.Error(err),
@@ -622,9 +611,9 @@ func (s *ChannelService) StartBind(ctx context.Context, userID int64) (qrcode st
 //   - status: 当前绑定状态（iLink 原始状态值）
 //   - credentials: 绑定成功时的凭证（仅在 confirmed 时非空）
 //   - err: 错误信息（如果调用失败）
-func (s *ChannelService) PollBindStatus(ctx context.Context, qrcode string) (status string, credentials *BindCredentials, err error) {
+func (s *ChannelService) PollBindStatus(ctx context.Context, qrcode string) (status string, credentials *ilink.Credentials, err error) {
 	// 调用 iLink API 查询状态
-	statusResp, err := s.pollQRStatus(ctx, qrcode)
+	statusResp, err := s.ilinkClient.GetQRCodeStatus(ctx, qrcode)
 	if err != nil {
 		return "", nil, xerr.ErrBindStatusFailed.WithInternal(err)
 	}
@@ -633,8 +622,8 @@ func (s *ChannelService) PollBindStatus(ctx context.Context, qrcode string) (sta
 	status = statusResp.Status
 
 	// 如果绑定成功，返回明文凭证（handler 层负责加密后返回前端）
-	if status == ILinkStatusConfirmed {
-		credentials = &BindCredentials{
+	if status == ilink.StatusConfirmed {
+		credentials = &ilink.Credentials{
 			BotToken:    statusResp.BotToken,
 			IlinkBotID:  statusResp.ILinkBotID,
 			IlinkUserID: statusResp.ILinkUserID,
@@ -642,52 +631,6 @@ func (s *ChannelService) PollBindStatus(ctx context.Context, qrcode string) (sta
 	}
 
 	return status, credentials, nil
-}
-
-// qrCodeResponse iLink API二维码响应
-type qrCodeResponse struct {
-	QRCode           string `json:"qrcode"`
-	QRCodeImgContent string `json:"qrcode_img_content"`
-}
-
-// qrStatusResponse iLink API状态响应
-type qrStatusResponse struct {
-	Status      string `json:"status"`
-	BotToken    string `json:"bot_token"`
-	ILinkBotID  string `json:"ilink_bot_id"`
-	ILinkUserID string `json:"ilink_user_id"`
-}
-
-// fetchQRCode 调用 iLink API 获取二维码
-func (s *ChannelService) fetchQRCode(ctx context.Context) (*qrCodeResponse, error) {
-	const qrCodeURL = "https://ilinkai.weixin.qq.com/ilink/bot/get_bot_qrcode?bot_type=3"
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, qrCodeURL, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := s.httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
-	}
-
-	var result qrCodeResponse
-	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, err
-	}
-
-	return &result, nil
 }
 
 // processChannelConfig 处理渠道配置（针对 wechat_clawbot 类型进行解密和校验）
@@ -756,42 +699,4 @@ func (s *ChannelService) processChannelConfig(channelType string, config datatyp
 	}
 
 	return nil, fmt.Errorf("微信ClawBot配置缺少 bot_token_ciphertext/bot_token_nonce 或 bot_token 字段")
-}
-
-// pollQRStatus 调用 iLink API 查询二维码状态
-// 使用 pollClient（无客户端超时）+ context.WithTimeout(PollAPITimeout) 控制超时，
-// 避免 httpClient 的 30s 硬超时截断 iLink 长轮询响应
-func (s *ChannelService) pollQRStatus(ctx context.Context, qrcode string) (*qrStatusResponse, error) {
-	// 使用 PollAPITimeout（40s）作为 context 超时，适配 iLink 长轮询设计
-	pollCtx, cancel := context.WithTimeout(ctx, PollAPITimeout)
-	defer cancel()
-
-	reqURL := fmt.Sprintf("https://ilinkai.weixin.qq.com/ilink/bot/get_qrcode_status?qrcode=%s", url.QueryEscape(qrcode))
-
-	req, err := http.NewRequestWithContext(pollCtx, http.MethodGet, reqURL, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := s.pollClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
-	}
-
-	var result qrStatusResponse
-	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, err
-	}
-
-	return &result, nil
 }

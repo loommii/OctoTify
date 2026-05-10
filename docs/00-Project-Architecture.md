@@ -212,6 +212,8 @@ OctoTify/
 │   │   ├── server/           # HTTP Server（Gin）
 │   │   ├── handler/          # HTTP 处理器
 │   │   ├── service/          # 业务逻辑 + 数据访问（直接调用 query）
+│   │   ├── client/           # 第三方 API 客户端
+│   │   │   └── ilink/        # iLink 平台客户端（微信 ClawBot 绑定）
 │   │   ├── sender/           # 推送策略层
 │   │   │   ├── sender.go     # Sender 接口
 │   │   │   ├── factory.go    # Sender 工厂
