@@ -24,7 +24,7 @@ fi
 # 编译最新代码
 echo "正在编译..."
 cd "$BACKEND_DIR"
-go build -o server ./cmd/server
+go build -tags=sonic -o server ./cmd/server
 
 # 启动服务
 echo "正在启动服务，监听端口 :$PORT ..."

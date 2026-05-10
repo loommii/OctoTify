@@ -25,7 +25,7 @@ RUN go mod download
 
 # 复制后端源码并构建
 COPY backend/ ./
-RUN CGO_ENABLED=1 GOOS=linux go build -ldflags='-s -w' -o octotify ./cmd/server
+RUN CGO_ENABLED=1 GOOS=linux go build -tags=sonic -ldflags='-s -w' -o octotify ./cmd/server
 
 # 第三阶段：最终运行镜像
 FROM alpine:latest
