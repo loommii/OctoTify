@@ -4,7 +4,83 @@
 
 ---
 
-## 一、统一响应格式
+## 四、JSON 字段命名规范
+
+### 4.1 基本原则
+
+**所有 JSON 字段统一使用 snake_case（下划线命名法）。**
+
+### 4.2 命名规则
+
+| 类型 | 规则 | 示例 |
+|------|------|------|
+| 单单词字段 | 全小写 | `id`、`name`、`timestamp` |
+| 多单词字段 | 下划线分隔，全小写 | `server_name`、`created_at`、`user_id` |
+| 布尔值字段 | `is_` / `has_` / `can_` 前缀 | `is_active`、`has_permission` |
+| 枚举值字段 | `_type` / `_status` 后缀 | `source_type`、`order_status` |
+
+### 4.3 Go 结构体示例
+
+```go
+type SourceResp struct {
+    ID        int64     `json:"id"`
+    Name      string    `json:"name"`
+    IsActive  bool      `json:"is_active"`
+    SourceType string   `json:"source_type"`
+    CreatedAt time.Time `json:"created_at"`
+}
+```
+
+### 4.4 禁止的命名风格
+
+| 风格 | 示例 | 说明 |
+|------|------|------|
+| camelCase | `serverName` | 不使用，与前端 JavaScript 变量命名冲突 |
+| PascalCase | `ServerName` | 不使用，仅用于 Go 结构体字段名 |
+| SCREAMING_SNAKE_CASE | `SERVER_NAME` | 不使用，仅用于常量 |
+
+### 4.5 设计理由
+
+1. **Go 社区惯例**：标准库 `encoding/json` 和主流框架（Gin、Echo）均采用 snake_case
+2. **与数据库一致**：数据库字段通常使用 snake_case，减少映射转换
+3. **RESTful 惯例**：大多数 RESTful API 使用 snake_case 作为 JSON 字段命名
+4. **可读性**：多单词字段用下划线分隔，比 camelCase 更易读
+
+---
+
+## 五、时间字段规范
+
+### 5.1 响应格式
+
+| 字段类型 | 格式 | 示例 |
+|----------|------|------|
+| 日期时间 | `YYYY-MM-DD HH:MM:SS` | `2024-01-15 14:30:00` |
+| 时间戳 | Unix 毫秒时间戳（int64） | `1705298400123` |
+
+### 5.2 字段命名规则
+
+| 含义 | 可读时间字段 | 时间戳字段 |
+|------|-------------|-----------|
+| 创建时间 | `created_at` | `created_at_ts` |
+| 更新时间 | `updated_at` | `updated_at_ts` |
+| 删除时间 | `deleted_at` | `deleted_at_ts` |
+
+### 5.3 Go 结构体示例
+
+```go
+type SourceResp struct {
+    ID          int64  `json:"id"`
+    Name        string `json:"name"`
+    CreatedAt   string `json:"created_at"`    // "2024-01-15 14:30:00"
+    CreatedAtTs int64  `json:"created_at_ts"` // 1705298400123
+    UpdatedAt   string `json:"updated_at"`    // "2024-01-15 14:30:00"
+    UpdatedAtTs int64  `json:"updated_at_ts"` // 1705298400123
+}
+```
+
+---
+
+## 六、统一响应格式
 
 所有 API 返回统一格式：
 
@@ -30,7 +106,7 @@
 
 ---
 
-## 二、HTTP 状态码规范
+## 七、HTTP 状态码规范
 
 ### 2.1 基本原则
 
@@ -52,18 +128,18 @@
 
 ---
 
-## 三、分页规范
+## 八、分页规范
 
 所有列表接口统一使用分页查询，参数和约束如下：
 
-### 3.1 请求参数
+### 8.1 请求参数
 
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
 | `page` | int | 否 | 1 | 页码，从 1 开始 |
 | `pageSize` | int | 否 | 20 | 每页条数 |
 
-### 3.2 约束规则
+### 8.2 约束规则
 
 | 规则 | 说明 |
 |------|------|
@@ -72,7 +148,7 @@
 | `pageSize` 最大值 | 100，超过 100 自动修正为 100 |
 | 默认排序 | 按 `created_at` 降序（最新优先） |
 
-### 3.3 响应格式
+### 8.3 响应格式
 
 ```json
 {
@@ -87,7 +163,7 @@
 }
 ```
 
-### 3.4 请求示例
+### 8.4 请求示例
 
 ```
 GET /api/sources?page=2&pageSize=50

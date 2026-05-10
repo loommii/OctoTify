@@ -13,10 +13,12 @@ import (
 	"octotify/pkg/xerr"
 )
 
+// AuthHandler 用户认证处理器
 type AuthHandler struct {
 	authService *service.AuthService
 }
 
+// NewAuthHandler 创建认证处理器实例
 func NewAuthHandler(authService *service.AuthService) *AuthHandler {
 	return &AuthHandler{authService: authService}
 }
@@ -62,6 +64,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
+	// 调用认证服务进行登录
 	resp, err := h.authService.Login(c.Request.Context(), &req)
 	if err != nil {
 		c.Error(err)
@@ -88,6 +91,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 // @Router       /auth/logout [post]
 // @Security     BearerAuth
 func (h *AuthHandler) Logout(c *gin.Context) {
+	// 从上下文中获取当前用户 ID
 	userIDStr, exists := c.Get(middleware.ContextKeyUserID)
 	if !exists {
 		response.Fail(c, xerr.ErrUnauthorized.Code, "未提供认证令牌")
@@ -100,6 +104,7 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 		return
 	}
 
+	// 调用认证服务撤销 Refresh Token
 	if err := h.authService.Logout(c.Request.Context(), userID); err != nil {
 		c.Error(err)
 		return
@@ -145,6 +150,7 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 		return
 	}
 
+	// 调用认证服务刷新令牌
 	resp, err := h.authService.RefreshAccessToken(c.Request.Context(), req.RefreshToken)
 	if err != nil {
 		c.Error(err)
