@@ -288,17 +288,6 @@ func (h *SourceHandler) GetSourceToken(c *gin.Context) {
 		return
 	}
 
-	var req dto.VerifyPasswordReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.HandleValidationError(c, err)
-		return
-	}
-
-	if err := h.sourceService.VerifyPassword(c.Request.Context(), userID, req.Password); err != nil {
-		c.Error(err)
-		return
-	}
-
 	token, err := h.sourceService.GetSourceToken(c.Request.Context(), sourceID, userID)
 	if err != nil {
 		c.Error(err)
@@ -350,17 +339,6 @@ func (h *SourceHandler) ResetSourceToken(c *gin.Context) {
 	sourceID, err := strconv.ParseInt(sourceIDStr, 10, 64)
 	if err != nil {
 		response.Fail(c, xerr.ErrBadRequest.Code, "来源ID格式错误")
-		return
-	}
-
-	var req dto.VerifyPasswordReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.HandleValidationError(c, err)
-		return
-	}
-
-	if err := h.sourceService.VerifyPassword(c.Request.Context(), userID, req.Password); err != nil {
-		c.Error(err)
 		return
 	}
 
@@ -418,17 +396,6 @@ func (h *SourceHandler) DisableSource(c *gin.Context) {
 		return
 	}
 
-	var req dto.VerifyPasswordReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.HandleValidationError(c, err)
-		return
-	}
-
-	if err := h.sourceService.VerifyPassword(c.Request.Context(), userID, req.Password); err != nil {
-		c.Error(err)
-		return
-	}
-
 	err = h.sourceService.DisableSource(c.Request.Context(), sourceID, userID)
 	if err != nil {
 		c.Error(err)
@@ -479,17 +446,6 @@ func (h *SourceHandler) EnableSource(c *gin.Context) {
 	sourceID, err := strconv.ParseInt(sourceIDStr, 10, 64)
 	if err != nil {
 		response.Fail(c, xerr.ErrBadRequest.Code, "来源ID格式错误")
-		return
-	}
-
-	var req dto.VerifyPasswordReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.HandleValidationError(c, err)
-		return
-	}
-
-	if err := h.sourceService.VerifyPassword(c.Request.Context(), userID, req.Password); err != nil {
-		c.Error(err)
 		return
 	}
 
@@ -545,17 +501,6 @@ func (h *SourceHandler) DeleteSource(c *gin.Context) {
 	sourceID, err := strconv.ParseInt(sourceIDStr, 10, 64)
 	if err != nil {
 		response.Fail(c, xerr.ErrBadRequest.Code, "来源ID格式错误")
-		return
-	}
-
-	var req dto.VerifyPasswordReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.HandleValidationError(c, err)
-		return
-	}
-
-	if err := h.sourceService.VerifyPassword(c.Request.Context(), userID, req.Password); err != nil {
-		c.Error(err)
 		return
 	}
 
