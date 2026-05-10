@@ -24,6 +24,16 @@ OctoTify 是一个消息总线平台，核心功能是：
 | 数据库 | SQLite |
 | 部署 | Docker 单容器 |
 
+### 规范文档索引
+
+| 文档 | 说明 |
+|------|------|
+| [01-RequestID.md](./01-RequestID.md) | 请求 ID 规范 |
+| [02-Logging.md](./02-Logging.md) | 日志规范 |
+| [03-API-Specification.md](./03-API-Specification.md) | 后端 API 规范（响应格式、HTTP 状态码、分页） |
+| [04-i18n.md](./04-i18n.md) | 多语言规范 |
+| [05-Error-Codes.md](./05-Error-Codes.md) | 错误码规范 |
+
 ---
 
 ## 二、核心领域模型
@@ -212,9 +222,9 @@ OctoTify/
 │   │   └── middleware/       # 中间件
 │   ├── pkg/                  # 可复用的公共库
 │   │   ├── response/         # 统一响应
-│   │   ├── errors/           # 错误码
-│   │   ├── i18n/             # 多语言
-│   │   ├── jwt/              # JWT 工具
+│   │   ├── xerr/             # 错误码
+│   │   ├── aescipher/        # AES 加密
+│   │   ├── jwtx/             # JWT 工具
 │   │   └── validator/        # 自定义参数验证器
 │   ├── config/               # 配置文件
 │   ├── data/                 # SQLite 数据库文件

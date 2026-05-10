@@ -19,7 +19,9 @@
 | `110500` ~ `110599` | Source 模块 | 消息来源管理相关错误 |
 | `110600` ~ `110699` | Channel 模块 | 推送渠道管理相关错误 |
 | `110700` ~ `110799` | Message 模块 | 消息推送相关错误 |
-| `200000` ~ `200099` | 第三方服务 | 第三方接口调用错误 |
+| `110800` ~ `110899` | 用户管理模块 | 用户管理相关错误 |
+| `110900` ~ `110999` | 微信绑定模块 | 微信绑定本地业务逻辑错误（二维码过期、凭证加解密） |
+| `200000` ~ `200099` | 第三方服务 | 第三方接口调用错误（含微信 iLink API） |
 
 ---
 
@@ -31,81 +33,122 @@
 
 ---
 
-## 三、错误码定义示例
+## 三、错误码清单
 
-```go
-// 注册模块错误 1101XX
-var (
-    ErrRegisterUsernameEmpty     = NewCodeError(110100, "用户名不能为空")
-    ErrRegisterPasswordEmpty    = NewCodeError(110101, "密码不能为空")
-    ErrRegisterUsernameInvalid  = NewCodeError(110102, "用户名格式不合法")
-    ErrRegisterPasswordInvalid = NewCodeError(110103, "密码格式不合法")
-    ErrRegisterUsernameExists   = NewCodeError(110104, "用户名已存在")
-    ErrRegisterFailed           = NewCodeError(110105, "注册失败")
-)
+### 3.1 通用错误 1000XX
 
-// 登录模块错误 1102XX
-var (
-    ErrLoginInvalidCredentials = NewCodeError(110200, "用户名或密码错误")
-    ErrLoginFailed             = NewCodeError(110201, "登录失败")
-)
+| 错误码 | 错误常量 | 错误消息 (中文) | Error Message (English) |
+|--------|---------|----------------|------------------------|
+| 100000 | ErrBadRequest | 请求参数错误 | Invalid request parameters |
+| 100001 | ErrUnauthorized | 未登录或Token已过期 | Not logged in or token expired |
+| 100002 | ErrForbidden | 权限不足 | Insufficient permissions |
+| 100003 | ErrNotFound | 资源不存在 | Resource not found |
+| 100004 | ErrInternalServer | 服务器内部错误 | Internal server error |
+| 100005 | ErrTooManyRequest | 请求过于频繁 | Too many requests |
+| 100006 | ErrMethodNotAllowed | 请求方法不允许 | Method not allowed |
 
-// 刷新令牌模块错误 1103XX
-var (
-    ErrRefreshTokenInvalid  = NewCodeError(110300, "刷新令牌无效")
-    ErrRefreshTokenRevoked  = NewCodeError(110301, "刷新令牌已撤销")
-    ErrRefreshTokenExpired  = NewCodeError(110302, "刷新令牌已过期")
-    ErrRefreshTokenFailed   = NewCodeError(110303, "刷新令牌失败")
-)
+### 3.2 注册模块 1101XX
 
-// 密码管理模块错误 1104XX
-var (
-    ErrChangePasswordOldEmpty     = NewCodeError(110400, "旧密码不能为空")
-    ErrChangePasswordNewEmpty     = NewCodeError(110401, "新密码不能为空")
-    ErrChangePasswordOldIncorrect = NewCodeError(110402, "旧密码错误")
-    ErrChangePasswordFailed       = NewCodeError(110403, "密码修改失败")
-)
+| 错误码 | 错误常量 | 错误消息 (中文) | Error Message (English) |
+|--------|---------|----------------|------------------------|
+| 110100 | ErrRegisterUsernameEmpty | 用户名不能为空 | Username cannot be empty |
+| 110101 | ErrRegisterPasswordEmpty | 密码不能为空 | Password cannot be empty |
+| 110102 | ErrRegisterUsernameInvalid | 用户名格式不合法 | Invalid username format |
+| 110103 | ErrRegisterPasswordInvalid | 密码格式不合法 | Invalid password format |
+| 110104 | ErrRegisterUsernameExists | 用户名已存在 | Username already exists |
+| 110105 | ErrRegisterFailed | 注册失败 | Registration failed |
 
-// Source 管理错误 1105XX
-var (
-    ErrSourceParamNameEmpty    = NewCodeError(110500, "来源名称不能为空")
-    ErrSourceInsertFailed      = NewCodeError(110501, "创建来源失败")
-    ErrSourceTokenFailed       = NewCodeError(110502, "生成来源Token失败")
-    ErrSourceNotFound          = NewCodeError(110503, "来源不存在")
-    ErrSourceNoPermission      = NewCodeError(110504, "无权操作该来源")
-    ErrSourceQueryFailed       = NewCodeError(110505, "查询来源失败")
-    ErrSourceDeleteFailed      = NewCodeError(110506, "删除来源失败")
-    ErrSourceAlreadyDisabled   = NewCodeError(110507, "来源已停用")
-    ErrSourceAlreadyEnabled    = NewCodeError(110508, "来源已启用")
-    ErrSourceAlreadyDeleted    = NewCodeError(110509, "来源已删除")
-    ErrSourceUpdateFailed      = NewCodeError(110510, "更新来源失败")
-    ErrSourceDisabled          = NewCodeError(110511, "来源已停用，无法推送")
-)
+### 3.3 登录模块 1102XX
 
-// Channel 管理错误 1106XX
-var (
-    ErrChannelParamNameEmpty   = NewCodeError(110600, "渠道名称不能为空")
-    ErrChannelInvalidType      = NewCodeError(110601, "无效的渠道类型")
-    ErrChannelInsertFailed     = NewCodeError(110602, "创建渠道失败")
-    ErrChannelNotFound         = NewCodeError(110603, "渠道不存在")
-    ErrChannelNoPermission     = NewCodeError(110604, "无权操作该渠道")
-    ErrChannelQueryFailed      = NewCodeError(110605, "查询渠道失败")
-    ErrChannelDeleteFailed     = NewCodeError(110606, "删除渠道失败")
-    ErrChannelAlreadyDisabled  = NewCodeError(110607, "渠道已停用")
-    ErrChannelAlreadyEnabled   = NewCodeError(110608, "渠道已启用")
-    ErrChannelAlreadyDeleted   = NewCodeError(110609, "渠道已删除")
-)
+| 错误码 | 错误常量 | 错误消息 (中文) | Error Message (English) |
+|--------|---------|----------------|------------------------|
+| 110200 | ErrLoginInvalidCredentials | 用户名或密码错误 | Invalid username or password |
+| 110201 | ErrLoginFailed | 登录失败 | Login failed |
 
-// Message 推送错误 1107XX
-var (
-    ErrMessageParamTitleEmpty   = NewCodeError(110700, "消息标题不能为空")
-    ErrMessageParamContentEmpty = NewCodeError(110701, "消息内容不能为空")
-    ErrMessagePushFailed        = NewCodeError(110702, "消息推送失败")
-    ErrMessageNoChannels        = NewCodeError(110703, "来源未绑定任何渠道")
-    ErrMessageRecordFailed      = NewCodeError(110704, "记录消息状态失败")
-    ErrMessageAlreadyDeleted    = NewCodeError(110705, "消息已删除")
-)
-```
+### 3.4 刷新令牌模块 1103XX
+
+| 错误码 | 错误常量 | 错误消息 (中文) | Error Message (English) |
+|--------|---------|----------------|------------------------|
+| 110300 | ErrRefreshTokenInvalid | 刷新令牌无效 | Invalid refresh token |
+| 110301 | ErrRefreshTokenRevoked | 刷新令牌已撤销 | Refresh token revoked |
+| 110302 | ErrRefreshTokenExpired | 刷新令牌已过期 | Refresh token expired |
+| 110303 | ErrRefreshTokenFailed | 刷新令牌失败 | Refresh token failed |
+| 110304 | ErrLogoutFailed | 退出登录失败 | Logout failed |
+
+### 3.5 密码管理模块 1104XX
+
+| 错误码 | 错误常量 | 错误消息 (中文) | Error Message (English) |
+|--------|---------|----------------|------------------------|
+| 110400 | ErrChangePasswordOldEmpty | 旧密码不能为空 | Old password cannot be empty |
+| 110401 | ErrChangePasswordNewEmpty | 新密码不能为空 | New password cannot be empty |
+| 110402 | ErrChangePasswordOldIncorrect | 旧密码错误 | Incorrect old password |
+| 110403 | ErrChangePasswordFailed | 密码修改失败 | Password change failed |
+
+### 3.6 Source 模块 1105XX
+
+| 错误码 | 错误常量 | 错误消息 (中文) | Error Message (English) |
+|--------|---------|----------------|------------------------|
+| 110500 | ErrSourceParamNameEmpty | 来源名称不能为空 | Source name cannot be empty |
+| 110501 | ErrSourceInsertFailed | 创建来源失败 | Failed to create source |
+| 110502 | ErrSourceTokenFailed | 生成来源Token失败 | Failed to generate source token |
+| 110503 | ErrSourceNotFound | 来源不存在 | Source not found |
+| 110504 | ErrSourceNoPermission | 无权操作该来源 | No permission to operate this source |
+| 110505 | ErrSourceQueryFailed | 查询来源失败 | Failed to query source |
+| 110506 | ErrSourceDeleteFailed | 删除来源失败 | Failed to delete source |
+| 110507 | ErrSourceAlreadyDisabled | 来源已停用 | Source already disabled |
+| 110508 | ErrSourceAlreadyEnabled | 来源已启用 | Source already enabled |
+| 110509 | ErrSourceAlreadyDeleted | 来源已删除 | Source already deleted |
+| 110510 | ErrSourceUpdateFailed | 更新来源失败 | Failed to update source |
+| 110511 | ErrSourceDisabled | 来源已停用，无法推送 | Source disabled, cannot push |
+
+### 3.7 Channel 模块 1106XX
+
+| 错误码 | 错误常量 | 错误消息 (中文) | Error Message (English) |
+|--------|---------|----------------|------------------------|
+| 110600 | ErrChannelParamNameEmpty | 渠道名称不能为空 | Channel name cannot be empty |
+| 110601 | ErrChannelInvalidType | 无效的渠道类型 | Invalid channel type |
+| 110602 | ErrChannelInsertFailed | 创建渠道失败 | Failed to create channel |
+| 110603 | ErrChannelNotFound | 渠道不存在 | Channel not found |
+| 110604 | ErrChannelNoPermission | 无权操作该渠道 | No permission to operate this channel |
+| 110605 | ErrChannelQueryFailed | 查询渠道失败 | Failed to query channel |
+| 110606 | ErrChannelDeleteFailed | 删除渠道失败 | Failed to delete channel |
+| 110607 | ErrChannelAlreadyDisabled | 渠道已停用 | Channel already disabled |
+| 110608 | ErrChannelAlreadyEnabled | 渠道已启用 | Channel already enabled |
+| 110609 | ErrChannelAlreadyDeleted | 渠道已删除 | Channel already deleted |
+
+### 3.8 Message 模块 1107XX
+
+| 错误码 | 错误常量 | 错误消息 (中文) | Error Message (English) |
+|--------|---------|----------------|------------------------|
+| 110700 | ErrMessageParamTitleEmpty | 消息标题不能为空 | Message title cannot be empty |
+| 110701 | ErrMessageParamContentEmpty | 消息内容不能为空 | Message content cannot be empty |
+| 110702 | ErrMessagePushFailed | 消息推送失败 | Message push failed |
+| 110703 | ErrMessageNoChannels | 来源未绑定任何渠道 | Source not bound to any channel |
+| 110704 | ErrMessageRecordFailed | 记录消息状态失败 | Failed to record message status |
+| 110705 | ErrMessageAlreadyDeleted | 消息已删除 | Message already deleted |
+
+### 3.9 用户管理模块 1108XX
+
+| 错误码 | 错误常量 | 错误消息 (中文) | Error Message (English) |
+|--------|---------|----------------|------------------------|
+| 110800 | ErrUserProfileNotFound | 用户不存在 | User not found |
+| 110801 | ErrUserProfileQueryFailed | 查询用户信息失败 | Failed to query user profile |
+
+### 3.10 微信绑定模块 1109XX（本地业务逻辑）
+
+| 错误码 | 错误常量 | 错误消息 (中文) | Error Message (English) |
+|--------|---------|----------------|------------------------|
+| 110901 | ErrBindExpired | 绑定二维码已过期 | Binding QR code expired |
+| 110902 | ErrCredentialEncryptFailed | 凭证加密失败 | Failed to encrypt credentials |
+| 110903 | ErrCredentialDecryptFailed | 凭证解密失败 | Failed to decrypt credentials |
+
+### 3.11 第三方服务 2000XX
+
+| 错误码 | 错误常量 | 错误消息 (中文) | Error Message (English) |
+|--------|---------|----------------|------------------------|
+| 200000 | ErrThirdPartyCallFailed | 第三方接口调用失败 | Third-party API call failed |
+| 200001 | ErrQRCodeFetchFailed | 获取绑定二维码失败 | Failed to fetch bind QR code |
+| 200002 | ErrBindStatusFailed | 查询绑定状态失败 | Failed to query bind status |
 
 ---
 
@@ -142,4 +185,5 @@ if req.Name == "" {
 
 | 日期 | 版本 | 变更 |
 |------|------|------|
-| 2026-05-02 | 1.0 | 初始版本，定义错误码分配和使用规范 |
+| 2026-05-10 | 2.0 | 新增模块、拆分第三方错误码、双语错误消息、表格化清单 |
+| 2026-05-02 | 1.0 | 初始版本 |

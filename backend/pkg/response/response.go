@@ -37,6 +37,11 @@ func SuccessWithMsg(c *gin.Context, msg string, data any) {
 
 // Fail 失败响应，统一返回 HTTP 200 + 业务 code
 func Fail(c *gin.Context, code int, msg string) {
+	lang := c.GetHeader("Accept-Language")
+	translatedMsg := xerr.TranslateMsg(code, lang)
+	if translatedMsg != "" {
+		msg = translatedMsg
+	}
 	c.JSON(http.StatusOK, Response{
 		Code: code,
 		Msg:  msg,
@@ -45,6 +50,11 @@ func Fail(c *gin.Context, code int, msg string) {
 
 // Unauthorized JWT 鉴权失败响应，返回 HTTP 401 + 业务 code
 func Unauthorized(c *gin.Context, code int, msg string) {
+	lang := c.GetHeader("Accept-Language")
+	translatedMsg := xerr.TranslateMsg(code, lang)
+	if translatedMsg != "" {
+		msg = translatedMsg
+	}
 	c.JSON(http.StatusUnauthorized, Response{
 		Code: code,
 		Msg:  msg,
@@ -53,6 +63,11 @@ func Unauthorized(c *gin.Context, code int, msg string) {
 
 // FailWithData 失败响应，携带附加数据
 func FailWithData(c *gin.Context, code int, msg string, data any) {
+	lang := c.GetHeader("Accept-Language")
+	translatedMsg := xerr.TranslateMsg(code, lang)
+	if translatedMsg != "" {
+		msg = translatedMsg
+	}
 	c.JSON(http.StatusOK, Response{
 		Code: code,
 		Msg:  msg,
