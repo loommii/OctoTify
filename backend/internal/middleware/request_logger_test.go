@@ -29,14 +29,21 @@ func TestRequestLogger_BasicMode(t *testing.T) {
 	router.ServeHTTP(w, req)
 
 	entries := capture.GetEntries()
-	assert.Equal(t, 1, len(entries))
-	entry := entries[0]
-	assert.Equal(t, "info", entry["level"])
-	assert.Equal(t, "request completed", entry["msg"])
-	assert.Equal(t, "GET", entry["method"])
-	assert.Equal(t, "/test", entry["path"])
-	assert.Equal(t, float64(200), entry["status"])
-	assert.NotNil(t, entry["latency"])
+	assert.Equal(t, 2, len(entries))
+
+	startEntry := entries[0]
+	assert.Equal(t, "debug", startEntry["level"])
+	assert.Equal(t, "请求开始", startEntry["msg"])
+	assert.Equal(t, "GET", startEntry["method"])
+	assert.Equal(t, "/test", startEntry["path"])
+
+	endEntry := entries[1]
+	assert.Equal(t, "info", endEntry["level"])
+	assert.Equal(t, "请求完成", endEntry["msg"])
+	assert.Equal(t, "GET", endEntry["method"])
+	assert.Equal(t, "/test", endEntry["path"])
+	assert.Equal(t, float64(200), endEntry["status"])
+	assert.NotNil(t, endEntry["latency"])
 }
 
 // TestRequestLogger_FullDumpMode 测试完整日志模式（输出请求体、响应体、请求头、响应头）
@@ -58,14 +65,19 @@ func TestRequestLogger_FullDumpMode(t *testing.T) {
 	router.ServeHTTP(w, req)
 
 	entries := capture.GetEntries()
-	assert.Equal(t, 1, len(entries))
-	entry := entries[0]
-	assert.Equal(t, "debug", entry["level"])
-	assert.Equal(t, "request completed (full dump)", entry["msg"])
-	assert.Contains(t, entry["request_body"], "test")
-	assert.Contains(t, entry["response_body"], "code")
-	assert.NotEmpty(t, entry["request_headers"])
-	assert.NotEmpty(t, entry["response_headers"])
+	assert.Equal(t, 2, len(entries))
+
+	startEntry := entries[0]
+	assert.Equal(t, "debug", startEntry["level"])
+	assert.Equal(t, "请求开始（完整模式）", startEntry["msg"])
+	assert.Contains(t, startEntry["request_body"], "test")
+	assert.NotEmpty(t, startEntry["request_headers"])
+
+	endEntry := entries[1]
+	assert.Equal(t, "debug", endEntry["level"])
+	assert.Equal(t, "请求完成（完整模式）", endEntry["msg"])
+	assert.Contains(t, endEntry["response_body"], "code")
+	assert.NotEmpty(t, endEntry["response_headers"])
 }
 
 // TestRequestLogger_DebugBodyButNotDebugLevel 测试日志级别不是 Debug 时不输出详细内容
@@ -88,7 +100,7 @@ func TestRequestLogger_DebugBodyButNotDebugLevel(t *testing.T) {
 	assert.Equal(t, 1, len(entries))
 	entry := entries[0]
 	assert.Equal(t, "info", entry["level"])
-	assert.Equal(t, "request completed", entry["msg"])
+	assert.Equal(t, "请求完成", entry["msg"])
 }
 
 // TestRequestLogger_BasicLogFields 测试基础日志字段完整性
@@ -108,8 +120,8 @@ func TestRequestLogger_BasicLogFields(t *testing.T) {
 	router.ServeHTTP(w, req)
 
 	entries := capture.GetEntries()
-	assert.Equal(t, 1, len(entries))
-	entry := entries[0]
+	assert.Equal(t, 2, len(entries))
+	entry := entries[1]
 	assert.Equal(t, "POST", entry["method"])
 	assert.Equal(t, "/api/sources", entry["path"])
 	assert.Equal(t, float64(201), entry["status"])
@@ -125,17 +137,18 @@ func TestRequestLogger_RequestIDInLog(t *testing.T) {
 	router.Use(RequestID())
 	router.Use(RequestLogger(logger, false))
 	router.GET("/test", func(c *gin.Context) {
-		c.Set("request_id", "test-rid")
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req.Header.Set("X-Request-ID", "test-rid")
 	router.ServeHTTP(w, req)
 
 	entries := capture.GetEntries()
-	assert.Equal(t, 1, len(entries))
+	assert.Equal(t, 2, len(entries))
 	assert.Equal(t, "test-rid", entries[0]["request_id"])
+	assert.Equal(t, "test-rid", entries[1]["request_id"])
 }
 
 // TestRequestLogger_PathWithQueryString 测试日志中的路径包含查询字符串
@@ -155,8 +168,8 @@ func TestRequestLogger_PathWithQueryString(t *testing.T) {
 	router.ServeHTTP(w, req)
 
 	entries := capture.GetEntries()
-	assert.Equal(t, 1, len(entries))
-	path := entries[0]["path"].(string)
+	assert.Equal(t, 2, len(entries))
+	path := entries[1]["path"].(string)
 	assert.Contains(t, path, "/api/sources")
 	assert.Contains(t, path, "page=1")
 	assert.Contains(t, path, "size=10")
@@ -182,7 +195,7 @@ func TestRequestLogger_FullDumpRequestBody(t *testing.T) {
 	router.ServeHTTP(w, req)
 
 	entries := capture.GetEntries()
-	assert.Equal(t, 1, len(entries))
+	assert.Equal(t, 2, len(entries))
 	assert.Contains(t, entries[0]["request_body"], reqBody)
 }
 
@@ -203,8 +216,8 @@ func TestRequestLogger_FullDumpResponseBody(t *testing.T) {
 	router.ServeHTTP(w, req)
 
 	entries := capture.GetEntries()
-	assert.Equal(t, 1, len(entries))
-	respBody := entries[0]["response_body"].(string)
+	assert.Equal(t, 2, len(entries))
+	respBody := entries[1]["response_body"].(string)
 	assert.Contains(t, respBody, "code")
 	assert.Contains(t, respBody, "hello")
 }
@@ -227,8 +240,8 @@ func TestRequestLogger_BinaryResponseImageOmitted(t *testing.T) {
 	router.ServeHTTP(w, req)
 
 	entries := capture.GetEntries()
-	assert.Equal(t, 1, len(entries))
-	assert.Equal(t, "[binary content omitted]", entries[0]["response_body"])
+	assert.Equal(t, 2, len(entries))
+	assert.Equal(t, "[二进制内容已省略]", entries[1]["response_body"])
 }
 
 // TestRequestLogger_BinaryResponseOctetStreamOmitted 测试二进制响应（octet-stream）被省略
@@ -249,8 +262,8 @@ func TestRequestLogger_BinaryResponseOctetStreamOmitted(t *testing.T) {
 	router.ServeHTTP(w, req)
 
 	entries := capture.GetEntries()
-	assert.Equal(t, 1, len(entries))
-	assert.Equal(t, "[binary content omitted]", entries[0]["response_body"])
+	assert.Equal(t, 2, len(entries))
+	assert.Equal(t, "[二进制内容已省略]", entries[1]["response_body"])
 }
 
 // TestRequestLogger_FullDumpHeaders 测试完整模式下请求头和响应头被正确记录
@@ -273,9 +286,9 @@ func TestRequestLogger_FullDumpHeaders(t *testing.T) {
 	router.ServeHTTP(w, req)
 
 	entries := capture.GetEntries()
-	assert.Equal(t, 1, len(entries))
+	assert.Equal(t, 2, len(entries))
 	reqHeaders := entries[0]["request_headers"].(string)
-	respHeaders := entries[0]["response_headers"].(string)
+	respHeaders := entries[1]["response_headers"].(string)
 	assert.Contains(t, reqHeaders, "X-Custom-Request-Header")
 	assert.Contains(t, reqHeaders, "request-value")
 	assert.Contains(t, respHeaders, "X-Custom-Header")
@@ -301,7 +314,7 @@ func TestRequestLogger_FailedToReadRequestBody(t *testing.T) {
 	router.ServeHTTP(w, req)
 
 	entries := capture.GetEntries()
-	assert.Equal(t, 1, len(entries))
+	assert.Equal(t, 2, len(entries))
 	reqBody := entries[0]["request_body"].(string)
-	assert.Contains(t, reqBody, "failed to read request body:")
+	assert.Contains(t, reqBody, "读取请求体失败:")
 }
