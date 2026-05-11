@@ -6,7 +6,6 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -827,37 +826,14 @@ func TestChannelService_TestChannel(t *testing.T) {
 // 微信ClawBot绑定流程测试
 // ============================================================================
 
-// bindRedirectTransport 将 HTTP 请求重定向到测试服务器的 RoundTripper
-// 用于模拟 iLink API，无需修改生产代码中的硬编码 URL
-type bindRedirectTransport struct {
-	targetURL string
-}
-
-func (t *bindRedirectTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	target, _ := url.Parse(t.targetURL)
-	newURL := &url.URL{
-		Scheme:   target.Scheme,
-		Host:     target.Host,
-		Path:     req.URL.Path,
-		RawQuery: req.URL.RawQuery,
-	}
-	newReq := req.Clone(req.Context())
-	newReq.URL = newURL
-	return http.DefaultTransport.RoundTrip(newReq)
-}
-
 // newBindTestService 创建绑定测试用的 ChannelService
-// HTTP 请求通过 bindRedirectTransport 重定向到模拟 iLink 服务器
+// BaseURL 指向模拟 iLink 服务器
 func newBindTestService(t *testing.T, targetURL string) *ChannelService {
 	t.Helper()
 	db := SetupTestDB(t)
 	logger := SetupTestLogger(t)
 	factory := sender.NewSenderFactory(logger)
-	transport := &bindRedirectTransport{targetURL: targetURL}
-	ilinkClient := ilink.NewClient(
-		ilink.WithHTTPClient(&http.Client{Transport: transport}),
-		ilink.WithBaseURL(targetURL),
-	)
+	ilinkClient := ilink.NewClient(ilink.WithBaseURL(targetURL))
 	return &ChannelService{
 		db:            db,
 		logger:        logger,

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"strconv"
 	"strings"
 	"testing"
@@ -20,25 +19,6 @@ import (
 	"octotify/pkg/response"
 	"octotify/pkg/xerr"
 )
-
-// handlerRedirectTransport 将 HTTP 请求重定向到测试服务器的 RoundTripper
-// 用于模拟 iLink API，无需修改生产代码中的硬编码 URL
-type handlerRedirectTransport struct {
-	targetURL string
-}
-
-func (t *handlerRedirectTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	target, _ := url.Parse(t.targetURL)
-	newURL := &url.URL{
-		Scheme:   target.Scheme,
-		Host:     target.Host,
-		Path:     req.URL.Path,
-		RawQuery: req.URL.RawQuery,
-	}
-	newReq := req.Clone(req.Context())
-	newReq.URL = newURL
-	return http.DefaultTransport.RoundTrip(newReq)
-}
 
 // int64Ptr 返回 int64 的指针，用于 table-driven test 中的可选 userID
 func int64Ptr(v int64) *int64 {
@@ -60,12 +40,8 @@ func setupBindHandlerTest(t *testing.T, iLinkHandler http.HandlerFunc, userID *i
 	logger := service.SetupTestLogger(t)
 	factory := sender.NewSenderFactory(logger)
 
-	// 创建 ChannelService，HTTP 请求重定向到模拟 iLink 服务器
-	transport := &handlerRedirectTransport{targetURL: iLinkServer.URL}
-	ilinkClient := ilink.NewClient(
-		ilink.WithHTTPClient(&http.Client{Transport: transport}),
-		ilink.WithBaseURL(iLinkServer.URL),
-	)
+	// 创建 ChannelService，BaseURL 指向模拟 iLink 服务器
+	ilinkClient := ilink.NewClient(ilink.WithBaseURL(iLinkServer.URL))
 	svc := service.NewChannelServiceForTest(
 		db, logger, factory,
 		ilinkClient,
