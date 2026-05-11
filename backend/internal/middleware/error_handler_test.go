@@ -48,7 +48,7 @@ func TestErrorHandler_WithAppErrorAndInternal(t *testing.T) {
 	err := json.Unmarshal(w.Body.Bytes(), &resp)
 	assert.NoError(t, err)
 	assert.Equal(t, float64(xerr.ErrSourceNotFound.Code), resp["code"])
-	assert.Equal(t, xerr.ErrSourceNotFound.Msg, resp["msg"])
+	assert.Equal(t, xerr.TranslateMsg(xerr.ErrSourceNotFound.Code, ""), resp["msg"])
 
 	entries := capture.GetEntries()
 	assert.Equal(t, 1, len(entries))
@@ -77,7 +77,7 @@ func TestErrorHandler_WithAppErrorNoInternal(t *testing.T) {
 	err := json.Unmarshal(w.Body.Bytes(), &resp)
 	assert.NoError(t, err)
 	assert.Equal(t, float64(xerr.ErrSourceNotFound.Code), resp["code"])
-	assert.Equal(t, xerr.ErrSourceNotFound.Msg, resp["msg"])
+	assert.Equal(t, xerr.TranslateMsg(xerr.CodeSourceNotFound, ""), resp["msg"])
 
 	assert.Equal(t, 0, len(capture.GetEntries()))
 }
@@ -104,7 +104,7 @@ func TestErrorHandler_WithNonAppError(t *testing.T) {
 	err := json.Unmarshal(w.Body.Bytes(), &resp)
 	assert.NoError(t, err)
 	assert.Equal(t, float64(xerr.ErrInternalServer.Code), resp["code"])
-	assert.Equal(t, xerr.ErrInternalServer.Msg, resp["msg"])
+	assert.Equal(t, xerr.TranslateMsg(xerr.CodeInternalServer, ""), resp["msg"])
 }
 
 // TestErrorHandler_MultipleErrors 测试多个错误时取最后一个错误
@@ -130,7 +130,7 @@ func TestErrorHandler_MultipleErrors(t *testing.T) {
 	err := json.Unmarshal(w.Body.Bytes(), &resp)
 	assert.NoError(t, err)
 	assert.Equal(t, float64(xerr.ErrChannelNotFound.Code), resp["code"])
-	assert.Equal(t, xerr.ErrChannelNotFound.Msg, resp["msg"])
+	assert.Equal(t, xerr.TranslateMsg(xerr.CodeChannelNotFound, ""), resp["msg"])
 }
 
 // TestErrorHandler_AppErrorResponseFormat 测试自定义 AppError 的响应格式
@@ -176,7 +176,7 @@ func TestErrorHandler_UnknownErrorResponseFormat(t *testing.T) {
 	err := json.Unmarshal(w.Body.Bytes(), &resp)
 	assert.NoError(t, err)
 	assert.Equal(t, xerr.ErrInternalServer.Code, resp.Code)
-	assert.Equal(t, xerr.ErrInternalServer.Msg, resp.Msg)
+	assert.Equal(t, xerr.TranslateMsg(xerr.CodeInternalServer, ""), resp.Msg)
 }
 
 // TestErrorHandler_LogFields 测试错误日志中的字段完整性
@@ -199,7 +199,7 @@ func TestErrorHandler_LogFields(t *testing.T) {
 	assert.Equal(t, 1, len(entries))
 	entry := entries[0]
 	assert.NotNil(t, entry["request_id"])
-	assert.Equal(t, float64(xerr.ErrChannelParamNameEmpty.Code), entry["code"])
+	assert.Equal(t, float64(xerr.ErrChannelParamNameEmpty.Code), entry["error_code"])
 	assert.Equal(t, xerr.ErrChannelParamNameEmpty.Msg, entry["msg"])
 	assert.Equal(t, "internal detail", entry["internal"])
 	assert.Equal(t, "/api/test", entry["path"])

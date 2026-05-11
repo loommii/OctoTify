@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 
+	"octotify/pkg/ctxutil"
 	"octotify/pkg/response"
 	"octotify/pkg/xerr"
 )
@@ -16,9 +17,9 @@ func CustomRecovery(logger *zap.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		defer func() {
 			if r := recover(); r != nil {
-				rid, _ := c.Get("request_id")
+				rid := ctxutil.GetRequestID(c.Request.Context())
 				logger.Error("[PANIC]",
-					zap.Any("request_id", rid),
+					zap.String("request_id", rid),
 					zap.Any("recover", r),
 					zap.String("stack", string(debug.Stack())),
 				)

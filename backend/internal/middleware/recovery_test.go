@@ -9,6 +9,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
+
+	"octotify/pkg/ctxutil"
 )
 
 // TestCustomRecovery_NoPanic 测试没有 panic 时中间件不干预正常流程
@@ -173,7 +175,7 @@ func TestCustomRecovery_LogContainsRequestID(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
 	router.Use(func(c *gin.Context) {
-		c.Set("request_id", "test-rid-123")
+		c.Request = c.Request.WithContext(ctxutil.WithRequestID(c.Request.Context(), "test-rid-123"))
 		c.Next()
 	})
 	router.Use(CustomRecovery(logger))

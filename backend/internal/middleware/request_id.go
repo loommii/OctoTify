@@ -5,6 +5,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+
+	"octotify/pkg/ctxutil"
 )
 
 // RequestID 请求 ID 中间件，优先从请求头取，没有则生成 UUID v7（无连字符）
@@ -19,6 +21,7 @@ func RequestID() gin.HandlerFunc {
 			rid = strings.ReplaceAll(u.String(), "-", "")
 		}
 		c.Set("request_id", rid)
+		c.Request = c.Request.WithContext(ctxutil.WithRequestID(c.Request.Context(), rid))
 		c.Header("X-Request-ID", rid)
 		c.Next()
 	}
