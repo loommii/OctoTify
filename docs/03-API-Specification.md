@@ -65,6 +65,11 @@ type SourceResp struct {
 | 更新时间 | `updated_at` | `updated_at_ts` |
 | 删除时间 | `deleted_at` | `deleted_at_ts` |
 
+**说明：**
+- `_at` 结尾的字段：可读时间字符串，格式 `YYYY-MM-DD HH:MM:SS`
+- `_ts` 结尾的字段：Unix 毫秒时间戳，int64 类型
+- 其他时间字段（如 `last_used_at`）遵循相同命名规则：`last_used_at`（字符串）、`last_used_at_ts`（时间戳）
+
 ### 5.3 Go 结构体示例
 
 ```go
@@ -137,15 +142,15 @@ type SourceResp struct {
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
 | `page` | int | 否 | 1 | 页码，从 1 开始 |
-| `pageSize` | int | 否 | 20 | 每页条数 |
+| `page_size` | int | 否 | 20 | 每页条数 |
 
 ### 8.2 约束规则
 
 | 规则 | 说明 |
 |------|------|
 | `page` 最小值 | 1，小于 1 自动修正为 1 |
-| `pageSize` 最小值 | 1，小于 1 自动修正为 1 |
-| `pageSize` 最大值 | 100，超过 100 自动修正为 100 |
+| `page_size` 最小值 | 1，小于 1 自动修正为 1 |
+| `page_size` 最大值 | 100，超过 100 自动修正为 100 |
 | 默认排序 | 按 `created_at` 降序（最新优先） |
 
 ### 8.3 响应格式
@@ -158,7 +163,7 @@ type SourceResp struct {
     "list": [...],
     "total": 150,
     "page": 1,
-    "pageSize": 20
+    "page_size": 20
   }
 }
 ```
@@ -166,6 +171,6 @@ type SourceResp struct {
 ### 8.4 请求示例
 
 ```
-GET /api/sources?page=2&pageSize=50
+GET /api/sources?page=2&page_size=50
 Authorization: Bearer {accessToken}
 ```
