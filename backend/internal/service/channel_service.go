@@ -16,6 +16,7 @@ import (
 	"octotify/internal/query"
 	"octotify/internal/sender"
 	"octotify/pkg/aescipher"
+	"octotify/pkg/ctxutil"
 	"octotify/pkg/xerr"
 )
 
@@ -44,6 +45,13 @@ func NewChannelService(db *gorm.DB, logger *zap.Logger, senderFactory *sender.Se
 	}
 }
 
+func (s *ChannelService) log(ctx context.Context) *zap.Logger {
+	if rid := ctxutil.GetRequestID(ctx); rid != "" {
+		return s.logger.With(zap.String("request_id", rid))
+	}
+	return s.logger
+}
+
 // GetChannelTypes 获取系统支持的所有渠道类型元数据
 // 返回渠道类型列表，包含每种类型的配置字段定义，用于前端动态渲染创建渠道表单
 // 返回: 渠道类型元数据列表
@@ -64,7 +72,7 @@ func (s *ChannelService) CreateChannel(ctx context.Context, userID int64, req *d
 	q := query.Use(s.db)
 
 	// 对微信ClawBot渠道，解密密文并校验，确保配置有效
-	configData, err := s.processChannelConfig(req.Type, req.Config.ToJSON())
+	configData, err := s.processChannelConfig(ctx, req.Type, req.Config.ToJSON())
 	if err != nil {
 		return nil, err
 	}
@@ -86,7 +94,7 @@ func (s *ChannelService) CreateChannel(ctx context.Context, userID int64, req *d
 		return nil
 	})
 	if err != nil {
-		s.logger.Error("创建渠道失败",
+		s.log(ctx).Error("创建渠道失败",
 			zap.Error(err),
 			zap.Int64("user_id", userID),
 			zap.String("name", req.Name),
@@ -94,7 +102,7 @@ func (s *ChannelService) CreateChannel(ctx context.Context, userID int64, req *d
 		return nil, xerr.ErrChannelInsertFailed.WithInternal(err)
 	}
 
-	s.logger.Info("渠道创建成功",
+	s.log(ctx).Info("渠道创建成功",
 		zap.Int64("channel_id", channel.ID),
 		zap.String("name", channel.Name),
 	)
@@ -137,13 +145,13 @@ func (s *ChannelService) UpdateChannel(ctx context.Context, userID int64, channe
 	).First()
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
-			s.logger.Error("渠道不存在",
+			s.log(ctx).Warn("渠道不存在",
 				zap.Int64("channel_id", channelID),
 				zap.Int64("user_id", userID),
 			)
 			return xerr.ErrChannelNotFound
 		}
-		s.logger.Error("查询渠道失败",
+		s.log(ctx).Error("查询渠道失败",
 			zap.Error(err),
 			zap.Int64("channel_id", channelID),
 		)
@@ -152,14 +160,14 @@ func (s *ChannelService) UpdateChannel(ctx context.Context, userID int64, channe
 
 	// 检查渠道是否已被删除
 	if channel.Status == model.ChannelStatusDeleted {
-		s.logger.Error("渠道已删除",
+		s.log(ctx).Warn("渠道已删除",
 			zap.Int64("channel_id", channelID),
 		)
 		return xerr.ErrChannelAlreadyDeleted
 	}
 
 	// 对微信ClawBot渠道，解密密文并校验，确保配置有效
-	configData, err := s.processChannelConfig(channel.Type, req.Config.ToJSON())
+	configData, err := s.processChannelConfig(ctx, channel.Type, req.Config.ToJSON())
 	if err != nil {
 		return err
 	}
@@ -176,14 +184,14 @@ func (s *ChannelService) UpdateChannel(ctx context.Context, userID int64, channe
 		return err
 	})
 	if err != nil {
-		s.logger.Error("更新渠道失败",
+		s.log(ctx).Error("更新渠道失败",
 			zap.Error(err),
 			zap.Int64("channel_id", channelID),
 		)
 		return xerr.ErrChannelQueryFailed.WithInternal(err)
 	}
 
-	s.logger.Info("渠道更新成功",
+	s.log(ctx).Info("渠道更新成功",
 		zap.Int64("channel_id", channelID),
 		zap.String("name", req.Name),
 	)
@@ -216,7 +224,7 @@ func (s *ChannelService) ListChannels(ctx context.Context, userID int64, pageReq
 		).
 		Count()
 	if err != nil {
-		s.logger.Error("查询渠道总数失败",
+		s.log(ctx).Error("查询渠道总数失败",
 			zap.Error(err),
 			zap.Int64("user_id", userID),
 		)
@@ -234,7 +242,7 @@ func (s *ChannelService) ListChannels(ctx context.Context, userID int64, pageReq
 		Limit(pageReq.PageSize).
 		Find()
 	if err != nil {
-		s.logger.Error("查询渠道列表失败",
+		s.log(ctx).Error("查询渠道列表失败",
 			zap.Error(err),
 			zap.Int64("user_id", userID),
 		)
@@ -262,7 +270,7 @@ func (s *ChannelService) ListChannels(ctx context.Context, userID int64, pageReq
 		})
 	}
 
-	s.logger.Info("查询渠道列表成功",
+	s.log(ctx).Info("查询渠道列表成功",
 		zap.Int64("user_id", userID),
 		zap.Int("page", pageReq.Page),
 		zap.Int("page_size", pageReq.PageSize),
@@ -294,13 +302,13 @@ func (s *ChannelService) GetChannelByID(ctx context.Context, userID int64, chann
 		First()
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
-			s.logger.Error("渠道不存在",
+			s.log(ctx).Warn("渠道不存在",
 				zap.Int64("channel_id", channelID),
 				zap.Int64("user_id", userID),
 			)
 			return nil, xerr.ErrChannelNotFound
 		}
-		s.logger.Error("查询渠道详情失败",
+		s.log(ctx).Error("查询渠道详情失败",
 			zap.Error(err),
 			zap.Int64("channel_id", channelID),
 		)
@@ -309,7 +317,7 @@ func (s *ChannelService) GetChannelByID(ctx context.Context, userID int64, chann
 
 	// 二次检查渠道状态（防御性编程）
 	if channel.Status == model.ChannelStatusDeleted {
-		s.logger.Error("渠道已删除",
+		s.log(ctx).Warn("渠道已删除",
 			zap.Int64("channel_id", channelID),
 		)
 		return nil, xerr.ErrChannelAlreadyDeleted
@@ -353,13 +361,13 @@ func (s *ChannelService) getChannelForUser(ctx context.Context, userID int64, ch
 	).First()
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
-			s.logger.Error("渠道不存在",
+			s.log(ctx).Warn("渠道不存在",
 				zap.Int64("channel_id", channelID),
 				zap.Int64("user_id", userID),
 			)
 			return nil, xerr.ErrChannelNotFound
 		}
-		s.logger.Error("查询渠道失败",
+		s.log(ctx).Error("查询渠道失败",
 			zap.Error(err),
 			zap.Int64("channel_id", channelID),
 		)
@@ -368,7 +376,7 @@ func (s *ChannelService) getChannelForUser(ctx context.Context, userID int64, ch
 
 	// 检查渠道是否已删除
 	if checkDeleted && channel.Status == model.ChannelStatusDeleted {
-		s.logger.Error("渠道已删除",
+		s.log(ctx).Warn("渠道已删除",
 			zap.Int64("channel_id", channelID),
 		)
 		return nil, xerr.ErrChannelAlreadyDeleted
@@ -376,7 +384,7 @@ func (s *ChannelService) getChannelForUser(ctx context.Context, userID int64, ch
 
 	// 检查渠道是否已停用
 	if checkDisabled && channel.Status == model.ChannelStatusDisabled {
-		s.logger.Error("渠道已停用",
+		s.log(ctx).Warn("渠道已停用",
 			zap.Int64("channel_id", channelID),
 		)
 		return nil, xerr.ErrChannelAlreadyDisabled
@@ -403,7 +411,7 @@ func (s *ChannelService) TestChannel(ctx context.Context, userID int64, channelI
 	// 根据渠道类型创建对应的发送器
 	snd, err := s.senderFactory.Create(channel.Type)
 	if err != nil {
-		s.logger.Error("创建发送器失败",
+		s.log(ctx).Error("创建发送器失败",
 			zap.Error(err),
 			zap.String("channel_type", channel.Type),
 		)
@@ -413,14 +421,14 @@ func (s *ChannelService) TestChannel(ctx context.Context, userID int64, channelI
 	// 发送测试消息
 	err = snd.Send(ctx, channel.Config, "OctoTify 测试消息", "这是一条测试消息，用于验证渠道配置是否正确。")
 	if err != nil {
-		s.logger.Error("测试渠道连接失败",
+		s.log(ctx).Error("测试渠道连接失败",
 			zap.Error(err),
 			zap.Int64("channel_id", channelID),
 		)
 		return xerr.ErrThirdPartyCallFailed.WithInternal(err)
 	}
 
-	s.logger.Info("测试渠道连接成功",
+	s.log(ctx).Info("测试渠道连接成功",
 		zap.Int64("channel_id", channelID),
 	)
 
@@ -455,14 +463,14 @@ func (s *ChannelService) DisableChannel(ctx context.Context, userID int64, chann
 		return err
 	})
 	if err != nil {
-		s.logger.Error("停用渠道失败",
+		s.log(ctx).Error("停用渠道失败",
 			zap.Error(err),
 			zap.Int64("channel_id", channelID),
 		)
 		return xerr.ErrChannelQueryFailed.WithInternal(err)
 	}
 
-	s.logger.Info("渠道已停用",
+	s.log(ctx).Info("渠道已停用",
 		zap.Int64("channel_id", channelID),
 	)
 
@@ -486,7 +494,7 @@ func (s *ChannelService) EnableChannel(ctx context.Context, userID int64, channe
 
 	// 检查渠道是否已启用
 	if channel.Status == model.ChannelStatusActive {
-		s.logger.Error("渠道已启用",
+		s.log(ctx).Warn("渠道已启用",
 			zap.Int64("channel_id", channelID),
 		)
 		return xerr.ErrChannelAlreadyEnabled
@@ -505,14 +513,14 @@ func (s *ChannelService) EnableChannel(ctx context.Context, userID int64, channe
 		return err
 	})
 	if err != nil {
-		s.logger.Error("启用渠道失败",
+		s.log(ctx).Error("启用渠道失败",
 			zap.Error(err),
 			zap.Int64("channel_id", channelID),
 		)
 		return xerr.ErrChannelQueryFailed.WithInternal(err)
 	}
 
-	s.logger.Info("渠道已启用",
+	s.log(ctx).Info("渠道已启用",
 		zap.Int64("channel_id", channelID),
 	)
 
@@ -562,14 +570,14 @@ func (s *ChannelService) DeleteChannel(ctx context.Context, userID int64, channe
 		return nil
 	})
 	if err != nil {
-		s.logger.Error("删除渠道失败",
+		s.log(ctx).Error("删除渠道失败",
 			zap.Error(err),
 			zap.Int64("channel_id", channelID),
 		)
 		return xerr.ErrChannelDeleteFailed.WithInternal(err)
 	}
 
-	s.logger.Info("渠道已删除",
+	s.log(ctx).Info("渠道已删除",
 		zap.Int64("channel_id", channelID),
 	)
 
@@ -586,14 +594,14 @@ func (s *ChannelService) DeleteChannel(ctx context.Context, userID int64, channe
 //   - qrcodeURL: 二维码图片内容（用于前端展示）
 //   - err: 错误信息
 func (s *ChannelService) StartBind(ctx context.Context, userID int64) (qrcode string, qrcodeURL string, err error) {
-	s.logger.Info("发起微信ClawBot绑定",
+	s.log(ctx).Info("发起微信ClawBot绑定",
 		zap.Int64("user_id", userID),
 	)
 
 	// 调用 iLink API 获取二维码
 	qrResp, err := s.ilinkClient.GetQRCode(ctx)
 	if err != nil {
-		s.logger.Error("获取二维码失败",
+		s.log(ctx).Error("获取二维码失败",
 			zap.Error(err),
 		)
 		return "", "", xerr.ErrQRCodeFetchFailed.WithInternal(err)
@@ -636,7 +644,7 @@ func (s *ChannelService) PollBindStatus(ctx context.Context, qrcode string) (sta
 // processChannelConfig 处理渠道配置（针对 wechat_clawbot 类型进行解密和校验）
 // 前端提交的 config 中 bot_token 为密文格式（bot_token_ciphertext + bot_token_nonce），
 // 此方法解密后替换为明文 bot_token，存入数据库时为明文格式
-func (s *ChannelService) processChannelConfig(channelType string, config datatypes.JSON) (datatypes.JSON, error) {
+func (s *ChannelService) processChannelConfig(ctx context.Context, channelType string, config datatypes.JSON) (datatypes.JSON, error) {
 	if channelType != dto.ChannelTypeWechatClawbot {
 		return config, nil
 	}
@@ -644,7 +652,7 @@ func (s *ChannelService) processChannelConfig(channelType string, config datatyp
 	// 解析配置
 	var cfg map[string]interface{}
 	if err := json.Unmarshal(config, &cfg); err != nil {
-		s.logger.Error("解析渠道配置失败", zap.Error(err))
+		s.log(ctx).Error("解析渠道配置失败", zap.Error(err))
 		return nil, fmt.Errorf("解析渠道配置失败: %w", err)
 	}
 
@@ -656,7 +664,7 @@ func (s *ChannelService) processChannelConfig(channelType string, config datatyp
 		// 解密前端传来的密文，提取明文 bot_token
 		plaintext, err := aescipher.GlobalDecryptBase64(cipherText, nonce)
 		if err != nil {
-			s.logger.Error("BotToken 解密失败", zap.Error(err))
+			s.log(ctx).Error("BotToken 解密失败", zap.Error(err))
 			return nil, fmt.Errorf("凭证解密失败，请重新绑定微信ClawBot: %w", err)
 		}
 		if len(plaintext) == 0 {
@@ -679,7 +687,7 @@ func (s *ChannelService) processChannelConfig(channelType string, config datatyp
 
 		result, err := json.Marshal(cfg)
 		if err != nil {
-			s.logger.Error("序列化渠道配置失败", zap.Error(err))
+			s.log(ctx).Error("序列化渠道配置失败", zap.Error(err))
 			return nil, fmt.Errorf("序列化渠道配置失败: %w", err)
 		}
 		return result, nil

@@ -13,6 +13,7 @@ import (
 	"octotify/internal/handler/dto"
 	"octotify/internal/model"
 	"octotify/internal/query"
+	"octotify/pkg/ctxutil"
 	pkgjwtx "octotify/pkg/jwtx"
 	"octotify/pkg/xerr"
 )
@@ -40,6 +41,13 @@ func NewAuthService(
 	}
 }
 
+func (s *AuthService) log(ctx context.Context) *zap.Logger {
+	if rid := ctxutil.GetRequestID(ctx); rid != "" {
+		return s.logger.With(zap.String("request_id", rid))
+	}
+	return s.logger
+}
+
 // Login 用户登录
 // 流程：查询用户 -> 验证密码 -> 生成令牌对 -> 保存刷新令牌
 func (s *AuthService) Login(ctx context.Context, req *dto.LoginReq) (*dto.AuthResp, error) {
@@ -51,7 +59,7 @@ func (s *AuthService) Login(ctx context.Context, req *dto.LoginReq) (*dto.AuthRe
 		if err == gorm.ErrRecordNotFound {
 			return nil, xerr.ErrLoginInvalidCredentials
 		}
-		s.logger.Error("query user by username failed", zap.Error(err))
+		s.log(ctx).Error("根据用户名查询用户失败", zap.Error(err))
 		return nil, xerr.ErrLoginFailed.WithInternal(err)
 	}
 
@@ -68,7 +76,7 @@ func (s *AuthService) Login(ctx context.Context, req *dto.LoginReq) (*dto.AuthRe
 		TokenType: pkgjwtx.Access,
 	})
 	if err != nil {
-		s.logger.Error("generate access token failed", zap.Error(err))
+		s.log(ctx).Error("生成 Access Token 失败", zap.Error(err))
 		return nil, xerr.ErrLoginFailed.WithInternal(err)
 	}
 
@@ -82,7 +90,7 @@ func (s *AuthService) Login(ctx context.Context, req *dto.LoginReq) (*dto.AuthRe
 		},
 	})
 	if err != nil {
-		s.logger.Error("generate refresh token failed", zap.Error(err))
+		s.log(ctx).Error("生成 Refresh Token 失败", zap.Error(err))
 		return nil, xerr.ErrLoginFailed.WithInternal(err)
 	}
 
@@ -92,11 +100,11 @@ func (s *AuthService) Login(ctx context.Context, req *dto.LoginReq) (*dto.AuthRe
 		UserID: user.ID,
 	}
 	if err := q.RefreshToken.WithContext(ctx).Create(refreshTokenRecord); err != nil {
-		s.logger.Error("create refresh token failed", zap.Error(err))
+		s.log(ctx).Error("保存 Refresh Token 失败", zap.Error(err))
 		return nil, xerr.ErrLoginFailed.WithInternal(err)
 	}
 
-	s.logger.Info("user logged in",
+	s.log(ctx).Info("用户登录成功",
 		zap.Int64("user_id", user.ID),
 		zap.String("username", user.Username),
 	)
@@ -120,11 +128,11 @@ func (s *AuthService) Logout(ctx context.Context, userID int64) error {
 
 	_, err := q.RefreshToken.WithContext(ctx).Where(q.RefreshToken.UserID.Eq(userID)).Update(q.RefreshToken.Revoked, model.RefreshTokenRevoked)
 	if err != nil {
-		s.logger.Error("revoke all refresh tokens failed", zap.Error(err))
+		s.log(ctx).Error("撤销所有 Refresh Token 失败", zap.Error(err))
 		return xerr.ErrLogoutFailed.WithInternal(err)
 	}
 
-	s.logger.Info("user logged out",
+	s.log(ctx).Info("用户已退出登录",
 		zap.Int64("user_id", userID),
 	)
 
@@ -139,13 +147,13 @@ func (s *AuthService) RefreshAccessToken(ctx context.Context, refreshTokenStr st
 	// 验证 JWT 令牌
 	_, claims, err := s.refreshJWTHelper.ValidateToken(refreshTokenStr)
 	if err != nil {
-		s.logger.Error("validate refresh token failed", zap.Error(err))
+		s.log(ctx).Error("验证 Refresh Token 失败", zap.Error(err))
 		return nil, xerr.ErrRefreshTokenInvalid
 	}
 
 	// 检查令牌类型是否为 refresh
 	if !claims.IsRefreshToken() {
-		s.logger.Error("token type is not refresh", zap.String("token_type", claims.TokenType))
+		s.log(ctx).Error("令牌类型不是 Refresh Token", zap.String("token_type", claims.TokenType))
 		return nil, xerr.ErrRefreshTokenInvalid
 	}
 
@@ -155,7 +163,7 @@ func (s *AuthService) RefreshAccessToken(ctx context.Context, refreshTokenStr st
 		if err == gorm.ErrRecordNotFound {
 			return nil, xerr.ErrRefreshTokenInvalid
 		}
-		s.logger.Error("query refresh token failed", zap.Error(err))
+		s.log(ctx).Error("查询 Refresh Token 失败", zap.Error(err))
 		return nil, xerr.ErrRefreshTokenFailed.WithInternal(err)
 	}
 
@@ -170,7 +178,7 @@ func (s *AuthService) RefreshAccessToken(ctx context.Context, refreshTokenStr st
 		if err == gorm.ErrRecordNotFound {
 			return nil, xerr.ErrRefreshTokenInvalid
 		}
-		s.logger.Error("query user by id failed", zap.Error(err))
+		s.log(ctx).Error("根据用户 ID 查询用户失败", zap.Error(err))
 		return nil, xerr.ErrRefreshTokenFailed.WithInternal(err)
 	}
 
@@ -182,7 +190,7 @@ func (s *AuthService) RefreshAccessToken(ctx context.Context, refreshTokenStr st
 		TokenType: pkgjwtx.Access,
 	})
 	if err != nil {
-		s.logger.Error("generate new access token failed", zap.Error(err))
+		s.log(ctx).Error("生成新 Access Token 失败", zap.Error(err))
 		return nil, xerr.ErrRefreshTokenFailed.WithInternal(err)
 	}
 
@@ -195,11 +203,11 @@ func (s *AuthService) RefreshAccessToken(ctx context.Context, refreshTokenStr st
 		},
 	})
 	if err != nil {
-		s.logger.Error("generate new refresh token failed", zap.Error(err))
+		s.log(ctx).Error("生成新 Refresh Token 失败", zap.Error(err))
 		return nil, xerr.ErrRefreshTokenFailed.WithInternal(err)
 	}
 
-	s.logger.Info("access token refreshed",
+	s.log(ctx).Info("Access Token 刷新成功",
 		zap.Int64("user_id", user.ID),
 		zap.String("username", user.Username),
 	)

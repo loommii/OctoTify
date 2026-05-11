@@ -13,6 +13,7 @@ import (
 	"octotify/internal/handler/dto"
 	"octotify/internal/model"
 	"octotify/internal/query"
+	"octotify/pkg/ctxutil"
 	pkgjwtx "octotify/pkg/jwtx"
 	"octotify/pkg/xerr"
 )
@@ -38,6 +39,13 @@ func NewUserService(
 	}
 }
 
+func (s *UserService) log(ctx context.Context) *zap.Logger {
+	if rid := ctxutil.GetRequestID(ctx); rid != "" {
+		return s.logger.With(zap.String("request_id", rid))
+	}
+	return s.logger
+}
+
 func (s *UserService) GetUserProfile(ctx context.Context, userID int64) (*dto.UserProfileResp, error) {
 	q := query.Use(s.db)
 
@@ -46,7 +54,7 @@ func (s *UserService) GetUserProfile(ctx context.Context, userID int64) (*dto.Us
 		if err == gorm.ErrRecordNotFound {
 			return nil, xerr.ErrUserProfileNotFound
 		}
-		s.logger.Error("query user by id failed", zap.Error(err))
+		s.log(ctx).Error("query user by id failed", zap.Error(err))
 		return nil, xerr.ErrUserProfileQueryFailed.WithInternal(err)
 	}
 
@@ -62,7 +70,7 @@ func (s *UserService) GetUserProfile(ctx context.Context, userID int64) (*dto.Us
 func (s *UserService) GetUserProfileByID(ctx context.Context, userIDStr string) (*dto.UserProfileResp, error) {
 	userID, err := strconv.ParseInt(userIDStr, 10, 64)
 	if err != nil {
-		s.logger.Error("parse user id failed", zap.String("user_id", userIDStr), zap.Error(err))
+		s.log(ctx).Error("parse user id failed", zap.String("user_id", userIDStr), zap.Error(err))
 		return nil, xerr.ErrUserProfileNotFound
 	}
 
@@ -74,7 +82,7 @@ func (s *UserService) Register(ctx context.Context, req *dto.RegisterReq) (*dto.
 
 	existing, err := q.WithContext(ctx).User.Where(q.User.Username.Eq(req.Username)).First()
 	if err != nil && err != gorm.ErrRecordNotFound {
-		s.logger.Error("query user by username failed", zap.Error(err))
+		s.log(ctx).Error("query user by username failed", zap.Error(err))
 		return nil, xerr.ErrRegisterFailed.WithInternal(err)
 	}
 	if existing != nil {
@@ -83,7 +91,7 @@ func (s *UserService) Register(ctx context.Context, req *dto.RegisterReq) (*dto.
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
-		s.logger.Error("bcrypt hash failed", zap.Error(err))
+		s.log(ctx).Error("bcrypt hash failed", zap.Error(err))
 		return nil, xerr.ErrRegisterFailed.WithInternal(err)
 	}
 
@@ -108,7 +116,7 @@ func (s *UserService) Register(ctx context.Context, req *dto.RegisterReq) (*dto.
 			TokenType: pkgjwtx.Access,
 		})
 		if err != nil {
-			s.logger.Error("generate access token failed", zap.Error(err))
+			s.log(ctx).Error("generate access token failed", zap.Error(err))
 			return err
 		}
 
@@ -121,7 +129,7 @@ func (s *UserService) Register(ctx context.Context, req *dto.RegisterReq) (*dto.
 			},
 		})
 		if err != nil {
-			s.logger.Error("generate refresh token failed", zap.Error(err))
+			s.log(ctx).Error("generate refresh token failed", zap.Error(err))
 			return err
 		}
 
@@ -133,7 +141,7 @@ func (s *UserService) Register(ctx context.Context, req *dto.RegisterReq) (*dto.
 			return err
 		}
 
-		s.logger.Info("user registered",
+		s.log(ctx).Info("user registered",
 			zap.Int64("user_id", user.ID),
 			zap.String("username", user.Username),
 		)
@@ -141,7 +149,7 @@ func (s *UserService) Register(ctx context.Context, req *dto.RegisterReq) (*dto.
 		return nil
 	})
 	if err != nil {
-		s.logger.Error("create user or refresh token failed", zap.Error(err))
+		s.log(ctx).Error("create user or refresh token failed", zap.Error(err))
 		return nil, xerr.ErrRegisterFailed.WithInternal(err)
 	}
 
@@ -164,7 +172,7 @@ func (s *UserService) ChangePassword(ctx context.Context, userID int64, oldPassw
 		if err == gorm.ErrRecordNotFound {
 			return xerr.ErrChangePasswordFailed
 		}
-		s.logger.Error("query user by id failed", zap.Error(err))
+		s.log(ctx).Error("query user by id failed", zap.Error(err))
 		return xerr.ErrChangePasswordFailed.WithInternal(err)
 	}
 
@@ -174,31 +182,31 @@ func (s *UserService) ChangePassword(ctx context.Context, userID int64, oldPassw
 
 	newHash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
 	if err != nil {
-		s.logger.Error("bcrypt hash new password failed", zap.Error(err))
+		s.log(ctx).Error("bcrypt hash new password failed", zap.Error(err))
 		return xerr.ErrChangePasswordFailed.WithInternal(err)
 	}
 
 	err = q.Transaction(func(tx *query.Query) error {
 		_, err := tx.User.WithContext(ctx).Where(tx.User.ID.Eq(userID)).Update(tx.User.PasswordHash, string(newHash))
 		if err != nil {
-			s.logger.Error("update password failed", zap.Error(err))
+			s.log(ctx).Error("update password failed", zap.Error(err))
 			return err
 		}
 
 		_, err = tx.RefreshToken.WithContext(ctx).Where(tx.RefreshToken.UserID.Eq(userID)).Update(tx.RefreshToken.Revoked, true)
 		if err != nil {
-			s.logger.Error("revoke all refresh tokens failed", zap.Error(err))
+			s.log(ctx).Error("revoke all refresh tokens failed", zap.Error(err))
 			return err
 		}
 
 		return nil
 	})
 	if err != nil {
-		s.logger.Error("change password transaction failed", zap.Error(err))
+		s.log(ctx).Error("change password transaction failed", zap.Error(err))
 		return xerr.ErrChangePasswordFailed.WithInternal(err)
 	}
 
-	s.logger.Info("user password changed",
+	s.log(ctx).Info("user password changed",
 		zap.Int64("user_id", userID),
 		zap.String("username", user.Username),
 	)
