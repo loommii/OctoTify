@@ -22,9 +22,9 @@ type LoginReq struct {
 // UserDTO 用户信息响应
 // @Description 用户基本信息，用于登录/注册/刷新令牌等接口返回
 type UserDTO struct {
-	ID        int64  `json:"id" example:"1"`                  // 用户 ID
-	Username  string `json:"username" example:"octotify"`     // 用户名
-	CreatedAt int64  `json:"created_at" example:"1714636800"` // 创建时间（Unix 时间戳）
+	ID        int64  `json:"id" example:"1"`                        // 用户 ID
+	Username  string `json:"username" example:"octotify"`           // 用户名
+	CreatedAt int64  `json:"created_at_ts" example:"1714636800000"` // 创建时间（Unix 毫秒时间戳）
 }
 
 // RefreshReq 刷新令牌请求

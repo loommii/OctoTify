@@ -30,7 +30,7 @@ type SourceDTO struct {
 	Token       string `json:"token" example:"src0196a3b2c4d50000a1b2c3d4e5f67890"` // 推送 Token（仅创建时返回）
 	Description string `json:"description" example:"GitHub Actions 构建通知"`           // 来源描述
 	Status      int    `json:"status" example:"1"`                                  // 状态：1-启用 2-停用 -1-已删除
-	CreatedAt   int64  `json:"created_at" example:"1714636800000"`                  // 创建时间（Unix 毫秒时间戳）
+	CreatedAt   int64  `json:"created_at_ts" example:"1714636800000"`               // 创建时间（Unix 毫秒时间戳）
 }
 
 // SourceDetailDTO 消息来源详情响应（包含 Token）
@@ -42,9 +42,9 @@ type SourceDetailDTO struct {
 	Token       string `json:"token" example:"src0196a3b2c4d50000a1b2c3d4e5f67890"` // 推送 Token
 	Description string `json:"description" example:"GitHub Actions 构建通知"`           // 来源描述
 	Status      int    `json:"status" example:"1"`                                  // 状态：1-启用 2-停用 -1-已删除
-	CreatedAt   int64  `json:"created_at" example:"1714636800000"`                  // 创建时间（Unix 毫秒时间戳）
-	UpdatedAt   int64  `json:"updated_at" example:"1714636800000"`                  // 更新时间（Unix 毫秒时间戳）
-	LastUsedAt  int64  `json:"last_used_at" example:"1714636800000"`                // 最后使用时间（Unix 毫秒时间戳，0 表示未使用）
+	CreatedAt   int64  `json:"created_at_ts" example:"1714636800000"`               // 创建时间（Unix 毫秒时间戳）
+	UpdatedAt   int64  `json:"updated_at_ts" example:"1714636800000"`               // 更新时间（Unix 毫秒时间戳）
+	LastUsedAt  int64  `json:"last_used_at_ts" example:"1714636800000"`             // 最后使用时间（Unix 毫秒时间戳，0 表示未使用）
 }
 
 // SourceDetailResponse 来源详情响应（包含渠道列表）

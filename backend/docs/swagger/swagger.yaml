@@ -1,6 +1,6 @@
 basePath: /api
 definitions:
-  octotify_internal_handler_dto.AuthResp:
+  dto.AuthResp:
     description: 认证成功后返回的 Access Token、Refresh Token 和用户信息
     properties:
       access_token:
@@ -13,10 +13,10 @@ definitions:
         type: string
       user:
         allOf:
-        - $ref: '#/definitions/octotify_internal_handler_dto.UserDTO'
+        - $ref: '#/definitions/dto.UserDTO'
         description: 用户信息
     type: object
-  octotify_internal_handler_dto.BindCredentialsDTO:
+  dto.BindCredentialsDTO:
     properties:
       bot_token_ciphertext:
         description: 加密后的 Bot Token（密文）
@@ -31,17 +31,17 @@ definitions:
         description: iLink 平台的用户 ID
         type: string
     type: object
-  octotify_internal_handler_dto.BindStatusResp:
+  dto.BindStatusResp:
     properties:
       credentials:
         allOf:
-        - $ref: '#/definitions/octotify_internal_handler_dto.BindCredentialsDTO'
+        - $ref: '#/definitions/dto.BindCredentialsDTO'
         description: 绑定成功时返回的凭证
       status:
         description: 绑定状态：pending/scanned/confirmed/expired
         type: string
     type: object
-  octotify_internal_handler_dto.ChangePasswordReq:
+  dto.ChangePasswordReq:
     description: 修改用户登录密码
     properties:
       new_password:
@@ -56,17 +56,17 @@ definitions:
     - new_password
     - old_password
     type: object
-  octotify_internal_handler_dto.ChannelConfig:
+  dto.ChannelConfig:
     additionalProperties: {}
     type: object
-  octotify_internal_handler_dto.ChannelDTO:
+  dto.ChannelDTO:
     description: 推送渠道的详细信息
     properties:
       config:
         allOf:
-        - $ref: '#/definitions/octotify_internal_handler_dto.ChannelConfig'
+        - $ref: '#/definitions/dto.ChannelConfig'
         description: 渠道配置，JSON 格式
-      created_at:
+      created_at_ts:
         description: 创建时间（Unix 毫秒时间戳）
         example: 1714636800000
         type: integer
@@ -74,7 +74,7 @@ definitions:
         description: 渠道 ID
         example: 1
         type: integer
-      last_used_at:
+      last_used_at_ts:
         description: 最后使用时间（Unix 毫秒时间戳，0 表示未使用）
         example: 1714636800000
         type: integer
@@ -90,7 +90,7 @@ definitions:
         description: 渠道类型：wechat, telegram, dingtalk, email, webhook
         example: dingtalk
         type: string
-      updated_at:
+      updated_at_ts:
         description: 更新时间（Unix 毫秒时间戳）
         example: 1714636800000
         type: integer
@@ -99,12 +99,12 @@ definitions:
         example: 1
         type: integer
     type: object
-  octotify_internal_handler_dto.ChannelTypeMeta:
+  dto.ChannelTypeMeta:
     properties:
       config_fields:
         description: 配置字段定义
         items:
-          $ref: '#/definitions/octotify_internal_handler_dto.ConfigField'
+          $ref: '#/definitions/dto.ConfigField'
         type: array
       description:
         description: 描述
@@ -116,7 +116,7 @@ definitions:
         description: 渠道类型标识
         type: string
     type: object
-  octotify_internal_handler_dto.ConfigField:
+  dto.ConfigField:
     properties:
       label:
         description: 字段标签
@@ -134,7 +134,7 @@ definitions:
         description: 字段类型：string, number, password, url
         type: string
     type: object
-  octotify_internal_handler_dto.CreateChannelReq:
+  dto.CreateChannelReq:
     description: '创建新的推送渠道，需要指定渠道类型、名称和配置信息 ## 渠道配置示例 - wechat: {"webhook": "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx"}
       - telegram: {"bot_token": "xxx", "chat_id": "xxx"} - dingtalk: {"webhook": "https://oapi.dingtalk.com/robot/send?access_token=xxx"}
       - email: {"smtp_host": "smtp.example.com", "smtp_port": 587, "username": "xxx",
@@ -145,7 +145,7 @@ definitions:
     properties:
       config:
         allOf:
-        - $ref: '#/definitions/octotify_internal_handler_dto.ChannelConfig'
+        - $ref: '#/definitions/dto.ChannelConfig'
         description: 渠道配置，JSON 对象，不同渠道类型配置不同
       name:
         description: 渠道名称，1-128 个字符
@@ -162,7 +162,7 @@ definitions:
     - name
     - type
     type: object
-  octotify_internal_handler_dto.CreateSourceReq:
+  dto.CreateSourceReq:
     description: 创建新的消息来源，系统自动生成 Source Token
     properties:
       channel_ids:
@@ -188,7 +188,7 @@ definitions:
     required:
     - name
     type: object
-  octotify_internal_handler_dto.GetBindStatusReq:
+  dto.GetBindStatusReq:
     properties:
       qrcode:
         description: iLink 返回的二维码原始值
@@ -196,7 +196,7 @@ definitions:
     required:
     - qrcode
     type: object
-  octotify_internal_handler_dto.LoginReq:
+  dto.LoginReq:
     description: 用户登录时使用的请求参数
     properties:
       password:
@@ -211,7 +211,7 @@ definitions:
     - password
     - username
     type: object
-  octotify_internal_handler_dto.MessageDTO:
+  dto.MessageDTO:
     description: 消息列表中的单条消息记录
     properties:
       channel_id:
@@ -222,7 +222,7 @@ definitions:
         description: 消息内容
         example: 'Build #123 passed'
         type: string
-      created_at:
+      created_at_ts:
         description: 创建时间（Unix 毫秒时间戳）
         example: 1714636800000
         type: integer
@@ -242,12 +242,12 @@ definitions:
         description: 消息标题
         example: CI Build
         type: string
-      updated_at:
+      updated_at_ts:
         description: 更新时间（Unix 毫秒时间戳）
         example: 1714636800000
         type: integer
     type: object
-  octotify_internal_handler_dto.MessageDetailDTO:
+  dto.MessageDetailDTO:
     description: 单条消息的详细信息，包含来源名称、渠道名称和类型
     properties:
       channel_id:
@@ -266,7 +266,7 @@ definitions:
         description: 消息内容
         example: 'Build #123 passed'
         type: string
-      created_at:
+      created_at_ts:
         description: 创建时间（Unix 毫秒时间戳）
         example: 1714636800000
         type: integer
@@ -290,12 +290,12 @@ definitions:
         description: 消息标题
         example: CI Build
         type: string
-      updated_at:
+      updated_at_ts:
         description: 更新时间（Unix 毫秒时间戳）
         example: 1714636800000
         type: integer
     type: object
-  octotify_internal_handler_dto.PushMessageReq:
+  dto.PushMessageReq:
     description: 外部系统通过 Source Token 推送消息时使用的请求参数
     properties:
       message:
@@ -312,7 +312,7 @@ definitions:
     - message
     - title
     type: object
-  octotify_internal_handler_dto.PushResponse:
+  dto.PushResponse:
     description: 消息推送接口的返回结果，包含各渠道的推送详情
     properties:
       failed:
@@ -321,7 +321,7 @@ definitions:
       results:
         description: 各渠道推送结果详情
         items:
-          $ref: '#/definitions/octotify_internal_handler_dto.PushResult'
+          $ref: '#/definitions/dto.PushResult'
         type: array
       success:
         description: 推送成功数
@@ -330,7 +330,7 @@ definitions:
         description: 推送渠道总数
         type: integer
     type: object
-  octotify_internal_handler_dto.PushResult:
+  dto.PushResult:
     description: 并发推送到多个渠道时，单个渠道的推送结果
     properties:
       channel_id:
@@ -349,7 +349,7 @@ definitions:
         description: 是否推送成功
         type: boolean
     type: object
-  octotify_internal_handler_dto.RefreshReq:
+  dto.RefreshReq:
     description: 使用 Refresh Token 获取新的 Access Token
     properties:
       refresh_token:
@@ -359,7 +359,7 @@ definitions:
     required:
     - refresh_token
     type: object
-  octotify_internal_handler_dto.RegisterReq:
+  dto.RegisterReq:
     description: 注册新用户时使用的请求参数
     properties:
       password:
@@ -374,10 +374,10 @@ definitions:
     - password
     - username
     type: object
-  octotify_internal_handler_dto.SourceDTO:
+  dto.SourceDTO:
     description: 消息来源的基本信息，不包含 Token
     properties:
-      created_at:
+      created_at_ts:
         description: 创建时间（Unix 毫秒时间戳）
         example: 1714636800000
         type: integer
@@ -406,10 +406,10 @@ definitions:
         example: 1
         type: integer
     type: object
-  octotify_internal_handler_dto.SourceDetailDTO:
+  dto.SourceDetailDTO:
     description: 消息来源的详细信息，包含 Token 和使用时间
     properties:
-      created_at:
+      created_at_ts:
         description: 创建时间（Unix 毫秒时间戳）
         example: 1714636800000
         type: integer
@@ -421,7 +421,7 @@ definitions:
         description: 来源 ID
         example: 1
         type: integer
-      last_used_at:
+      last_used_at_ts:
         description: 最后使用时间（Unix 毫秒时间戳，0 表示未使用）
         example: 1714636800000
         type: integer
@@ -437,7 +437,7 @@ definitions:
         description: 推送 Token
         example: src0196a3b2c4d50000a1b2c3d4e5f67890
         type: string
-      updated_at:
+      updated_at_ts:
         description: 更新时间（Unix 毫秒时间戳）
         example: 1714636800000
         type: integer
@@ -446,20 +446,20 @@ definitions:
         example: 1
         type: integer
     type: object
-  octotify_internal_handler_dto.SourceDetailResponse:
+  dto.SourceDetailResponse:
     description: 来源详情及其已绑定的有效渠道列表
     properties:
       channels:
         description: 已绑定渠道列表
         items:
-          $ref: '#/definitions/octotify_internal_handler_dto.ChannelDTO'
+          $ref: '#/definitions/dto.ChannelDTO'
         type: array
       source:
         allOf:
-        - $ref: '#/definitions/octotify_internal_handler_dto.SourceDetailDTO'
+        - $ref: '#/definitions/dto.SourceDetailDTO'
         description: 来源详情
     type: object
-  octotify_internal_handler_dto.SourceTokenResponse:
+  dto.SourceTokenResponse:
     description: 查看或重置来源令牌时返回的 Token 值
     properties:
       token:
@@ -467,7 +467,7 @@ definitions:
         example: src0196a3b2c4d50000a1b2c3d4e5f67890
         type: string
     type: object
-  octotify_internal_handler_dto.StartBindResp:
+  dto.StartBindResp:
     properties:
       qrcode:
         description: 二维码原始值，用于后续查询绑定状态
@@ -476,7 +476,7 @@ definitions:
         description: 二维码 URL，用户扫码使用
         type: string
     type: object
-  octotify_internal_handler_dto.UpdateChannelReq:
+  dto.UpdateChannelReq:
     description: '编辑已有推送渠道的名称和配置信息 ## 渠道配置示例 - wechat: {"webhook": "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx"}
       - telegram: {"bot_token": "xxx", "chat_id": "xxx"} - dingtalk: {"webhook": "https://oapi.dingtalk.com/robot/send?access_token=xxx"}
       - email: {"smtp_host": "smtp.example.com", "smtp_port": 587, "username": "xxx",
@@ -485,7 +485,7 @@ definitions:
     properties:
       config:
         allOf:
-        - $ref: '#/definitions/octotify_internal_handler_dto.ChannelConfig'
+        - $ref: '#/definitions/dto.ChannelConfig'
         description: 渠道配置，JSON 对象，不同渠道类型配置不同
       name:
         description: 渠道名称，1-128 个字符
@@ -497,7 +497,7 @@ definitions:
     - config
     - name
     type: object
-  octotify_internal_handler_dto.UpdateSourceReq:
+  dto.UpdateSourceReq:
     description: 编辑已有消息来源的名称、描述和绑定渠道
     properties:
       channel_ids:
@@ -523,12 +523,12 @@ definitions:
     required:
     - name
     type: object
-  octotify_internal_handler_dto.UserDTO:
+  dto.UserDTO:
     description: 用户基本信息，用于登录/注册/刷新令牌等接口返回
     properties:
-      created_at:
-        description: 创建时间（Unix 时间戳）
-        example: 1714636800
+      created_at_ts:
+        description: 创建时间（Unix 毫秒时间戳）
+        example: 1714636800000
         type: integer
       id:
         description: 用户 ID
@@ -539,15 +539,15 @@ definitions:
         example: octotify
         type: string
     type: object
-  octotify_internal_handler_dto.UserProfileResp:
+  dto.UserProfileResp:
     description: 查询用户个人信息时返回的响应结构
     properties:
       user:
         allOf:
-        - $ref: '#/definitions/octotify_internal_handler_dto.UserDTO'
+        - $ref: '#/definitions/dto.UserDTO'
         description: 用户信息
     type: object
-  octotify_internal_handler_dto.VerifyPasswordReq:
+  dto.VerifyPasswordReq:
     description: 需要密码二次验证的接口（查看令牌、重置令牌、停用/启用/删除来源）
     properties:
       password:
@@ -557,7 +557,7 @@ definitions:
     required:
     - password
     type: object
-  octotify_pkg_response.PageResult:
+  response.PageResult:
     description: 所有分页接口返回的数据结构
     properties:
       list:
@@ -572,7 +572,7 @@ definitions:
         description: 总记录数
         type: integer
     type: object
-  octotify_pkg_response.Response:
+  response.Response:
     description: 所有 API 接口返回的统一格式，包含业务状态码、消息和数据
     properties:
       code:
@@ -629,7 +629,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/octotify_internal_handler_dto.LoginReq'
+          $ref: '#/definitions/dto.LoginReq'
       produces:
       - application/json
       responses:
@@ -637,10 +637,10 @@ paths:
           description: 登录成功，返回认证信息
           schema:
             allOf:
-            - $ref: '#/definitions/octotify_pkg_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/octotify_internal_handler_dto.AuthResp'
+                  $ref: '#/definitions/dto.AuthResp'
               type: object
       summary: 用户登录
       tags:
@@ -664,7 +664,7 @@ paths:
         "200":
           description: 退出成功
           schema:
-            $ref: '#/definitions/octotify_pkg_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: 退出登录
@@ -695,7 +695,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/octotify_internal_handler_dto.RefreshReq'
+          $ref: '#/definitions/dto.RefreshReq'
       produces:
       - application/json
       responses:
@@ -703,10 +703,10 @@ paths:
           description: 刷新成功
           schema:
             allOf:
-            - $ref: '#/definitions/octotify_pkg_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/octotify_internal_handler_dto.AuthResp'
+                  $ref: '#/definitions/dto.AuthResp'
               type: object
       summary: 刷新令牌
       tags:
@@ -735,11 +735,11 @@ paths:
           description: 获取成功
           schema:
             allOf:
-            - $ref: '#/definitions/octotify_pkg_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
                   items:
-                    $ref: '#/definitions/octotify_internal_handler_dto.ChannelTypeMeta'
+                    $ref: '#/definitions/dto.ChannelTypeMeta'
                   type: array
               type: object
       security:
@@ -782,15 +782,15 @@ paths:
           description: 查询成功
           schema:
             allOf:
-            - $ref: '#/definitions/octotify_pkg_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
                   allOf:
-                  - $ref: '#/definitions/octotify_pkg_response.PageResult'
+                  - $ref: '#/definitions/response.PageResult'
                   - properties:
                       list:
                         items:
-                          $ref: '#/definitions/octotify_internal_handler_dto.ChannelDTO'
+                          $ref: '#/definitions/dto.ChannelDTO'
                         type: array
                     type: object
               type: object
@@ -830,7 +830,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/octotify_internal_handler_dto.CreateChannelReq'
+          $ref: '#/definitions/dto.CreateChannelReq'
       produces:
       - application/json
       responses:
@@ -838,10 +838,10 @@ paths:
           description: 创建成功
           schema:
             allOf:
-            - $ref: '#/definitions/octotify_pkg_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/octotify_internal_handler_dto.ChannelDTO'
+                  $ref: '#/definitions/dto.ChannelDTO'
               type: object
       security:
       - BearerAuth: []
@@ -880,7 +880,7 @@ paths:
         "200":
           description: 删除成功
           schema:
-            $ref: '#/definitions/octotify_pkg_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: 删除推送渠道
@@ -916,10 +916,10 @@ paths:
           description: 查询成功
           schema:
             allOf:
-            - $ref: '#/definitions/octotify_pkg_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/octotify_internal_handler_dto.ChannelDTO'
+                  $ref: '#/definitions/dto.ChannelDTO'
               type: object
       security:
       - BearerAuth: []
@@ -957,14 +957,14 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/octotify_internal_handler_dto.UpdateChannelReq'
+          $ref: '#/definitions/dto.UpdateChannelReq'
       produces:
       - application/json
       responses:
         "200":
           description: 编辑成功
           schema:
-            $ref: '#/definitions/octotify_pkg_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: 编辑推送渠道
@@ -1003,7 +1003,7 @@ paths:
         "200":
           description: 停用成功
           schema:
-            $ref: '#/definitions/octotify_pkg_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: 停用推送渠道
@@ -1041,7 +1041,7 @@ paths:
         "200":
           description: 启用成功
           schema:
-            $ref: '#/definitions/octotify_pkg_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: 启用推送渠道
@@ -1080,7 +1080,7 @@ paths:
         "200":
           description: 测试成功
           schema:
-            $ref: '#/definitions/octotify_pkg_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: 测试渠道连接
@@ -1108,10 +1108,10 @@ paths:
           description: 获取成功，返回 qrcode_url 和 qrcode
           schema:
             allOf:
-            - $ref: '#/definitions/octotify_pkg_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/octotify_internal_handler_dto.StartBindResp'
+                  $ref: '#/definitions/dto.StartBindResp'
               type: object
       security:
       - BearerAuth: []
@@ -1143,7 +1143,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/octotify_internal_handler_dto.GetBindStatusReq'
+          $ref: '#/definitions/dto.GetBindStatusReq'
       produces:
       - application/json
       responses:
@@ -1151,10 +1151,10 @@ paths:
           description: 查询成功，返回绑定状态
           schema:
             allOf:
-            - $ref: '#/definitions/octotify_pkg_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/octotify_internal_handler_dto.BindStatusResp'
+                  $ref: '#/definitions/dto.BindStatusResp'
               type: object
       security:
       - BearerAuth: []
@@ -1197,15 +1197,15 @@ paths:
           description: 查询成功
           schema:
             allOf:
-            - $ref: '#/definitions/octotify_pkg_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
                   allOf:
-                  - $ref: '#/definitions/octotify_pkg_response.PageResult'
+                  - $ref: '#/definitions/response.PageResult'
                   - properties:
                       list:
                         items:
-                          $ref: '#/definitions/octotify_internal_handler_dto.MessageDTO'
+                          $ref: '#/definitions/dto.MessageDTO'
                         type: array
                     type: object
               type: object
@@ -1246,7 +1246,7 @@ paths:
         "200":
           description: 删除成功
           schema:
-            $ref: '#/definitions/octotify_pkg_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: 删除消息
@@ -1284,10 +1284,10 @@ paths:
           description: 查询成功
           schema:
             allOf:
-            - $ref: '#/definitions/octotify_pkg_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/octotify_internal_handler_dto.MessageDetailDTO'
+                  $ref: '#/definitions/dto.MessageDetailDTO'
               type: object
       security:
       - BearerAuth: []
@@ -1366,15 +1366,15 @@ paths:
           description: 查询成功
           schema:
             allOf:
-            - $ref: '#/definitions/octotify_pkg_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
                   allOf:
-                  - $ref: '#/definitions/octotify_pkg_response.PageResult'
+                  - $ref: '#/definitions/response.PageResult'
                   - properties:
                       list:
                         items:
-                          $ref: '#/definitions/octotify_internal_handler_dto.MessageDTO'
+                          $ref: '#/definitions/dto.MessageDTO'
                         type: array
                     type: object
               type: object
@@ -1424,7 +1424,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/octotify_internal_handler_dto.PushMessageReq'
+          $ref: '#/definitions/dto.PushMessageReq'
       produces:
       - application/json
       responses:
@@ -1432,10 +1432,10 @@ paths:
           description: 推送成功
           schema:
             allOf:
-            - $ref: '#/definitions/octotify_pkg_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/octotify_internal_handler_dto.PushResponse'
+                  $ref: '#/definitions/dto.PushResponse'
               type: object
       security:
       - SourceTokenAuth: []
@@ -1478,15 +1478,15 @@ paths:
           description: 查询成功
           schema:
             allOf:
-            - $ref: '#/definitions/octotify_pkg_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
                   allOf:
-                  - $ref: '#/definitions/octotify_pkg_response.PageResult'
+                  - $ref: '#/definitions/response.PageResult'
                   - properties:
                       list:
                         items:
-                          $ref: '#/definitions/octotify_internal_handler_dto.SourceDTO'
+                          $ref: '#/definitions/dto.SourceDTO'
                         type: array
                     type: object
               type: object
@@ -1519,7 +1519,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/octotify_internal_handler_dto.CreateSourceReq'
+          $ref: '#/definitions/dto.CreateSourceReq'
       produces:
       - application/json
       responses:
@@ -1527,10 +1527,10 @@ paths:
           description: 创建成功
           schema:
             allOf:
-            - $ref: '#/definitions/octotify_pkg_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/octotify_internal_handler_dto.SourceDTO'
+                  $ref: '#/definitions/dto.SourceDTO'
               type: object
       security:
       - BearerAuth: []
@@ -1571,14 +1571,14 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/octotify_internal_handler_dto.VerifyPasswordReq'
+          $ref: '#/definitions/dto.VerifyPasswordReq'
       produces:
       - application/json
       responses:
         "200":
           description: 删除成功
           schema:
-            $ref: '#/definitions/octotify_pkg_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: 删除消息来源
@@ -1616,10 +1616,10 @@ paths:
           description: 查询成功
           schema:
             allOf:
-            - $ref: '#/definitions/octotify_pkg_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/octotify_internal_handler_dto.SourceDetailResponse'
+                  $ref: '#/definitions/dto.SourceDetailResponse'
               type: object
       security:
       - BearerAuth: []
@@ -1656,14 +1656,14 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/octotify_internal_handler_dto.UpdateSourceReq'
+          $ref: '#/definitions/dto.UpdateSourceReq'
       produces:
       - application/json
       responses:
         "200":
           description: 编辑成功
           schema:
-            $ref: '#/definitions/octotify_pkg_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: 编辑消息来源
@@ -1702,14 +1702,14 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/octotify_internal_handler_dto.VerifyPasswordReq'
+          $ref: '#/definitions/dto.VerifyPasswordReq'
       produces:
       - application/json
       responses:
         "200":
           description: 停用成功
           schema:
-            $ref: '#/definitions/octotify_pkg_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: 停用消息来源
@@ -1747,14 +1747,14 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/octotify_internal_handler_dto.VerifyPasswordReq'
+          $ref: '#/definitions/dto.VerifyPasswordReq'
       produces:
       - application/json
       responses:
         "200":
           description: 启用成功
           schema:
-            $ref: '#/definitions/octotify_pkg_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: 启用消息来源
@@ -1791,7 +1791,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/octotify_internal_handler_dto.VerifyPasswordReq'
+          $ref: '#/definitions/dto.VerifyPasswordReq'
       produces:
       - application/json
       responses:
@@ -1799,10 +1799,10 @@ paths:
           description: 查看成功
           schema:
             allOf:
-            - $ref: '#/definitions/octotify_pkg_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/octotify_internal_handler_dto.SourceTokenResponse'
+                  $ref: '#/definitions/dto.SourceTokenResponse'
               type: object
       security:
       - BearerAuth: []
@@ -1841,7 +1841,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/octotify_internal_handler_dto.VerifyPasswordReq'
+          $ref: '#/definitions/dto.VerifyPasswordReq'
       produces:
       - application/json
       responses:
@@ -1849,10 +1849,10 @@ paths:
           description: 重置成功
           schema:
             allOf:
-            - $ref: '#/definitions/octotify_pkg_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/octotify_internal_handler_dto.SourceTokenResponse'
+                  $ref: '#/definitions/dto.SourceTokenResponse'
               type: object
       security:
       - BearerAuth: []
@@ -1887,14 +1887,14 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/octotify_internal_handler_dto.ChangePasswordReq'
+          $ref: '#/definitions/dto.ChangePasswordReq'
       produces:
       - application/json
       responses:
         "200":
           description: 修改成功
           schema:
-            $ref: '#/definitions/octotify_pkg_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: 修改密码
@@ -1922,10 +1922,10 @@ paths:
           description: 查询成功
           schema:
             allOf:
-            - $ref: '#/definitions/octotify_pkg_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/octotify_internal_handler_dto.UserProfileResp'
+                  $ref: '#/definitions/dto.UserProfileResp'
               type: object
       security:
       - BearerAuth: []
@@ -1959,7 +1959,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/octotify_internal_handler_dto.RegisterReq'
+          $ref: '#/definitions/dto.RegisterReq'
       produces:
       - application/json
       responses:
@@ -1967,10 +1967,10 @@ paths:
           description: 注册成功
           schema:
             allOf:
-            - $ref: '#/definitions/octotify_pkg_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/octotify_internal_handler_dto.AuthResp'
+                  $ref: '#/definitions/dto.AuthResp'
               type: object
       summary: 用户注册
       tags:

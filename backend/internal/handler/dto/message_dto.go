@@ -3,37 +3,37 @@ package dto
 // PushMessageReq 推送消息请求
 // @Description 外部系统通过 Source Token 推送消息时使用的请求参数
 type PushMessageReq struct {
-	Title   string `json:"title" binding:"required,min=1" example:"CI Build"`    // 消息标题，不能为空
+	Title   string `json:"title" binding:"required,min=1" example:"CI Build"`            // 消息标题，不能为空
 	Message string `json:"message" binding:"required,min=1" example:"Build #123 passed"` // 消息内容，不能为空
 }
 
 // MessageDTO 消息记录响应
 // @Description 消息列表中的单条消息记录
 type MessageDTO struct {
-	ID        int64  `json:"id" example:"1"`                      // 消息 ID
-	SourceID  int64  `json:"source_id" example:"1"`               // 来源 ID
-	ChannelID int64  `json:"channel_id" example:"1"`              // 渠道 ID
-	Title     string `json:"title" example:"CI Build"`            // 消息标题
-	Content   string `json:"content" example:"Build #123 passed"` // 消息内容
-	Status    int    `json:"status" example:"200"`                // 推送状态：100-待推送 200-成功 300-失败 -1-已删除
-	CreatedAt int64  `json:"created_at" example:"1714636800000"`  // 创建时间（Unix 毫秒时间戳）
-	UpdatedAt int64  `json:"updated_at" example:"1714636800000"`  // 更新时间（Unix 毫秒时间戳）
+	ID        int64  `json:"id" example:"1"`                        // 消息 ID
+	SourceID  int64  `json:"source_id" example:"1"`                 // 来源 ID
+	ChannelID int64  `json:"channel_id" example:"1"`                // 渠道 ID
+	Title     string `json:"title" example:"CI Build"`              // 消息标题
+	Content   string `json:"content" example:"Build #123 passed"`   // 消息内容
+	Status    int    `json:"status" example:"200"`                  // 推送状态：100-待推送 200-成功 300-失败 -1-已删除
+	CreatedAt int64  `json:"created_at_ts" example:"1714636800000"` // 创建时间（Unix 毫秒时间戳）
+	UpdatedAt int64  `json:"updated_at_ts" example:"1714636800000"` // 更新时间（Unix 毫秒时间戳）
 }
 
 // MessageDetailDTO 消息详情响应（包含来源和渠道信息）
 // @Description 单条消息的详细信息，包含来源名称、渠道名称和类型
 type MessageDetailDTO struct {
-	ID          int64  `json:"id" example:"1"`                      // 消息 ID
-	SourceID    int64  `json:"source_id" example:"1"`               // 来源 ID
-	SourceName  string `json:"source_name" example:"CI Pipeline"`   // 来源名称
-	ChannelID   int64  `json:"channel_id" example:"1"`              // 渠道 ID
-	ChannelName string `json:"channel_name" example:"钉钉-运维群"`       // 渠道名称
-	ChannelType string `json:"channel_type" example:"dingtalk"`     // 渠道类型：wechat, telegram, dingtalk, email, webhook
-	Title       string `json:"title" example:"CI Build"`            // 消息标题
-	Content     string `json:"content" example:"Build #123 passed"` // 消息内容
-	Status      int    `json:"status" example:"200"`                // 推送状态：100-待推送 200-成功 300-失败 -1-已删除
-	CreatedAt   int64  `json:"created_at" example:"1714636800000"`  // 创建时间（Unix 毫秒时间戳）
-	UpdatedAt   int64  `json:"updated_at" example:"1714636800000"`  // 更新时间（Unix 毫秒时间戳）
+	ID          int64  `json:"id" example:"1"`                        // 消息 ID
+	SourceID    int64  `json:"source_id" example:"1"`                 // 来源 ID
+	SourceName  string `json:"source_name" example:"CI Pipeline"`     // 来源名称
+	ChannelID   int64  `json:"channel_id" example:"1"`                // 渠道 ID
+	ChannelName string `json:"channel_name" example:"钉钉-运维群"`         // 渠道名称
+	ChannelType string `json:"channel_type" example:"dingtalk"`       // 渠道类型：wechat, telegram, dingtalk, email, webhook
+	Title       string `json:"title" example:"CI Build"`              // 消息标题
+	Content     string `json:"content" example:"Build #123 passed"`   // 消息内容
+	Status      int    `json:"status" example:"200"`                  // 推送状态：100-待推送 200-成功 300-失败 -1-已删除
+	CreatedAt   int64  `json:"created_at_ts" example:"1714636800000"` // 创建时间（Unix 毫秒时间戳）
+	UpdatedAt   int64  `json:"updated_at_ts" example:"1714636800000"` // 更新时间（Unix 毫秒时间戳）
 }
 
 // MessageFilterReq 消息筛选请求参数
