@@ -188,7 +188,7 @@ Content-Type: application/json
 |------|------|
 | **并发模型** | 每个渠道启动独立 goroutine 推送 |
 | **并发控制** | 使用 goroutine pool 限制最大并发数（默认 10） |
-| **超时控制** | 单个渠道推送超时时间 30 秒，通过 context.WithTimeout 实现 |
+| **超时控制** | 单个渠道推送超时时间 1 分钟，通过 context.WithTimeout 实现 |
 | **错误隔离** | 单个渠道推送失败不影响其他渠道，独立记录状态 |
 | **错误聚合** | 使用 errgroup 收集所有 goroutine 的推送结果 |
 | **结果汇总** | 等待所有 goroutine 完成后，汇总成功/失败数量返回 |
