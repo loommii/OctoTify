@@ -29,6 +29,8 @@ package main
 // @name                        Authorization
 // @description                 推送消息时使用 Source Token，输入格式：Bearer src{uuid}，例如：Bearer src0196a3b2c4d50000a1b2c3d4e5f67890
 
+// @tag.name                    系统
+// @tag.description             系统健康检查等基础接口
 // @tag.name                    用户认证
 // @tag.description             用户登录、退出登录、刷新令牌等认证相关接口
 // @tag.name                    用户管理
