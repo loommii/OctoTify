@@ -5,6 +5,9 @@ backend/server
 backend/generate
 backend/data/octotify.db
 
+# pnpm store
+.pnpm-store/
+
 # frontend
 frontend/node_modules/
 frontend/dist/

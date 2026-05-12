@@ -1,99 +1,74 @@
 import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
-import { useAuthStore } from '@/stores/auth'
-import type { LoginReq, RegisterReq, ChangePasswordReq } from '@/types/api'
-import { login, register, changePassword } from '@/api/auth'
+import { apiClient } from '@/api'
+
+// Token 存储 Key
+const ACCESS_TOKEN_KEY = 'accessToken'
+const REFRESH_TOKEN_KEY = 'refreshToken'
+
+// 响应式 Token 状态
+const accessToken = ref<string | null>(null)
+const refreshToken = ref<string | null>(null)
+
+// 是否已认证（计算属性）
+const isAuthenticated = computed(() => !!accessToken.value)
 
 export function useAuth() {
-  const router = useRouter()
-  const authStore = useAuthStore()
+  // 设置 Access Token
+  function setAccessToken(token: string) {
+    accessToken.value = token
+    localStorage.setItem(ACCESS_TOKEN_KEY, token)
+    apiClient.setConfig({
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+  }
 
-  const isLoading = ref(false)
-  const errorMessage = ref('')
+  // 设置 Refresh Token
+  function setRefreshToken(token: string) {
+    refreshToken.value = token
+    localStorage.setItem(REFRESH_TOKEN_KEY, token)
+  }
 
-  const user = computed(() => authStore.user)
-  const isAuthenticated = computed(() => authStore.isAuthenticated)
+  // 清除认证信息（登出时调用）
+  function clearAuth() {
+    accessToken.value = null
+    refreshToken.value = null
+    localStorage.removeItem(ACCESS_TOKEN_KEY)
+    localStorage.removeItem(REFRESH_TOKEN_KEY)
+    apiClient.setConfig({
+      headers: {
+        Authorization: undefined,
+      },
+    })
+  }
 
-  const handleLogin = async (data: LoginReq) => {
-    isLoading.value = true
-    errorMessage.value = ''
+  // 初始化认证状态（应用启动时调用）
+  function initAuth() {
+    const storedAccessToken = localStorage.getItem(ACCESS_TOKEN_KEY)
+    const storedRefreshToken = localStorage.getItem(REFRESH_TOKEN_KEY)
 
-    try {
-      const response = await login(data)
-      if (response.data?.access_token && response.data?.refresh_token) {
-        authStore.setTokens(response.data.access_token, response.data.refresh_token)
-        if (response.data.user) {
-          authStore.setUser(response.data.user)
-        }
-      }
-      router.push({ name: 'Dashboard' })
-    } catch (error) {
-      errorMessage.value = error instanceof Error ? error.message : '登录失败'
-      throw error
-    } finally {
-      isLoading.value = false
+    if (storedAccessToken) {
+      accessToken.value = storedAccessToken
+      apiClient.setConfig({
+        headers: {
+          Authorization: `Bearer ${storedAccessToken}`,
+        },
+      })
     }
-  }
 
-  const handleRegister = async (data: RegisterReq) => {
-    isLoading.value = true
-    errorMessage.value = ''
-
-    try {
-      const response = await register(data)
-      if (response.data?.access_token && response.data?.refresh_token) {
-        authStore.setTokens(response.data.access_token, response.data.refresh_token)
-        if (response.data.user) {
-          authStore.setUser(response.data.user)
-        }
-      }
-      router.push({ name: 'Dashboard' })
-    } catch (error) {
-      errorMessage.value = error instanceof Error ? error.message : '注册失败'
-      throw error
-    } finally {
-      isLoading.value = false
-    }
-  }
-
-  const handleChangePassword = async (data: ChangePasswordReq) => {
-    isLoading.value = true
-    errorMessage.value = ''
-
-    try {
-      await changePassword(data)
-      authStore.clearTokens()
-      router.push({ name: 'Login' })
-    } catch (error) {
-      errorMessage.value = error instanceof Error ? error.message : '修改密码失败'
-      throw error
-    } finally {
-      isLoading.value = false
-    }
-  }
-
-  const handleLogout = async () => {
-    await authStore.logout()
-    router.push({ name: 'Login' })
-  }
-
-  const fetchProfile = async () => {
-    try {
-      await authStore.fetchProfile()
-    } catch {
-      router.push({ name: 'Login' })
+    if (storedRefreshToken) {
+      refreshToken.value = storedRefreshToken
     }
   }
 
   return {
-    user,
-    isLoading,
-    errorMessage,
+    accessToken,
+    refreshToken,
     isAuthenticated,
-    handleLogin,
-    handleRegister,
-    handleChangePassword,
-    handleLogout,
-    fetchProfile,
+    setAccessToken,
+    setRefreshToken,
+    clearAuth,
+    initAuth,
   }
 }

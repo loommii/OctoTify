@@ -33,6 +33,7 @@ OctoTify 是一个消息总线平台，核心功能是：
 | [03-API-Specification.md](./03-API-Specification.md) | 后端 API 规范（响应格式、HTTP 状态码、分页） |
 | [04-i18n.md](./04-i18n.md) | 多语言规范 |
 | [05-Error-Codes.md](./05-Error-Codes.md) | 错误码规范 |
+| [06-Frontend-Development.md](./06-Frontend-Development.md) | 前端开发规范（Vue 3 + Vite） |
 
 ---
 
@@ -236,17 +237,49 @@ OctoTify/
 ├── go.work.sum
 ├── frontend/                 # Vue 3 前端
 │   ├── src/
-│   │   ├── api/              # API 请求封装
+│   │   ├── api/              # API 客户端层
+│   │   │   ├── index.ts      # API 客户端配置 + 请求/响应拦截器 + Token 刷新
+│   │   │   └── generated/    # 自动生成的代码（@hey-api/openapi-ts，不要手动修改）
+│   │   │       ├── client/   # HTTP 客户端（Axios）
+│   │   │       ├── core/     # 核心工具（序列化、认证等）
+│   │   │       ├── client.gen.ts  # 客户端入口
+│   │   │       ├── sdk.gen.ts     # API 函数（SDK）
+│   │   │       └── types.gen.ts   # TypeScript 类型
+│   │   ├── assets/           # 静态资源（logo 等）
+│   │   ├── components/       # 可复用基础组件（BaseButton、BaseInputText）
 │   │   ├── composables/      # 组合式函数
-│   │   ├── components/       # 可复用组件
-│   │   ├── views/            # 页面组件
-│   │   ├── stores/           # Pinia 状态
-│   │   ├── types/            # TypeScript 类型
-│   │   ├── router/           # 路由
-│   │   └── lib/              # 基础设施
-│   ├── public/
-│   ├── vite.config.ts
-│   └── package.json
+│   │   │   └── useAuth.ts    # 认证管理（Token 存储/刷新/初始化）
+│   │   ├── design/           # 设计系统 SCSS（colors/sizes/fonts/typography/durations/layers）
+│   │   ├── layouts/          # 布局组件（AppLayout）
+│   │   ├── pages/            # 页面组件（路由懒加载）
+│   │   ├── router/           # 路由配置（index.ts + routes.ts 分离）
+│   │   ├── stores/           # Pinia 状态管理（Setup Store 风格）
+│   │   │   ├── index.ts          # 统一导出 + resetAllStores()
+│   │   │   ├── authStore.ts      # 认证 Store（登录/登出/刷新 Token）
+│   │   │   ├── userStore.ts      # 用户信息 Store（个人资料/修改密码）
+│   │   │   ├── sourceStore.ts    # Source Store（CRUD/启用/禁用/Token 管理）
+│   │   │   ├── channelStore.ts   # Channel Store（CRUD/启用/禁用/测试/渠道类型元数据）
+│   │   │   └── messageStore.ts   # Message Store（列表/筛选/详情/删除）
+│   │   ├── App.vue           # 根组件
+│   │   ├── main.ts           # 入口（Vue + Pinia + 持久化插件 + Router + Unhead + 认证初始化）
+│   │   └── types.ts          # 全局 TypeScript 类型定义
+│   ├── e2e/                  # Playwright E2E 测试
+│   ├── public/               # 公共静态资源（favicon.ico）
+│   ├── .vscode/              # VS Code 编辑器配置
+│   ├── .env.local            # 环境变量（VITE_API_BASE_URL）
+│   ├── openapi-ts.config.ts  # OpenAPI 代码生成配置
+│   ├── vite.config.ts        # Vite 构建配置（自动导入 + 组件自动注册 + SCSS 注入）
+│   ├── tsconfig.*.json       # TypeScript 多配置（app/node/vitest）
+│   ├── eslint.config.ts      # ESLint 配置
+│   ├── .prettierrc.json      # Prettier 配置
+│   ├── vitest.config.ts      # 单元测试配置
+│   ├── playwright.config.ts  # E2E 测试配置
+│   ├── auto-imports.d.ts     # 自动导入类型声明
+│   ├── components.d.ts       # 自动注册组件类型声明
+│   ├── env.d.ts              # 环境变量类型声明
+│   ├── index.html            # HTML 入口
+│   ├── package.json          # 依赖配置
+│   └── pnpm-lock.yaml        # pnpm 锁定文件
 └── Dockerfile
 ```
 

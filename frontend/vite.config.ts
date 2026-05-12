@@ -1,24 +1,35 @@
+import { fileURLToPath, URL } from 'node:url'
+
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
-import { resolve, dirname } from 'path'
-import { fileURLToPath } from 'url'
-
-const __dirname = dirname(fileURLToPath(import.meta.url))
+import AutoImport from 'unplugin-auto-import/vite'
+import Components from 'unplugin-vue-components/vite'
 
 export default defineConfig({
-  plugins: [vue()],
+  plugins: [
+    vue(),
+    AutoImport({
+      imports: ['vue', 'vue-router', '@vueuse/core', { '@unhead/vue': ['useHead'] }],
+      dirs: ['src/composables']
+    }),
+    Components({
+      dirs: ['src/components', 'src/layouts']
+    })
+  ],
   resolve: {
     alias: {
-      '@': resolve(__dirname, 'src'),
-    },
+      '@': fileURLToPath(new URL('./src', import.meta.url))
+    }
   },
   server: {
-    port: 3000,
-    proxy: {
-      '/api': {
-        target: 'http://localhost:34123',
-        changeOrigin: true,
-      },
-    },
+    port: 8080
   },
+  css: {
+    preprocessorOptions: {
+      scss: {
+        additionalData: '@use "@/design/index.scss" as *;',
+        silenceDeprecations: ['import', 'global-builtin']
+      }
+    }
+  }
 })
