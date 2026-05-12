@@ -59,6 +59,8 @@ func New(addr string, cfg *config.Config, db *gorm.DB, logger *zap.Logger) *Serv
 	s.initDependencies(cfg, db, logger)
 	// 注册中间件
 	s.setupMiddleware()
+	// 注册 OpenAPI 文档
+	s.setupOpenAPI()
 	// 注册 404/405 处理
 	s.setupNoRoute()
 	// 注册路由

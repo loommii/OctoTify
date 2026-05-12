@@ -1,14 +1,12 @@
 package dto
 
 // PushMessageReq 推送消息请求
-// @Description 外部系统通过 Source Token 推送消息时使用的请求参数
 type PushMessageReq struct {
 	Title   string `json:"title" binding:"required,min=1" example:"CI Build"`            // 消息标题，不能为空
 	Message string `json:"message" binding:"required,min=1" example:"Build #123 passed"` // 消息内容，不能为空
 }
 
 // MessageDTO 消息记录响应
-// @Description 消息列表中的单条消息记录
 type MessageDTO struct {
 	ID        int64  `json:"id" example:"1"`                        // 消息 ID
 	SourceID  int64  `json:"source_id" example:"1"`                 // 来源 ID
@@ -21,7 +19,6 @@ type MessageDTO struct {
 }
 
 // MessageDetailDTO 消息详情响应（包含来源和渠道信息）
-// @Description 单条消息的详细信息，包含来源名称、渠道名称和类型
 type MessageDetailDTO struct {
 	ID          int64  `json:"id" example:"1"`                        // 消息 ID
 	SourceID    int64  `json:"source_id" example:"1"`                 // 来源 ID
@@ -37,7 +34,6 @@ type MessageDetailDTO struct {
 }
 
 // MessageFilterReq 消息筛选请求参数
-// @Description 用于筛选消息记录的查询参数
 type MessageFilterReq struct {
 	PageReq
 	SourceID  *int64 `form:"source_id" example:"1"`              // 来源 ID（可选）
@@ -49,7 +45,6 @@ type MessageFilterReq struct {
 }
 
 // PushResult 单渠道推送结果
-// @Description 并发推送到多个渠道时，单个渠道的推送结果
 type PushResult struct {
 	ChannelID   int64  `json:"channel_id"`      // 渠道 ID
 	ChannelName string `json:"channel_name"`    // 渠道名称
@@ -59,7 +54,6 @@ type PushResult struct {
 }
 
 // PushResponse 推送响应
-// @Description 消息推送接口的返回结果，包含各渠道的推送详情
 type PushResponse struct {
 	Total   int           `json:"total"`   // 推送渠道总数
 	Success int           `json:"success"` // 推送成功数
