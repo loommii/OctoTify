@@ -1,16 +1,15 @@
-# OctoTify
+<div align="center">
+  <a href="https://github.com/loommii/OctoTify">
+    <img alt="OctoTify Logo" width="175" src="./logo.png">
+  </a>
+  <br>
+  <br>
+  <h1>OctoTify</h1>
+</div>
 
-<p align="center">
-  <img src="./logo.png" alt="OctoTify Logo" width="200" />
-</p>
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-<p align="center">
-  <strong>A Message Bus Platform for Multi-Source, Multi-Channel Notifications</strong>
-</p>
-
-<p align="center">
-  <a href="./README.zh-CN.md">中文</a> · English
-</p>
+**[中文](./README.zh-CN.md)** | English
 
 ---
 
@@ -96,8 +95,8 @@ go run cmd/server/main.go
 
 ```bash
 cd frontend
-npm install
-npm run dev
+pnpm install
+pnpm dev:ele
 ```
 
 Or use the startup scripts in the `run/` directory.
