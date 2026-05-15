@@ -8,6 +8,7 @@ import (
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 
+	"octotify/internal/client/ilink"
 	"octotify/internal/config"
 	"octotify/internal/handler"
 	"octotify/internal/middleware"
@@ -123,9 +124,13 @@ func (s *Server) initDependencies(cfg *config.Config, db *gorm.DB, logger *zap.L
 	s.sourceService = sourceService
 	s.sourceHandler = handler.NewSourceHandler(sourceService)
 
+	// 初始化 iLink 客户端（全局共享实例，多 bot 场景下复用 HTTP 连接池）
+	ilinkClient := ilink.NewClient(s.logger)
+
 	// 初始化渠道服务及处理器
-	senderFactory := sender.NewSenderFactory(s.logger)
-	channelService := service.NewChannelService(db, logger, senderFactory)
+	// ilinkClient 注入到 SenderFactory 和 ChannelService，统一管理 iLink 协议通信
+	senderFactory := sender.NewSenderFactory(s.logger, ilinkClient)
+	channelService := service.NewChannelService(db, logger, senderFactory, ilinkClient)
 	s.channelHandler = handler.NewChannelHandler(channelService, logger)
 
 	// 初始化消息服务及处理器

@@ -34,14 +34,15 @@ type ChannelService struct {
 //   - db: 数据库连接
 //   - logger: 日志记录器
 //   - senderFactory: 渠道发送器工厂
+//   - ilinkClient: iLink 平台 API 客户端
 //
 // 返回: 初始化后的 ChannelService 实例
-func NewChannelService(db *gorm.DB, logger *zap.Logger, senderFactory *sender.SenderFactory) *ChannelService {
+func NewChannelService(db *gorm.DB, logger *zap.Logger, senderFactory *sender.SenderFactory, ilinkClient *ilink.Client) *ChannelService {
 	return &ChannelService{
 		db:            db,
 		logger:        logger,
 		senderFactory: senderFactory,
-		ilinkClient:   ilink.NewClient(logger),
+		ilinkClient:   ilinkClient,
 	}
 }
 
@@ -419,7 +420,10 @@ func (s *ChannelService) TestChannel(ctx context.Context, userID int64, channelI
 	}
 
 	// 发送测试消息
-	err = snd.Send(ctx, channel.Config, "OctoTify 测试消息", "这是一条测试消息，用于验证渠道配置是否正确。")
+	// 测试消息包含请求ID和时间戳，确保每次内容不同，避免 iLink 服务端消息去重
+	requestID := ctxutil.GetRequestID(ctx)
+	testContent := fmt.Sprintf("这是一条测试消息，用于验证渠道配置是否正确。\n请求ID: %s\n发送时间: %s", requestID, time.Now().Format("2006-01-02 15:04:05"))
+	err = snd.Send(ctx, channel.Config, "OctoTify 测试消息", testContent)
 	if err != nil {
 		s.log(ctx).Error("测试渠道连接失败",
 			zap.Error(err),

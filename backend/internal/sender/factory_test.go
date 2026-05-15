@@ -6,17 +6,20 @@ import (
 	"strings"
 	"testing"
 
+	"octotify/internal/client/ilink"
+
 	"go.uber.org/zap/zaptest"
 	"gorm.io/datatypes"
 )
 
 // TestNewSenderFactory 测试工厂初始化是否包含所有内置渠道
 func TestNewSenderFactory(t *testing.T) {
-	// 准备测试日志
+	// 准备测试日志和 ilink client
 	logger := zaptest.NewLogger(t)
+	ilinkClient := ilink.NewClient(logger)
 
 	// 创建工厂实例
-	factory := NewSenderFactory(logger)
+	factory := NewSenderFactory(logger, ilinkClient)
 
 	// 验证工厂非空
 	if factory == nil {
@@ -42,7 +45,8 @@ func TestNewSenderFactory(t *testing.T) {
 // TestSenderFactory_Create 测试工厂创建 Sender 的行为
 func TestSenderFactory_Create(t *testing.T) {
 	logger := zaptest.NewLogger(t)
-	factory := NewSenderFactory(logger)
+	ilinkClient := ilink.NewClient(logger)
+	factory := NewSenderFactory(logger, ilinkClient)
 
 	// 表驱动测试用例
 	tests := []struct {
@@ -128,7 +132,7 @@ func TestSenderFactory_Register(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 
 	t.Run("注册新渠道类型后应能成功创建", func(t *testing.T) {
-		factory := NewSenderFactory(logger)
+		factory := NewSenderFactory(logger, ilink.NewClient(logger))
 
 		// 创建自定义 Sender
 		customSender := &MockSender{
@@ -151,7 +155,7 @@ func TestSenderFactory_Register(t *testing.T) {
 	})
 
 	t.Run("注册同名渠道应覆盖原有实例", func(t *testing.T) {
-		factory := NewSenderFactory(logger)
+		factory := NewSenderFactory(logger, ilink.NewClient(logger))
 
 		// 先获取原始 wechat Sender
 		originalSnd, err := factory.Create("wechat")
