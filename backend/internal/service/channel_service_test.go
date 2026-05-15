@@ -31,8 +31,9 @@ func TestChannelService_CreateChannel(t *testing.T) {
 	logger := SetupTestLogger(t)
 	ctx := context.Background()
 
-	// 创建真实的 SenderFactory（CreateChannel 内部不会调用 senderFactory.Create，使用真实工厂即可）
-	factory := sender.NewSenderFactory(logger)
+	// 创建 SenderFactory（使用真实工厂，CreateChannel 内部不会调用 senderFactory.Create）
+	ilinkClient := ilink.NewClient(logger)
+	factory := sender.NewSenderFactory(logger, ilinkClient)
 
 	// 预创建测试用户
 	testUser := CreateTestUser(t, db, "create_channel_user", "Password1")
@@ -92,7 +93,7 @@ func TestChannelService_CreateChannel(t *testing.T) {
 				tt.setup()
 			}
 
-			svc := NewChannelService(db, logger, factory)
+			svc := NewChannelService(db, logger, factory, ilinkClient)
 			result, err := svc.CreateChannel(ctx, tt.userID, tt.req)
 
 			if tt.wantSuccess {
@@ -139,7 +140,8 @@ func TestChannelService_ListChannels(t *testing.T) {
 	ctx := context.Background()
 
 	// 创建 SenderFactory（使用真实工厂，测试中不需要调用 Create）
-	factory := sender.NewSenderFactory(logger)
+	ilinkClient := ilink.NewClient(logger)
+	factory := sender.NewSenderFactory(logger, ilinkClient)
 
 	// 预创建测试用户和多个渠道
 	testUser := CreateTestUser(t, db, "list_channels_user", "Password1")
@@ -180,7 +182,7 @@ func TestChannelService_ListChannels(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := NewChannelService(db, logger, factory)
+			svc := NewChannelService(db, logger, factory, ilinkClient)
 			list, total, err := svc.ListChannels(ctx, tt.userID, tt.pageReq)
 
 			if tt.wantSuccess {
@@ -223,7 +225,8 @@ func TestChannelService_UpdateChannel(t *testing.T) {
 	ctx := context.Background()
 
 	// 创建 SenderFactory（使用真实工厂，测试中不需要调用 Create）
-	factory := sender.NewSenderFactory(logger)
+	ilinkClient := ilink.NewClient(logger)
+	factory := sender.NewSenderFactory(logger, ilinkClient)
 
 	// 预创建测试用户和渠道
 	testUser := CreateTestUser(t, db, "update_channel_user", "Password1")
@@ -291,7 +294,7 @@ func TestChannelService_UpdateChannel(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := NewChannelService(db, logger, factory)
+			svc := NewChannelService(db, logger, factory, ilinkClient)
 			err := svc.UpdateChannel(ctx, tt.userID, tt.channelID, tt.req)
 
 			if tt.wantSuccess {
@@ -336,7 +339,8 @@ func TestChannelService_GetChannelByID(t *testing.T) {
 	ctx := context.Background()
 
 	// 创建 SenderFactory（使用真实工厂，测试中不需要调用 Create）
-	factory := sender.NewSenderFactory(logger)
+	ilinkClient := ilink.NewClient(logger)
+	factory := sender.NewSenderFactory(logger, ilinkClient)
 
 	// 预创建测试用户和渠道
 	testUser := CreateTestUser(t, db, "get_channel_user", "Password1")
@@ -378,7 +382,7 @@ func TestChannelService_GetChannelByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := NewChannelService(db, logger, factory)
+			svc := NewChannelService(db, logger, factory, ilinkClient)
 			result, err := svc.GetChannelByID(ctx, tt.userID, tt.channelID)
 
 			if tt.wantSuccess {
@@ -416,7 +420,8 @@ func TestChannelService_DisableChannel(t *testing.T) {
 	ctx := context.Background()
 
 	// 创建 SenderFactory（使用真实工厂，测试中不需要调用 Create）
-	factory := sender.NewSenderFactory(logger)
+	ilinkClient := ilink.NewClient(logger)
+	factory := sender.NewSenderFactory(logger, ilinkClient)
 
 	// 预创建测试用户和渠道
 	testUser := CreateTestUser(t, db, "disable_channel_user", "Password1")
@@ -464,7 +469,7 @@ func TestChannelService_DisableChannel(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := NewChannelService(db, logger, factory)
+			svc := NewChannelService(db, logger, factory, ilinkClient)
 			err := svc.DisableChannel(ctx, tt.userID, tt.channelID)
 
 			if tt.wantSuccess {
@@ -498,7 +503,8 @@ func TestChannelService_EnableChannel(t *testing.T) {
 	ctx := context.Background()
 
 	// 创建 SenderFactory（使用真实工厂，测试中不需要调用 Create）
-	factory := sender.NewSenderFactory(logger)
+	ilinkClient := ilink.NewClient(logger)
+	factory := sender.NewSenderFactory(logger, ilinkClient)
 
 	// 预创建测试用户和渠道
 	testUser := CreateTestUser(t, db, "enable_channel_user", "Password1")
@@ -546,7 +552,7 @@ func TestChannelService_EnableChannel(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := NewChannelService(db, logger, factory)
+			svc := NewChannelService(db, logger, factory, ilinkClient)
 			err := svc.EnableChannel(ctx, tt.userID, tt.channelID)
 
 			if tt.wantSuccess {
@@ -580,7 +586,8 @@ func TestChannelService_DeleteChannel(t *testing.T) {
 	ctx := context.Background()
 
 	// 创建 SenderFactory（使用真实工厂，测试中不需要调用 Create）
-	factory := sender.NewSenderFactory(logger)
+	ilinkClient := ilink.NewClient(logger)
+	factory := sender.NewSenderFactory(logger, ilinkClient)
 
 	// 预创建测试用户、渠道和来源
 	testUser := CreateTestUser(t, db, "delete_channel_user", "Password1")
@@ -626,7 +633,7 @@ func TestChannelService_DeleteChannel(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := NewChannelService(db, logger, factory)
+			svc := NewChannelService(db, logger, factory, ilinkClient)
 			err := svc.DeleteChannel(ctx, tt.userID, tt.channelID)
 
 			if tt.wantSuccess {
@@ -673,9 +680,10 @@ func TestChannelService_GetChannelTypes(t *testing.T) {
 	logger := SetupTestLogger(t)
 
 	// 创建 SenderFactory（使用真实工厂，测试中不需要调用 Create）
-	factory := sender.NewSenderFactory(logger)
+	ilinkClient := ilink.NewClient(logger)
+	factory := sender.NewSenderFactory(logger, ilinkClient)
 
-	svc := NewChannelService(db, logger, factory)
+	svc := NewChannelService(db, logger, factory, ilinkClient)
 	result := svc.GetChannelTypes()
 
 	// 验证返回的渠道类型列表非空
@@ -719,6 +727,9 @@ func TestChannelService_TestChannel(t *testing.T) {
 
 	// 预创建测试用户
 	testUser := CreateTestUser(t, db, "test_channel_user", "Password1")
+
+	// 创建共享的 ilink client 用于 service 构造
+	ilinkClient := ilink.NewClient(logger)
 
 	// 创建活跃的渠道
 	activeChannel := CreateTestChannel(t, db, testUser.ID, "feishu", "Active Test Channel")
@@ -804,10 +815,10 @@ func TestChannelService_TestChannel(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// 为每个子用例创建独立的发送器工厂
-			testFactory := sender.NewSenderFactory(logger)
+			testFactory := sender.NewSenderFactory(logger, ilinkClient)
 			tt.setupMock(testFactory)
 
-			svc := NewChannelService(db, logger, testFactory)
+			svc := NewChannelService(db, logger, testFactory, ilinkClient)
 			err := svc.TestChannel(ctx, tt.userID, tt.channelID)
 
 			if tt.wantSuccess {
@@ -832,8 +843,8 @@ func newBindTestService(t *testing.T, targetURL string) *ChannelService {
 	t.Helper()
 	db := SetupTestDB(t)
 	logger := SetupTestLogger(t)
-	factory := sender.NewSenderFactory(logger)
 	ilinkClient := ilink.NewClient(logger, ilink.WithBaseURL(targetURL))
+	factory := sender.NewSenderFactory(logger, ilinkClient)
 	return &ChannelService{
 		db:            db,
 		logger:        logger,

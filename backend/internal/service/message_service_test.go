@@ -9,10 +9,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 
 	"octotify/internal/handler/dto"
+	"octotify/internal/client/ilink"
 	"octotify/internal/model"
 	"octotify/internal/sender"
 	"octotify/pkg/xerr"
@@ -152,7 +154,9 @@ func TestMessageService_ListMessages(t *testing.T) {
 
 // newMockSenderFactoryAdapter 创建适配后的 SenderFactory
 func newMockSenderFactoryAdapter() *sender.SenderFactory {
-	factory := sender.NewSenderFactory(nil)
+	nopLogger := zap.NewNop()
+	ilinkClient := ilink.NewClient(nopLogger)
+	factory := sender.NewSenderFactory(nopLogger, ilinkClient)
 	factory.Register("webhook", &sender.MockSender{SendFunc: func(ctx context.Context, config datatypes.JSON, title string, content string) error {
 		return nil
 	}})
@@ -810,7 +814,8 @@ func TestMessageService_PushMessage(t *testing.T) {
 			}
 
 			// 设置 Mock
-			testFactory := sender.NewSenderFactory(testLogger)
+			testIlinkClient := ilink.NewClient(testLogger)
+			testFactory := sender.NewSenderFactory(testLogger, testIlinkClient)
 			tt.setupMock(testFactory)
 
 			svc := NewMessageService(testDB, testLogger, testFactory)

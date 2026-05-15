@@ -38,10 +38,14 @@ func setupBindHandlerTest(t *testing.T, iLinkHandler http.HandlerFunc, userID *i
 	// 创建测试 DB 和 Logger
 	db := service.SetupTestDB(t)
 	logger := service.SetupTestLogger(t)
-	factory := sender.NewSenderFactory(logger)
+
+	// 创建 iLink 客户端
+	ilinkClient := ilink.NewClient(logger, ilink.WithBaseURL(iLinkServer.URL))
+
+	// 创建 SenderFactory
+	factory := sender.NewSenderFactory(logger, ilinkClient)
 
 	// 创建 ChannelService，BaseURL 指向模拟 iLink 服务器
-	ilinkClient := ilink.NewClient(logger, ilink.WithBaseURL(iLinkServer.URL))
 	svc := service.NewChannelServiceForTest(
 		db, logger, factory,
 		ilinkClient,
