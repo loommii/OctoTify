@@ -36,3 +36,61 @@ backend/generate
 
 # Misc
 tmp/
+
+# ============================================
+# Frontend (Vben Admin)
+# ============================================
+
+# Frontend - Vben Admin boilerplate
+frontend/docs/
+frontend/playground/
+frontend/.github/
+frontend/.changeset/
+frontend/scripts/
+frontend/tea.yaml
+frontend/cspell.json
+frontend/.gitconfig
+frontend/.npmrc
+frontend/.gitpod.yml
+
+# Frontend - Editor files
+frontend/.vscode/launch.json
+frontend/.vscode/settings.json
+frontend/*.code-workspace
+
+# Frontend - Build outputs & Cache
+frontend/.turbo
+frontend/.temp
+frontend/.cache
+frontend/.nitro
+frontend/.output
+frontend/dev-dist
+frontend/.stylelintcache
+frontend/.eslintcache
+
+# Frontend - Misc
+frontend/yarn.lock
+frontend/package-lock.json
+frontend/.VSCodeCounter
+frontend/.omx
+frontend/vite.config.mts.*
+frontend/vite.config.mjs.*
+frontend/vite.config.js.*
+frontend/vite.config.ts.*
+
+# Frontend - AI
+frontend/.agent
+frontend/.agents
+frontend/.claude
+frontend/.codex
+frontend/skills-lock.json
+
+# Frontend - Editor
+frontend/.idea
+frontend/*.suo
+frontend/*.ntvs*
+frontend/*.njsproj
+frontend/*.sln
+frontend/*.sw?
+frontend/.history
+frontend/.cursor
