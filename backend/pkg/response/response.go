@@ -48,11 +48,11 @@ func Fail(c *gin.Context, code int, msg string) {
 }
 
 // Unauthorized JWT 鉴权失败响应，返回 HTTP 401 + 业务 code
-func Unauthorized(c *gin.Context, code int, msg string) {
+func Unauthorized(c *gin.Context, code int) {
 	lang := c.GetHeader("Accept-Language")
-	translatedMsg := xerr.TranslateMsg(code, lang)
-	if translatedMsg != "" {
-		msg = translatedMsg
+	msg := xerr.TranslateMsg(code, lang)
+	if msg == "" {
+		msg = "未登录或Token已过期"
 	}
 	c.JSON(http.StatusUnauthorized, Response{
 		Code: code,

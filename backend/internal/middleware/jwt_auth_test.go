@@ -41,7 +41,7 @@ func TestJWTAuth_MissingAuthHeader(t *testing.T) {
 	var resp response.Response
 	err := json.Unmarshal(w.Body.Bytes(), &resp)
 	assert.NoError(t, err)
-	assert.Equal(t, xerr.ErrUnauthorized.Code, resp.Code)
+	assert.Equal(t, xerr.ErrJWTMissingToken.Code, resp.Code)
 	assert.Equal(t, "未提供认证令牌", resp.Msg)
 }
 
@@ -72,7 +72,7 @@ func TestJWTAuth_EmptyAuthHeader(t *testing.T) {
 	var resp response.Response
 	err := json.Unmarshal(w.Body.Bytes(), &resp)
 	assert.NoError(t, err)
-	assert.Equal(t, xerr.ErrUnauthorized.Code, resp.Code)
+	assert.Equal(t, xerr.ErrJWTMissingToken.Code, resp.Code)
 	assert.Equal(t, "未提供认证令牌", resp.Msg)
 }
 
@@ -103,7 +103,7 @@ func TestJWTAuth_InvalidTokenFormat(t *testing.T) {
 	var resp response.Response
 	err := json.Unmarshal(w.Body.Bytes(), &resp)
 	assert.NoError(t, err)
-	assert.Equal(t, xerr.ErrUnauthorized.Code, resp.Code)
+	assert.Equal(t, xerr.ErrJWTInvalidFormat.Code, resp.Code)
 	assert.Equal(t, "认证令牌格式错误", resp.Msg)
 }
 
@@ -134,7 +134,7 @@ func TestJWTAuth_NonBearerScheme(t *testing.T) {
 	var resp response.Response
 	err := json.Unmarshal(w.Body.Bytes(), &resp)
 	assert.NoError(t, err)
-	assert.Equal(t, xerr.ErrUnauthorized.Code, resp.Code)
+	assert.Equal(t, xerr.ErrJWTInvalidFormat.Code, resp.Code)
 	assert.Equal(t, "认证令牌格式错误", resp.Msg)
 }
 
@@ -199,7 +199,7 @@ func TestJWTAuth_InvalidTokenSignature(t *testing.T) {
 	var resp response.Response
 	err = json.Unmarshal(w.Body.Bytes(), &resp)
 	assert.NoError(t, err)
-	assert.Equal(t, xerr.ErrUnauthorized.Code, resp.Code)
+	assert.Equal(t, xerr.ErrJWTInvalidToken.Code, resp.Code)
 	assert.Equal(t, "认证令牌无效或已过期", resp.Msg)
 }
 
@@ -243,7 +243,7 @@ func TestJWTAuth_ExpiredToken(t *testing.T) {
 	var resp response.Response
 	err = json.Unmarshal(w.Body.Bytes(), &resp)
 	assert.NoError(t, err)
-	assert.Equal(t, xerr.ErrUnauthorized.Code, resp.Code)
+	assert.Equal(t, xerr.ErrJWTInvalidToken.Code, resp.Code)
 	assert.Equal(t, "认证令牌无效或已过期", resp.Msg)
 }
 
@@ -281,7 +281,7 @@ func TestJWTAuth_RefreshTokenType(t *testing.T) {
 	var resp response.Response
 	err = json.Unmarshal(w.Body.Bytes(), &resp)
 	assert.NoError(t, err)
-	assert.Equal(t, xerr.ErrUnauthorized.Code, resp.Code)
+	assert.Equal(t, xerr.ErrJWTWrongTokenType.Code, resp.Code)
 	assert.Equal(t, "无效的令牌类型", resp.Msg)
 }
 

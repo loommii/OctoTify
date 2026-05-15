@@ -15,7 +15,11 @@ import "net/http"
 // commonHTTPStatus 特殊错误码的 HTTP 状态码映射
 // 仅记录非 200 的错误码，未列出的默认返回 200
 var commonHTTPStatus = map[int]int{
-	100001: http.StatusUnauthorized, // JWT 鉴权失败
+	100001: http.StatusUnauthorized, // JWT 鉴权失败（通用）
+	111000: http.StatusUnauthorized, // JWT 未提供认证令牌
+	111001: http.StatusUnauthorized, // JWT 令牌格式错误
+	111002: http.StatusUnauthorized, // JWT 令牌无效或已过期
+	111003: http.StatusUnauthorized, // JWT 无效的令牌类型
 }
 
 // HTTPStatusFromCode 根据业务错误码返回对应的 HTTP 状态码

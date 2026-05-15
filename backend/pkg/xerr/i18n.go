@@ -260,6 +260,24 @@ var errorMessages = map[int]map[string]string{
 		"en": "Credential decryption failed",
 	},
 
+	// JWT 鉴权模块错误 1110XX
+	CodeJWTMissingToken: {
+		"zh": "未提供认证令牌",
+		"en": "Authentication token not provided",
+	},
+	CodeJWTInvalidFormat: {
+		"zh": "认证令牌格式错误",
+		"en": "Invalid authentication token format",
+	},
+	CodeJWTInvalidToken: {
+		"zh": "认证令牌无效或已过期",
+		"en": "Invalid or expired authentication token",
+	},
+	CodeJWTWrongTokenType: {
+		"zh": "无效的令牌类型",
+		"en": "Invalid token type",
+	},
+
 	// 第三方服务错误 2000XX
 	CodeThirdPartyCallFailed: {
 		"zh": "第三方接口调用失败",

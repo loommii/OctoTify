@@ -110,6 +110,12 @@ const (
 	CodeCredentialEncryptFailed = 110902
 	CodeCredentialDecryptFailed = 110903
 
+	// JWT 鉴权模块错误 1110XX
+	CodeJWTMissingToken   = 111000
+	CodeJWTInvalidFormat  = 111001
+	CodeJWTInvalidToken   = 111002
+	CodeJWTWrongTokenType = 111003
+
 	// 第三方服务错误 2000XX
 	CodeThirdPartyCallFailed = 200000
 	CodeQRCodeFetchFailed    = 200001
@@ -211,6 +217,14 @@ var (
 	ErrBindExpired             = New(CodeBindExpired)
 	ErrCredentialEncryptFailed = New(CodeCredentialEncryptFailed)
 	ErrCredentialDecryptFailed = New(CodeCredentialDecryptFailed)
+)
+
+// JWT 鉴权模块错误 1110XX
+var (
+	ErrJWTMissingToken   = New(CodeJWTMissingToken)
+	ErrJWTInvalidFormat  = New(CodeJWTInvalidFormat)
+	ErrJWTInvalidToken   = New(CodeJWTInvalidToken)
+	ErrJWTWrongTokenType = New(CodeJWTWrongTokenType)
 )
 
 // 第三方服务错误 2000XX

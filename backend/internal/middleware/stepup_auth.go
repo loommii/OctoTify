@@ -24,21 +24,21 @@ func StepUpAuth(verifyFn PasswordVerifyFunc) gin.HandlerFunc {
 		// 1. 获取当前用户 ID（由 JWTAuth 中间件注入）
 		userIDStr, exists := c.Get(ContextKeyUserID)
 		if !exists {
-			response.Unauthorized(c, xerr.ErrUnauthorized.Code, "未提供认证令牌")
+			response.Unauthorized(c, xerr.ErrUnauthorized.Code)
 			c.Abort()
 			return
 		}
 
 		userIDStrVal, ok := userIDStr.(string)
 		if !ok {
-			response.Unauthorized(c, xerr.ErrUnauthorized.Code, "无效的认证信息")
+			response.Unauthorized(c, xerr.ErrUnauthorized.Code)
 			c.Abort()
 			return
 		}
 
 		userID, err := strconv.ParseInt(userIDStrVal, 10, 64)
 		if err != nil {
-			response.Unauthorized(c, xerr.ErrUnauthorized.Code, "无效的认证信息")
+			response.Unauthorized(c, xerr.ErrUnauthorized.Code)
 			c.Abort()
 			return
 		}
