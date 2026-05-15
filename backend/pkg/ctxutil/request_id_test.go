@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
 )
 
 func TestWithRequestID_GetRequestID(t *testing.T) {
@@ -59,4 +60,47 @@ func TestGetRequestID_TodoContext(t *testing.T) {
 	got := GetRequestID(ctx)
 
 	assert.Equal(t, "", got)
+}
+
+// ============================================================================
+// TestLoggerWithRequestID 测试带 request_id 的 logger 功能
+// ============================================================================
+
+func TestLoggerWithRequestID_NilLogger(t *testing.T) {
+	ctx := context.Background()
+	ctx = WithRequestID(ctx, "test-rid-001")
+
+	result := LoggerWithRequestID(ctx, nil)
+
+	assert.Nil(t, result)
+}
+
+func TestLoggerWithRequestID_NoRequestID(t *testing.T) {
+	ctx := context.Background()
+	logger, _ := zap.NewDevelopment()
+
+	result := LoggerWithRequestID(ctx, logger)
+
+	assert.Equal(t, logger, result)
+}
+
+func TestLoggerWithRequestID_WithRequestID(t *testing.T) {
+	ctx := context.Background()
+	rid := "test-rid-002"
+	ctx = WithRequestID(ctx, rid)
+
+	logger, _ := zap.NewDevelopment()
+	result := LoggerWithRequestID(ctx, logger)
+
+	assert.NotNil(t, result)
+	assert.NotEqual(t, logger, result)
+}
+
+func TestLoggerWithRequestID_NilLoggerWithRID(t *testing.T) {
+	ctx := context.Background()
+	ctx = WithRequestID(ctx, "test-rid-003")
+
+	result := LoggerWithRequestID(ctx, nil)
+
+	assert.Nil(t, result)
 }
