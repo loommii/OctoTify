@@ -833,7 +833,7 @@ func newBindTestService(t *testing.T, targetURL string) *ChannelService {
 	db := SetupTestDB(t)
 	logger := SetupTestLogger(t)
 	factory := sender.NewSenderFactory(logger)
-	ilinkClient := ilink.NewClient(ilink.WithBaseURL(targetURL))
+	ilinkClient := ilink.NewClient(logger, ilink.WithBaseURL(targetURL))
 	return &ChannelService{
 		db:            db,
 		logger:        logger,

@@ -339,7 +339,7 @@ func (h *ChannelHandler) sendBindResponse(c *gin.Context, status string, credent
 			response.Fail(c, 500, "凭证加密失败")
 			return
 		}
-		resp.Credentials = &dto.BindCredentialsDTO{
+		resp.Credential = &dto.BindCredentialsDTO{
 			BotTokenCiphertext: cipherB64,
 			BotTokenNonce:      nonceB64,
 			IlinkBotID:         credentials.IlinkBotID,

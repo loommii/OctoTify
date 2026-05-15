@@ -41,7 +41,7 @@ func setupBindHandlerTest(t *testing.T, iLinkHandler http.HandlerFunc, userID *i
 	factory := sender.NewSenderFactory(logger)
 
 	// 创建 ChannelService，BaseURL 指向模拟 iLink 服务器
-	ilinkClient := ilink.NewClient(ilink.WithBaseURL(iLinkServer.URL))
+	ilinkClient := ilink.NewClient(logger, ilink.WithBaseURL(iLinkServer.URL))
 	svc := service.NewChannelServiceForTest(
 		db, logger, factory,
 		ilinkClient,
@@ -247,8 +247,8 @@ func TestChannelHandler_GetBindStatus(t *testing.T) {
 				assert.Equal(t, tt.wantStatus, dataMap["status"])
 
 				if tt.wantCreds {
-					credsMap, ok := dataMap["credentials"].(map[string]interface{})
-					require.True(t, ok, "confirmed 状态应包含 credentials")
+					credsMap, ok := dataMap["credential"].(map[string]interface{})
+					require.True(t, ok, "confirmed 状态应包含 credential")
 					assert.NotEmpty(t, credsMap["bot_token_ciphertext"], "bot_token_ciphertext 不应为空")
 					assert.NotEmpty(t, credsMap["bot_token_nonce"], "bot_token_nonce 不应为空")
 					assert.Equal(t, "h-bot-1", credsMap["ilink_bot_id"])

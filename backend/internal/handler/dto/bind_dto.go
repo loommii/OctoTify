@@ -15,8 +15,8 @@ type BindCredentialsDTO struct {
 
 // BindStatusResp 查询微信ClawBot绑定状态响应
 type BindStatusResp struct {
-	Status      string              `json:"status"`                // 绑定状态：pending/scanned/confirmed/expired
-	Credentials *BindCredentialsDTO `json:"credentials,omitempty"` // 绑定成功时返回的凭证
+	Status     string              `json:"status"`               // 绑定状态：pending/scanned/confirmed/expired
+	Credential *BindCredentialsDTO `json:"credential,omitempty"` // 绑定成功时返回的凭证
 }
 
 // StartBindResp 发起微信ClawBot绑定响应

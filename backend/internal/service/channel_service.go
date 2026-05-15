@@ -41,7 +41,7 @@ func NewChannelService(db *gorm.DB, logger *zap.Logger, senderFactory *sender.Se
 		db:            db,
 		logger:        logger,
 		senderFactory: senderFactory,
-		ilinkClient:   ilink.NewClient(),
+		ilinkClient:   ilink.NewClient(logger),
 	}
 }
 
