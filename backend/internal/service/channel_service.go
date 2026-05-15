@@ -258,12 +258,21 @@ func (s *ChannelService) ListChannels(ctx context.Context, userID int64, pageReq
 		if ch.LastUsedAt != nil {
 			lastUsedAt = ch.LastUsedAt.UnixMilli()
 		}
+
+		cfg := dto.FromJSON(ch.Config)
+		// wechat_clawbot 类型返回时将 bot_token 加密为前端期望的格式
+		if ch.Type == dto.ChannelTypeWechatClawbot {
+			if encrypted := encryptWechatClawbotToken(cfg); encrypted != nil {
+				cfg = encrypted
+			}
+		}
+
 		list = append(list, &dto.ChannelDTO{
 			ID:         ch.ID,
 			UserID:     ch.UserID,
 			Type:       ch.Type,
 			Name:       ch.Name,
-			Config:     dto.FromJSON(ch.Config),
+			Config:     cfg,
 			Status:     ch.Status,
 			CreatedAt:  ch.CreatedAt.UnixMilli(),
 			UpdatedAt:  ch.UpdatedAt.UnixMilli(),
@@ -330,13 +339,21 @@ func (s *ChannelService) GetChannelByID(ctx context.Context, userID int64, chann
 		lastUsedAt = channel.LastUsedAt.UnixMilli()
 	}
 
+	// 解析配置，wechat_clawbot 类型返回时将 bot_token 加密为前端期望的格式
+	cfg := dto.FromJSON(channel.Config)
+	if channel.Type == dto.ChannelTypeWechatClawbot {
+		if encrypted := encryptWechatClawbotToken(cfg); encrypted != nil {
+			cfg = encrypted
+		}
+	}
+
 	// 将模型转换为 DTO 返回
 	return &dto.ChannelDTO{
 		ID:         channel.ID,
 		UserID:     channel.UserID,
 		Type:       channel.Type,
 		Name:       channel.Name,
-		Config:     dto.FromJSON(channel.Config),
+		Config:     cfg,
 		Status:     channel.Status,
 		CreatedAt:  channel.CreatedAt.UnixMilli(),
 		UpdatedAt:  channel.UpdatedAt.UnixMilli(),
@@ -643,6 +660,29 @@ func (s *ChannelService) PollBindStatus(ctx context.Context, qrcode string) (sta
 	}
 
 	return status, credentials, nil
+}
+
+// encryptWechatClawbotToken 将 wechat_clawbot 渠道的 bot_token 明文加密为前端期望的格式
+// 返回加密后的 config map，若不需要加密则返回 nil
+func encryptWechatClawbotToken(config dto.ChannelConfig) dto.ChannelConfig {
+	botToken, ok := config["bot_token"].(string)
+	if !ok || botToken == "" {
+		return nil
+	}
+
+	cipherB64, nonceB64, err := aescipher.GlobalEncryptBase64([]byte(botToken))
+	if err != nil {
+		return nil
+	}
+
+	encrypted := make(dto.ChannelConfig)
+	for k, v := range config {
+		encrypted[k] = v
+	}
+	encrypted["bot_token_ciphertext"] = cipherB64
+	encrypted["bot_token_nonce"] = nonceB64
+	delete(encrypted, "bot_token")
+	return encrypted
 }
 
 // processChannelConfig 处理渠道配置（针对 wechat_clawbot 类型进行解密和校验）
