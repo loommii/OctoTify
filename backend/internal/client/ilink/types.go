@@ -23,8 +23,9 @@ type Credentials struct {
 
 // QRCodeResponse 调用 iLink API 获取二维码的响应
 type QRCodeResponse struct {
-	QRCode           string `json:"qrcode"`
-	QRCodeImgContent string `json:"qrcode_img_content"`
+	RetCode          int    `json:"ret"`                // 返回码，0 表示成功
+	QRCode           string `json:"qrcode"`             // 二维码原始值
+	QRCodeImgContent string `json:"qrcode_img_content"` // 二维码图片 URL
 }
 
 // QRStatusResponse 调用 iLink API 查询二维码状态的响应

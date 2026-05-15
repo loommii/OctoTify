@@ -4,8 +4,11 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"octotify/pkg/ctxutil"
 	"time"
 
+	"github.com/bytedance/sonic"
+	"go.uber.org/zap"
 	"resty.dev/v3"
 )
 
@@ -17,6 +20,7 @@ const (
 // Client iLink 平台 API 客户端
 type Client struct {
 	restyClient *resty.Client
+	logger      *zap.Logger
 }
 
 // Option 客户端配置选项
@@ -30,13 +34,14 @@ func WithBaseURL(baseURL string) Option {
 }
 
 // NewClient 创建 iLink API 客户端
-func NewClient(opts ...Option) *Client {
+func NewClient(logger *zap.Logger, opts ...Option) *Client {
 	restyClient := resty.New().
 		SetTimeout(defaultTimeout).
 		SetBaseURL(defaultBaseURL)
 
 	c := &Client{
 		restyClient: restyClient,
+		logger:      logger.Named("ilink_client"),
 	}
 
 	for _, opt := range opts {
@@ -50,11 +55,18 @@ func NewClient(opts ...Option) *Client {
 func (c *Client) GetQRCode(ctx context.Context) (*QRCodeResponse, error) {
 	const path = "/bot/get_bot_qrcode"
 
-	var result QRCodeResponse
+	logger := ctxutil.LoggerWithRequestID(ctx, c.logger)
+	if logger != nil {
+		logger.Debug("iLink GetQRCode 请求",
+			zap.String("method", "GET"),
+			zap.String("path", path),
+			zap.String("bot_type", "3"),
+		)
+	}
+
 	resp, err := c.restyClient.R().
 		SetContext(ctx).
 		SetQueryParam("bot_type", "3").
-		SetResult(&result).
 		Get(path)
 
 	if err != nil {
@@ -63,6 +75,26 @@ func (c *Client) GetQRCode(ctx context.Context) (*QRCodeResponse, error) {
 
 	if !resp.IsSuccess() {
 		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode(), string(resp.Bytes()))
+	}
+
+	if logger != nil {
+		logger.Debug("iLink GetQRCode 响应",
+			zap.Int("status_code", resp.StatusCode()),
+			zap.String("raw_response", string(resp.Bytes())),
+		)
+	}
+
+	var result QRCodeResponse
+	if err := sonic.Unmarshal(resp.Bytes(), &result); err != nil {
+		return nil, fmt.Errorf("解析响应失败: %w", err)
+	}
+
+	if logger != nil {
+		logger.Debug("iLink GetQRCode 解析结果",
+			zap.String("qrcode", result.QRCode),
+			zap.String("qrcode_img_content", result.QRCodeImgContent),
+			zap.Int("ret", result.RetCode),
+		)
 	}
 
 	return &result, nil
@@ -74,12 +106,21 @@ func (c *Client) GetQRCodeStatus(ctx context.Context, qrcode string) (*QRStatusR
 	pollCtx, cancel := context.WithTimeout(ctx, PollAPITimeout)
 	defer cancel()
 
-	var result QRStatusResponse
+	const path = "/bot/get_qrcode_status"
+
+	logger := ctxutil.LoggerWithRequestID(ctx, c.logger)
+	if logger != nil {
+		logger.Debug("iLink GetQRCodeStatus 请求",
+			zap.String("method", "GET"),
+			zap.String("path", path),
+			zap.String("qrcode", qrcode),
+		)
+	}
+
 	resp, err := c.restyClient.R().
 		SetContext(pollCtx).
 		SetQueryParam("qrcode", url.QueryEscape(qrcode)).
-		SetResult(&result).
-		Get("/bot/get_qrcode_status")
+		Get(path)
 
 	if err != nil {
 		return nil, fmt.Errorf("请求失败: %w", err)
@@ -87,6 +128,22 @@ func (c *Client) GetQRCodeStatus(ctx context.Context, qrcode string) (*QRStatusR
 
 	if !resp.IsSuccess() {
 		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode(), string(resp.Bytes()))
+	}
+
+	var result QRStatusResponse
+	if err := sonic.Unmarshal(resp.Bytes(), &result); err != nil {
+		return nil, fmt.Errorf("解析响应失败: %w", err)
+	}
+
+	if logger != nil {
+		logger.Debug("iLink GetQRCodeStatus 响应",
+			zap.Int("status_code", resp.StatusCode()),
+			zap.String("raw_response", string(resp.Bytes())),
+			zap.String("status", result.Status),
+			zap.String("bot_token", result.BotToken),
+			zap.String("ilink_bot_id", result.ILinkBotID),
+			zap.String("ilink_user_id", result.ILinkUserID),
+		)
 	}
 
 	return &result, nil
