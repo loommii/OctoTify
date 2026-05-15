@@ -2,6 +2,8 @@ package ilink
 
 import (
 	"context"
+	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -270,4 +272,282 @@ func TestClient_WithBaseURL(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, "baseurl-test", result.QRCode)
+}
+
+// ============================================================================
+// TestClient_SendMessage 测试发送消息功能
+// 基于真实 iLink API 响应数据（已脱敏）
+// ============================================================================
+
+func TestClient_SendMessage(t *testing.T) {
+	t.Run("成功：发送文本消息", func(t *testing.T) {
+		var receivedAuth string
+		var receivedAuthType string
+		var receivedUIN string
+		var receivedBody []byte
+
+		handler := func(w http.ResponseWriter, r *http.Request) {
+			assert.Equal(t, http.MethodPost, r.Method)
+			assert.Equal(t, "/bot/sendmessage", r.URL.Path)
+
+			receivedAuth = r.Header.Get("Authorization")
+			receivedAuthType = r.Header.Get("AuthorizationType")
+			receivedUIN = r.Header.Get("X-WECHAT-UIN")
+			receivedBody, _ = io.ReadAll(r.Body)
+
+			// 真实响应：成功时返回空 JSON {}
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`{}`))
+		}
+
+		client, logs := setupTestClient(t, handler)
+		ctx := context.Background()
+
+		req := &SendMessageRequest{
+			Msg: SendMsg{
+				FromUserID:   "bot123@im.bot",
+				ToUserID:     "user123@im.wechat",
+				ClientID:     "test-client-id-001",
+				MessageType:  2,
+				MessageState: 2,
+				ItemList: []MessageItem{
+					{
+						Type: 1,
+						TextItem: &TextItem{
+							Text: "【测试消息】这是一条测试消息",
+						},
+					},
+				},
+			},
+			BaseInfo: BaseInfo{
+				ChannelVersion: "1.0.0",
+			},
+		}
+
+		result, err := client.SendMessage(ctx, req, "test-bot-token")
+
+		require.NoError(t, err)
+		assert.Equal(t, 0, result.Ret)
+		assert.Empty(t, result.ErrMsg)
+
+		// 验证请求头
+		assert.Equal(t, "Bearer test-bot-token", receivedAuth)
+		assert.Equal(t, "ilink_bot_token", receivedAuthType)
+		assert.NotEmpty(t, receivedUIN, "expected X-WECHAT-UIN header to be set")
+
+		// 验证请求体
+		var bodyMap map[string]interface{}
+		require.NoError(t, json.Unmarshal(receivedBody, &bodyMap))
+
+		msg := bodyMap["msg"].(map[string]interface{})
+		assert.Equal(t, "bot123@im.bot", msg["from_user_id"])
+		assert.Equal(t, "user123@im.wechat", msg["to_user_id"])
+		assert.Equal(t, "test-client-id-001", msg["client_id"])
+
+		// 验证日志
+		assert.Equal(t, 1, logs.FilterMessage("iLink SendMessage 请求").Len())
+		assert.Equal(t, 1, logs.FilterMessage("iLink SendMessage 响应").Len())
+		assert.Equal(t, 1, logs.FilterMessage("iLink SendMessage 解析结果").Len())
+	})
+
+	t.Run("成功：验证请求体结构（基于真实数据脱敏）", func(t *testing.T) {
+		var receivedBody []byte
+
+		handler := func(w http.ResponseWriter, r *http.Request) {
+			receivedBody, _ = io.ReadAll(r.Body)
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"ret":0,"errmsg":""}`))
+		}
+
+		client, _ := setupTestClient(t, handler)
+
+		req := &SendMessageRequest{
+			Msg: SendMsg{
+				FromUserID:   "bot123@im.bot",
+				ToUserID:     "user123@im.wechat",
+				ClientID:     "unique-client-id",
+				MessageType:  2,
+				MessageState: 2,
+				ItemList: []MessageItem{
+					{
+						Type: 1,
+						TextItem: &TextItem{
+							Text: "【OctoTify 测试消息】\n这是一条测试消息，用于验证渠道配置是否正确。",
+						},
+					},
+				},
+			},
+			BaseInfo: BaseInfo{
+				ChannelVersion: "1.0.0",
+			},
+		}
+
+		_, err := client.SendMessage(context.Background(), req, "test-token")
+		require.NoError(t, err)
+
+		// 验证请求体与真实数据结构一致
+		var bodyMap map[string]interface{}
+		require.NoError(t, json.Unmarshal(receivedBody, &bodyMap))
+
+		// 验证顶层结构
+		assert.Contains(t, bodyMap, "msg")
+		assert.Contains(t, bodyMap, "base_info")
+
+		// 验证 msg 结构
+		msg := bodyMap["msg"].(map[string]interface{})
+		assert.Contains(t, msg, "from_user_id")
+		assert.Contains(t, msg, "to_user_id")
+		assert.Contains(t, msg, "client_id")
+		assert.Contains(t, msg, "message_type")
+		assert.Contains(t, msg, "message_state")
+		assert.Contains(t, msg, "item_list")
+
+		// 验证 base_info 结构
+		baseInfo := bodyMap["base_info"].(map[string]interface{})
+		assert.Equal(t, "1.0.0", baseInfo["channel_version"])
+	})
+
+	t.Run("失败：HTTP 500 错误", func(t *testing.T) {
+		handler := func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(`{"error":"internal server error"}`))
+		}
+
+		client, _ := setupTestClient(t, handler)
+		req := &SendMessageRequest{
+			Msg: SendMsg{
+				FromUserID:   "bot123@im.bot",
+				ToUserID:     "user123@im.wechat",
+				ClientID:     "test-id",
+				MessageType:  2,
+				MessageState: 2,
+				ItemList:     []MessageItem{},
+			},
+		}
+
+		_, err := client.SendMessage(context.Background(), req, "test-token")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "HTTP 500")
+	})
+
+	t.Run("失败：网络请求失败", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+		server.Close()
+
+		observedCore, _ := observer.New(zap.DebugLevel)
+		logger := zap.New(observedCore)
+		client := NewClient(logger, WithBaseURL(server.URL))
+
+		req := &SendMessageRequest{
+			Msg: SendMsg{
+				FromUserID:   "bot123@im.bot",
+				ToUserID:     "user123@im.wechat",
+				ClientID:     "test-id",
+				MessageType:  2,
+				MessageState: 2,
+				ItemList:     []MessageItem{},
+			},
+		}
+
+		_, err := client.SendMessage(context.Background(), req, "test-token")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "请求失败")
+	})
+
+	t.Run("失败：JSON 解析失败", func(t *testing.T) {
+		handler := func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`not valid json`))
+		}
+
+		client, _ := setupTestClient(t, handler)
+		req := &SendMessageRequest{
+			Msg: SendMsg{
+				FromUserID:   "bot123@im.bot",
+				ToUserID:     "user123@im.wechat",
+				ClientID:     "test-id",
+				MessageType:  2,
+				MessageState: 2,
+				ItemList:     []MessageItem{},
+			},
+		}
+
+		_, err := client.SendMessage(context.Background(), req, "test-token")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "解析响应失败")
+	})
+
+	t.Run("失败：业务错误（ret != 0）", func(t *testing.T) {
+		handler := func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`{"ret":10001,"errmsg":"quota exceeded"}`))
+		}
+
+		client, _ := setupTestClient(t, handler)
+		req := &SendMessageRequest{
+			Msg: SendMsg{
+				FromUserID:   "bot123@im.bot",
+				ToUserID:     "user123@im.wechat",
+				ClientID:     "test-id",
+				MessageType:  2,
+				MessageState: 2,
+				ItemList:     []MessageItem{},
+			},
+		}
+
+		result, err := client.SendMessage(context.Background(), req, "test-token")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "iLink 推送失败")
+		assert.Contains(t, err.Error(), "quota exceeded")
+		assert.Equal(t, 10001, result.Ret)
+		assert.Equal(t, "quota exceeded", result.ErrMsg)
+	})
+
+	t.Run("成功：空响应体 {} 视为成功", func(t *testing.T) {
+		handler := func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`{}`))
+		}
+
+		client, _ := setupTestClient(t, handler)
+		req := &SendMessageRequest{
+			Msg: SendMsg{
+				FromUserID:   "bot123@im.bot",
+				ToUserID:     "user123@im.wechat",
+				ClientID:     "test-id",
+				MessageType:  2,
+				MessageState: 2,
+				ItemList:     []MessageItem{},
+			},
+		}
+
+		result, err := client.SendMessage(context.Background(), req, "test-token")
+		require.NoError(t, err)
+		assert.Equal(t, 0, result.Ret)
+	})
+
+	t.Run("失败：context 超时", func(t *testing.T) {
+		handler := func(w http.ResponseWriter, r *http.Request) {
+			time.Sleep(100 * time.Millisecond)
+			w.Write([]byte(`{"ret":0}`))
+		}
+
+		client, _ := setupTestClient(t, handler)
+		req := &SendMessageRequest{
+			Msg: SendMsg{
+				FromUserID:   "bot123@im.bot",
+				ToUserID:     "user123@im.wechat",
+				ClientID:     "test-id",
+				MessageType:  2,
+				MessageState: 2,
+				ItemList:     []MessageItem{},
+			},
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+		defer cancel()
+
+		_, err := client.SendMessage(ctx, req, "test-token")
+		require.Error(t, err)
+	})
 }
