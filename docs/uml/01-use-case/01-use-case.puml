@@ -102,7 +102,7 @@ end note
 
 note right of UC_CreateChannel
   选择渠道类型：
-  微信 / Telegram / 钉钉 / 邮件 / Webhook
+  微信 ClawBot / 飞书 / Telegram / 钉钉 / 邮件
   并配置对应凭证
 end note
 
@@ -123,7 +123,7 @@ end note
 
 note right of UC_PushMultiChannels
   并发推送到各渠道
-  微信 / Telegram / 钉钉 / 邮件 / Webhook
+  微信 ClawBot / 飞书 / Telegram / 钉钉 / 邮件
 end note
 
 note right of UC_FilterMessages

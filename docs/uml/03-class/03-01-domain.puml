@@ -32,7 +32,7 @@ package "internal/model (领域模型)" {
     class "Channel (推送渠道)" as Channel <<struct>> {
         + ID: int64            ' 主键
         + UserID: int64        ' 所属用户ID
-        + Type: string         ' 渠道类型：wechat/telegram/dingtalk/email/webhook
+        + Type: string         ' 渠道类型：wechat_clawbot/telegram/dingtalk/email/feishu
         + Name: string         ' 渠道名称
         + Config: datatypes.JSON ' 各渠道配置信息（凭证等）
         + Status: int          ' 状态：1=正常, 2=禁用, -1=已删除

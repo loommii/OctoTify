@@ -18,8 +18,8 @@ package "internal/sender (推送策略层)" {
         + Create(channelType string): (Sender, error) ' 根据渠道类型创建发送器
     }
 
-    class "WechatSender (微信推送)" as WechatSender <<struct>> {
-        + Send(ctx context.Context, config datatypes.JSON, title string, content string): error ' 调用微信API推送
+    class "WechatClawbotSender (微信ClawBot推送)" as WechatClawbotSender <<struct>> {
+        + Send(ctx context.Context, config datatypes.JSON, title string, content string): error ' 调用iLink API推送微信消息
     }
     class "TelegramSender (Telegram推送)" as TelegramSender <<struct>> {
         + Send(ctx context.Context, config datatypes.JSON, title string, content string): error ' 调用Telegram Bot API推送
@@ -30,19 +30,15 @@ package "internal/sender (推送策略层)" {
     class "EmailSender (邮件推送)" as EmailSender <<struct>> {
         + Send(ctx context.Context, config datatypes.JSON, title string, content string): error ' 调用SMTP发送邮件
     }
-    class "WebhookSender (Webhook推送)" as WebhookSender <<struct>> {
-        + Send(ctx context.Context, config datatypes.JSON, title string, content string): error ' 发送HTTP POST到自定义URL
-    }
     class "FeishuSender (飞书推送)" as FeishuSender <<struct>> {
         + Send(ctx context.Context, config datatypes.JSON, title string, content string): error ' 调用飞书自定义机器人Webhook推送
     }
 }
 
-WechatSender ..|> Sender : 实现
+WechatClawbotSender ..|> Sender : 实现
 TelegramSender ..|> Sender : 实现
 DingtalkSender ..|> Sender : 实现
 EmailSender ..|> Sender : 实现
-WebhookSender ..|> Sender : 实现
 FeishuSender ..|> Sender : 实现
 SenderFactory --> Sender : 创建
 
@@ -52,11 +48,10 @@ note as SenderNote
     - 工厂模式：SenderFactory 根据 channel.Type 路由
 
     channel.Type → Sender 映射：
-    "wechat"    → WechatSender
+    "wechat_clawbot" → WechatClawbotSender
     "telegram"  → TelegramSender
     "dingtalk"  → DingtalkSender
     "email"     → EmailSender
-    "webhook"   → WebhookSender
     "feishu"    → FeishuSender
 
     FeishuSender 配置结构：

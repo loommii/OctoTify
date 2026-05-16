@@ -61,7 +61,7 @@ par 并发推送到各渠道 [渠道 1]
             Service -> Sender: send(ctx, channel.config, title, message)
             activate Sender
             Sender -> Sender: 调用渠道API推送消息
-            note over Sender: 微信/Telegram/钉钉/邮件/Webhook\n各渠道实现统一Sender接口
+            note over Sender: 微信ClawBot/飞书/Telegram/钉钉/邮件\n各渠道实现统一Sender接口
 
             alt 推送失败（网络错误/超时/API错误）
                 Sender --> Service: error

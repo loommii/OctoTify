@@ -108,8 +108,7 @@ pnpm dev:ele
 外部系统通过以下接口推送消息：
 
 ```bash
-POST /api/push/{sourceToken}
-Authorization: Bearer src019df95961e6743a85bb86bc1e42e181
+POST /api/push/src019df95961e6743a85bb86bc1e42e181
 Content-Type: application/json
 
 {
@@ -156,6 +155,37 @@ Content-Type: application/json
 ```
 
 后端使用 **Go + Gin**，前端使用 **Vue 3 + Vite**，数据存储使用 **SQLite**，数据访问层使用 **GORM Gen**。
+
+***
+
+## 📋 更新日志
+
+### v1.2.0
+
+**全新功能**
+- 新增微信 ClawBot 渠道，支持扫码绑定 + 消息激活验证
+- 新增密码二次验证，敏感操作更安全
+
+**界面升级**
+- 前端全面重构，全新 UI 和交互体验
+
+### v1.1.0
+
+**新增渠道**
+- 新增钉钉渠道，支持 HMAC-SHA256 加签校验
+- 新增 Gotify 自托管消息推送渠道
+
+### v1.0.0
+
+**核心功能**
+- 消息来源管理，一键生成推送 Token
+- 多渠道推送：飞书、Telegram、邮件
+- 灵活绑定：一个来源可关联多个渠道
+- 消息推送记录与审计
+
+**部署**
+- 支持 Docker Compose 一键部署
+- SQLite 数据库，开箱即用
 
 ***
 
