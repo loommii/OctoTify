@@ -6,299 +6,337 @@
 //   - DefaultLang: 默认语言（中文）
 package xerr
 
-// DefaultLang 默认语言
-const DefaultLang = "zh"
+// DefaultLang 默认语言（BCP 47: 简体中文-中国）
+const DefaultLang = "zh-CN"
+
+// SupportedLangs 支持的语言列表，按回退优先级排序
+var SupportedLangs = []string{"zh-CN", "en-US"}
 
 // errorMessages 错误消息的多语言翻译映射
 // key 为错误码，value 为对应语言的消息
 var errorMessages = map[int]map[string]string{
 	// 通用错误 1000XX
 	CodeBadRequest: {
-		"zh": "请求参数错误",
-		"en": "Invalid request parameters",
+		"zh-CN": "请求参数错误",
+		"en-US": "Invalid request parameters",
 	},
 	CodeUnauthorized: {
-		"zh": "未登录或Token已过期",
-		"en": "Not logged in or token expired",
+		"zh-CN": "未登录或Token已过期",
+		"en-US": "Not logged in or token expired",
 	},
 	CodeForbidden: {
-		"zh": "权限不足",
-		"en": "Insufficient permissions",
+		"zh-CN": "权限不足",
+		"en-US": "Insufficient permissions",
 	},
 	CodeNotFound: {
-		"zh": "资源不存在",
-		"en": "Resource not found",
+		"zh-CN": "资源不存在",
+		"en-US": "Resource not found",
 	},
 	CodeInternalServer: {
-		"zh": "服务器内部错误",
-		"en": "Internal server error",
+		"zh-CN": "服务器内部错误",
+		"en-US": "Internal server error",
 	},
 	CodeTooManyRequest: {
-		"zh": "请求过于频繁",
-		"en": "Too many requests",
+		"zh-CN": "请求过于频繁",
+		"en-US": "Too many requests",
 	},
 	CodeMethodNotAllowed: {
-		"zh": "请求方法不允许",
-		"en": "Method not allowed",
+		"zh-CN": "请求方法不允许",
+		"en-US": "Method not allowed",
 	},
 
 	// 注册模块错误 1101XX
 	CodeRegisterUsernameEmpty: {
-		"zh": "用户名不能为空",
-		"en": "Username cannot be empty",
+		"zh-CN": "用户名不能为空",
+		"en-US": "Username cannot be empty",
 	},
 	CodeRegisterPasswordEmpty: {
-		"zh": "密码不能为空",
-		"en": "Password cannot be empty",
+		"zh-CN": "密码不能为空",
+		"en-US": "Password cannot be empty",
 	},
 	CodeRegisterUsernameInvalid: {
-		"zh": "用户名格式不合法",
-		"en": "Invalid username format",
+		"zh-CN": "用户名格式不合法",
+		"en-US": "Invalid username format",
 	},
 	CodeRegisterPasswordInvalid: {
-		"zh": "密码格式不合法",
-		"en": "Invalid password format",
+		"zh-CN": "密码格式不合法",
+		"en-US": "Invalid password format",
 	},
 	CodeRegisterUsernameExists: {
-		"zh": "用户名已存在",
-		"en": "Username already exists",
+		"zh-CN": "用户名已存在",
+		"en-US": "Username already exists",
 	},
 	CodeRegisterFailed: {
-		"zh": "注册失败",
-		"en": "Registration failed",
+		"zh-CN": "注册失败",
+		"en-US": "Registration failed",
 	},
 
 	// 登录模块错误 1102XX
 	CodeLoginInvalidCredentials: {
-		"zh": "用户名或密码错误",
-		"en": "Invalid username or password",
+		"zh-CN": "用户名或密码错误",
+		"en-US": "Invalid username or password",
 	},
 	CodeLoginFailed: {
-		"zh": "登录失败",
-		"en": "Login failed",
+		"zh-CN": "登录失败",
+		"en-US": "Login failed",
 	},
 
 	// 刷新令牌模块错误 1103XX
 	CodeRefreshTokenInvalid: {
-		"zh": "刷新令牌无效",
-		"en": "Invalid refresh token",
+		"zh-CN": "刷新令牌无效",
+		"en-US": "Invalid refresh token",
 	},
 	CodeRefreshTokenRevoked: {
-		"zh": "刷新令牌已撤销",
-		"en": "Refresh token revoked",
+		"zh-CN": "刷新令牌已撤销",
+		"en-US": "Refresh token revoked",
 	},
 	CodeRefreshTokenExpired: {
-		"zh": "刷新令牌已过期",
-		"en": "Refresh token expired",
+		"zh-CN": "刷新令牌已过期",
+		"en-US": "Refresh token expired",
 	},
 	CodeRefreshTokenFailed: {
-		"zh": "刷新令牌失败",
-		"en": "Refresh token failed",
+		"zh-CN": "刷新令牌失败",
+		"en-US": "Refresh token failed",
 	},
 	CodeLogoutFailed: {
-		"zh": "退出登录失败",
-		"en": "Logout failed",
+		"zh-CN": "退出登录失败",
+		"en-US": "Logout failed",
 	},
 
 	// 密码管理模块错误 1104XX
 	CodeChangePasswordOldEmpty: {
-		"zh": "旧密码不能为空",
-		"en": "Old password cannot be empty",
+		"zh-CN": "旧密码不能为空",
+		"en-US": "Old password cannot be empty",
 	},
 	CodeChangePasswordNewEmpty: {
-		"zh": "新密码不能为空",
-		"en": "New password cannot be empty",
+		"zh-CN": "新密码不能为空",
+		"en-US": "New password cannot be empty",
 	},
 	CodeChangePasswordOldIncorrect: {
-		"zh": "旧密码错误",
-		"en": "Incorrect old password",
+		"zh-CN": "旧密码错误",
+		"en-US": "Incorrect old password",
 	},
 	CodeChangePasswordFailed: {
-		"zh": "密码修改失败",
-		"en": "Password change failed",
+		"zh-CN": "密码修改失败",
+		"en-US": "Password change failed",
 	},
 
 	// Source 模块错误 1105XX
 	CodeSourceParamNameEmpty: {
-		"zh": "来源名称不能为空",
-		"en": "Source name cannot be empty",
+		"zh-CN": "来源名称不能为空",
+		"en-US": "Source name cannot be empty",
 	},
 	CodeSourceInsertFailed: {
-		"zh": "创建来源失败",
-		"en": "Failed to create source",
+		"zh-CN": "创建来源失败",
+		"en-US": "Failed to create source",
 	},
 	CodeSourceTokenFailed: {
-		"zh": "生成来源Token失败",
-		"en": "Failed to generate source token",
+		"zh-CN": "生成来源Token失败",
+		"en-US": "Failed to generate source token",
 	},
 	CodeSourceNotFound: {
-		"zh": "来源不存在",
-		"en": "Source not found",
+		"zh-CN": "来源不存在",
+		"en-US": "Source not found",
 	},
 	CodeSourceNoPermission: {
-		"zh": "无权操作该来源",
-		"en": "No permission to operate this source",
+		"zh-CN": "无权操作该来源",
+		"en-US": "No permission to operate this source",
 	},
 	CodeSourceQueryFailed: {
-		"zh": "查询来源失败",
-		"en": "Failed to query source",
+		"zh-CN": "查询来源失败",
+		"en-US": "Failed to query source",
 	},
 	CodeSourceDeleteFailed: {
-		"zh": "删除来源失败",
-		"en": "Failed to delete source",
+		"zh-CN": "删除来源失败",
+		"en-US": "Failed to delete source",
 	},
 	CodeSourceAlreadyDisabled: {
-		"zh": "来源已停用",
-		"en": "Source already disabled",
+		"zh-CN": "来源已停用",
+		"en-US": "Source already disabled",
 	},
 	CodeSourceAlreadyEnabled: {
-		"zh": "来源已启用",
-		"en": "Source already enabled",
+		"zh-CN": "来源已启用",
+		"en-US": "Source already enabled",
 	},
 	CodeSourceAlreadyDeleted: {
-		"zh": "来源已删除",
-		"en": "Source already deleted",
+		"zh-CN": "来源已删除",
+		"en-US": "Source already deleted",
 	},
 	CodeSourceUpdateFailed: {
-		"zh": "更新来源失败",
-		"en": "Failed to update source",
+		"zh-CN": "更新来源失败",
+		"en-US": "Failed to update source",
 	},
 	CodeSourceDisabled: {
-		"zh": "来源已停用，无法推送",
-		"en": "Source disabled, cannot push",
+		"zh-CN": "来源已停用，无法推送",
+		"en-US": "Source disabled, cannot push",
 	},
 
 	// Channel 模块错误 1106XX
 	CodeChannelParamNameEmpty: {
-		"zh": "渠道名称不能为空",
-		"en": "Channel name cannot be empty",
+		"zh-CN": "渠道名称不能为空",
+		"en-US": "Channel name cannot be empty",
 	},
 	CodeChannelInvalidType: {
-		"zh": "无效的渠道类型",
-		"en": "Invalid channel type",
+		"zh-CN": "无效的渠道类型",
+		"en-US": "Invalid channel type",
 	},
 	CodeChannelInsertFailed: {
-		"zh": "创建渠道失败",
-		"en": "Failed to create channel",
+		"zh-CN": "创建渠道失败",
+		"en-US": "Failed to create channel",
 	},
 	CodeChannelNotFound: {
-		"zh": "渠道不存在",
-		"en": "Channel not found",
+		"zh-CN": "渠道不存在",
+		"en-US": "Channel not found",
 	},
 	CodeChannelNoPermission: {
-		"zh": "无权操作该渠道",
-		"en": "No permission to operate this channel",
+		"zh-CN": "无权操作该渠道",
+		"en-US": "No permission to operate this channel",
 	},
 	CodeChannelQueryFailed: {
-		"zh": "查询渠道失败",
-		"en": "Failed to query channel",
+		"zh-CN": "查询渠道失败",
+		"en-US": "Failed to query channel",
 	},
 	CodeChannelDeleteFailed: {
-		"zh": "删除渠道失败",
-		"en": "Failed to delete channel",
+		"zh-CN": "删除渠道失败",
+		"en-US": "Failed to delete channel",
 	},
 	CodeChannelAlreadyDisabled: {
-		"zh": "渠道已停用",
-		"en": "Channel already disabled",
+		"zh-CN": "渠道已停用",
+		"en-US": "Channel already disabled",
 	},
 	CodeChannelAlreadyEnabled: {
-		"zh": "渠道已启用",
-		"en": "Channel already enabled",
+		"zh-CN": "渠道已启用",
+		"en-US": "Channel already enabled",
 	},
 	CodeChannelAlreadyDeleted: {
-		"zh": "渠道已删除",
-		"en": "Channel already deleted",
+		"zh-CN": "渠道已删除",
+		"en-US": "Channel already deleted",
 	},
 
 	// Message 模块错误 1107XX
 	CodeMessageParamTitleEmpty: {
-		"zh": "消息标题不能为空",
-		"en": "Message title cannot be empty",
+		"zh-CN": "消息标题不能为空",
+		"en-US": "Message title cannot be empty",
 	},
 	CodeMessageParamContentEmpty: {
-		"zh": "消息内容不能为空",
-		"en": "Message content cannot be empty",
+		"zh-CN": "消息内容不能为空",
+		"en-US": "Message content cannot be empty",
 	},
 	CodeMessagePushFailed: {
-		"zh": "消息推送失败",
-		"en": "Message push failed",
+		"zh-CN": "消息推送失败",
+		"en-US": "Message push failed",
 	},
 	CodeMessageNoChannels: {
-		"zh": "来源未绑定任何渠道",
-		"en": "Source not bound to any channel",
+		"zh-CN": "来源未绑定任何渠道",
+		"en-US": "Source not bound to any channel",
 	},
 	CodeMessageRecordFailed: {
-		"zh": "记录消息状态失败",
-		"en": "Failed to record message status",
+		"zh-CN": "记录消息状态失败",
+		"en-US": "Failed to record message status",
 	},
 	CodeMessageAlreadyDeleted: {
-		"zh": "消息已删除",
-		"en": "Message already deleted",
+		"zh-CN": "消息已删除",
+		"en-US": "Message already deleted",
 	},
 
 	// 用户管理模块错误 1108XX
 	CodeUserProfileNotFound: {
-		"zh": "用户不存在",
-		"en": "User not found",
+		"zh-CN": "用户不存在",
+		"en-US": "User not found",
 	},
 	CodeUserProfileQueryFailed: {
-		"zh": "查询用户信息失败",
-		"en": "Failed to query user profile",
+		"zh-CN": "查询用户信息失败",
+		"en-US": "Failed to query user profile",
 	},
 
 	// 微信绑定模块错误 1109XX
 	CodeBindExpired: {
-		"zh": "绑定二维码已过期",
-		"en": "Binding QR code expired",
+		"zh-CN": "绑定二维码已过期",
+		"en-US": "Binding QR code expired",
 	},
 	CodeCredentialEncryptFailed: {
-		"zh": "凭证加密失败",
-		"en": "Credential encryption failed",
+		"zh-CN": "凭证加密失败",
+		"en-US": "Credential encryption failed",
 	},
 	CodeCredentialDecryptFailed: {
-		"zh": "凭证解密失败",
-		"en": "Credential decryption failed",
+		"zh-CN": "凭证解密失败",
+		"en-US": "Credential decryption failed",
 	},
 
 	// JWT 鉴权模块错误 1110XX
 	CodeJWTMissingToken: {
-		"zh": "未提供认证令牌",
-		"en": "Authentication token not provided",
+		"zh-CN": "未提供认证令牌",
+		"en-US": "Authentication token not provided",
 	},
 	CodeJWTInvalidFormat: {
-		"zh": "认证令牌格式错误",
-		"en": "Invalid authentication token format",
+		"zh-CN": "认证令牌格式错误",
+		"en-US": "Invalid authentication token format",
 	},
 	CodeJWTInvalidToken: {
-		"zh": "认证令牌无效或已过期",
-		"en": "Invalid or expired authentication token",
+		"zh-CN": "认证令牌无效或已过期",
+		"en-US": "Invalid or expired authentication token",
 	},
 	CodeJWTWrongTokenType: {
-		"zh": "无效的令牌类型",
-		"en": "Invalid token type",
+		"zh-CN": "无效的令牌类型",
+		"en-US": "Invalid token type",
 	},
 
 	// 第三方服务错误 2000XX
 	CodeThirdPartyCallFailed: {
-		"zh": "第三方接口调用失败",
-		"en": "Third-party API call failed",
+		"zh-CN": "第三方接口调用失败",
+		"en-US": "Third-party API call failed",
 	},
 	CodeQRCodeFetchFailed: {
-		"zh": "获取绑定二维码失败",
-		"en": "Failed to get binding QR code",
+		"zh-CN": "获取绑定二维码失败",
+		"en-US": "Failed to get binding QR code",
 	},
 	CodeBindStatusFailed: {
-		"zh": "查询绑定状态失败",
-		"en": "Failed to query binding status",
+		"zh-CN": "查询绑定状态失败",
+		"en-US": "Failed to query binding status",
 	},
 }
 
+// resolveLang 根据 BCP 47 语言标签解析实际使用的语言
+// 支持精确匹配（zh-CN）和前缀回退（zh -> zh-CN）
+func resolveLang(lang string) string {
+	if lang == "" {
+		return DefaultLang
+	}
+
+	// 精确匹配
+	for _, supported := range SupportedLangs {
+		if lang == supported {
+			return lang
+		}
+	}
+
+	// 前缀回退匹配：zh-CN/zh-TW -> zh-CN, en-US/en-GB -> en-US
+	langPrefix := lang
+	if idx := len(lang); idx > 2 {
+		// 查找第一个 '-' 前的前缀
+		for i, c := range lang {
+			if c == '-' {
+				langPrefix = lang[:i]
+				break
+			}
+		}
+	}
+
+	for _, supported := range SupportedLangs {
+		if len(supported) >= len(langPrefix) && supported[:len(langPrefix)] == langPrefix {
+			return supported
+		}
+	}
+
+	// 无法匹配，回退到默认语言
+	return DefaultLang
+}
+
 // TranslateMsg 根据错误码和语言返回对应翻译消息
+// 支持 BCP 47 语言标签，自动进行前缀回退匹配
 // 如果未找到翻译，返回空字符串
 func TranslateMsg(code int, lang string) string {
-	if lang == "" {
-		lang = DefaultLang
-	}
+	lang = resolveLang(lang)
 	if msgs, ok := errorMessages[code]; ok {
 		if msg, ok := msgs[lang]; ok {
 			return msg
