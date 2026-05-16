@@ -328,6 +328,7 @@ func TestClient_SendMessage(t *testing.T) {
 
 		require.NoError(t, err)
 		assert.Equal(t, 0, result.Ret)
+		assert.Equal(t, 0, result.ErrCode)
 		assert.Empty(t, result.ErrMsg)
 
 		// 验证请求头
@@ -477,10 +478,10 @@ func TestClient_SendMessage(t *testing.T) {
 		assert.Contains(t, err.Error(), "解析响应失败")
 	})
 
-	t.Run("失败：业务错误（ret != 0）", func(t *testing.T) {
+	t.Run("失败：业务错误（errcode != 0）", func(t *testing.T) {
 		handler := func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
-			w.Write([]byte(`{"ret":10001,"errmsg":"quota exceeded"}`))
+			w.Write([]byte(`{"errcode":10001,"errmsg":"quota exceeded"}`))
 		}
 
 		client, _ := setupTestClient(t, handler)
@@ -499,7 +500,7 @@ func TestClient_SendMessage(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "iLink 推送失败")
 		assert.Contains(t, err.Error(), "quota exceeded")
-		assert.Equal(t, 10001, result.Ret)
+		assert.Equal(t, 10001, result.ErrCode)
 		assert.Equal(t, "quota exceeded", result.ErrMsg)
 	})
 
@@ -524,6 +525,34 @@ func TestClient_SendMessage(t *testing.T) {
 		result, err := client.SendMessage(context.Background(), req, "test-token")
 		require.NoError(t, err)
 		assert.Equal(t, 0, result.Ret)
+		assert.Equal(t, 0, result.ErrCode)
+	})
+
+	t.Run("失败：session timeout（基于真实日志脱敏）", func(t *testing.T) {
+		// 真实响应：{"errcode":-14,"errmsg":"session timeout"}
+		handler := func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`{"errcode":-14,"errmsg":"session timeout"}`))
+		}
+
+		client, _ := setupTestClient(t, handler)
+		req := &SendMessageRequest{
+			Msg: SendMsg{
+				FromUserID:   "bot123@im.bot",
+				ToUserID:     "user123@im.wechat",
+				ClientID:     "test-id",
+				MessageType:  2,
+				MessageState: 2,
+				ItemList:     []MessageItem{},
+			},
+		}
+
+		result, err := client.SendMessage(context.Background(), req, "test-token")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "iLink 推送失败")
+		assert.Contains(t, err.Error(), "session timeout")
+		assert.Equal(t, -14, result.ErrCode)
+		assert.Equal(t, "session timeout", result.ErrMsg)
 	})
 
 	t.Run("失败：context 超时", func(t *testing.T) {
@@ -548,6 +577,165 @@ func TestClient_SendMessage(t *testing.T) {
 		defer cancel()
 
 		_, err := client.SendMessage(ctx, req, "test-token")
+		require.Error(t, err)
+	})
+}
+
+// ============================================================================
+// TestClient_GetUpdates 测试获取消息功能
+// 基于真实 iLink API 响应数据（已脱敏）
+// ============================================================================
+
+func TestClient_GetUpdates(t *testing.T) {
+	t.Run("成功：返回消息列表", func(t *testing.T) {
+		var receivedAuth string
+		var receivedAuthType string
+		var receivedUIN string
+		var receivedBody []byte
+
+		handler := func(w http.ResponseWriter, r *http.Request) {
+			assert.Equal(t, http.MethodPost, r.Method)
+			assert.Equal(t, "/bot/getupdates", r.URL.Path)
+
+			receivedAuth = r.Header.Get("Authorization")
+			receivedAuthType = r.Header.Get("AuthorizationType")
+			receivedUIN = r.Header.Get("X-WECHAT-UIN")
+			receivedBody, _ = io.ReadAll(r.Body)
+
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`{
+				"ret": 0,
+				"msgs": [
+					{
+						"from_user_id": "user123@im.wechat",
+						"to_user_id": "bot123@im.bot",
+						"message_type": 1,
+						"message_state": 2,
+						"item_list": [{"type": 1, "text_item": {"text": "hello"}}],
+						"context_token": "ctx-token-123"
+					}
+				],
+				"get_updates_buf": "buf-123"
+			}`))
+		}
+
+		client, logs := setupTestClient(t, handler)
+		ctx := context.Background()
+
+		result, err := client.GetUpdates(ctx, "test-bot-token")
+
+		require.NoError(t, err)
+		assert.Equal(t, 0, result.Ret)
+		assert.Len(t, result.Msgs, 1)
+		assert.Equal(t, "user123@im.wechat", result.Msgs[0].FromUserID)
+		assert.Equal(t, "bot123@im.bot", result.Msgs[0].ToUserID)
+		assert.Equal(t, 1, result.Msgs[0].MessageType)
+		assert.Equal(t, 2, result.Msgs[0].MessageState)
+		assert.Equal(t, "ctx-token-123", result.Msgs[0].ContextToken)
+		assert.Len(t, result.Msgs[0].ItemList, 1)
+		assert.Equal(t, 1, result.Msgs[0].ItemList[0].Type)
+		assert.Equal(t, "hello", result.Msgs[0].ItemList[0].TextItem.Text)
+		assert.Equal(t, "buf-123", result.GetUpdatesBuf)
+
+		assert.Equal(t, "Bearer test-bot-token", receivedAuth)
+		assert.Equal(t, "ilink_bot_token", receivedAuthType)
+		assert.NotEmpty(t, receivedUIN, "expected X-WECHAT-UIN header to be set")
+
+		var bodyMap map[string]interface{}
+		require.NoError(t, json.Unmarshal(receivedBody, &bodyMap))
+		assert.Equal(t, "", bodyMap["get_updates_buf"])
+		baseInfo := bodyMap["base_info"].(map[string]interface{})
+		assert.Equal(t, "1.0.0", baseInfo["channel_version"])
+
+		assert.Equal(t, 1, logs.FilterMessage("iLink GetUpdates 请求").Len())
+		assert.Equal(t, 1, logs.FilterMessage("iLink GetUpdates 响应").Len())
+		assert.Equal(t, 1, logs.FilterMessage("iLink GetUpdates 解析结果").Len())
+	})
+
+	t.Run("成功：返回空消息列表", func(t *testing.T) {
+		handler := func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`{"ret": 0, "msgs": []}`))
+		}
+
+		client, _ := setupTestClient(t, handler)
+		result, err := client.GetUpdates(context.Background(), "test-token")
+
+		require.NoError(t, err)
+		assert.Equal(t, 0, result.Ret)
+		assert.Empty(t, result.Msgs)
+	})
+
+	t.Run("失败：HTTP 500 错误", func(t *testing.T) {
+		handler := func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(`{"error": "internal server error"}`))
+		}
+
+		client, _ := setupTestClient(t, handler)
+		_, err := client.GetUpdates(context.Background(), "test-token")
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "HTTP 500")
+	})
+
+	t.Run("失败：网络请求失败", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+		server.Close()
+
+		observedCore, _ := observer.New(zap.DebugLevel)
+		logger := zap.New(observedCore)
+		client := NewClient(logger, WithBaseURL(server.URL))
+
+		_, err := client.GetUpdates(context.Background(), "test-token")
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "请求失败")
+	})
+
+	t.Run("失败：JSON 解析失败", func(t *testing.T) {
+		handler := func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`not valid json`))
+		}
+
+		client, _ := setupTestClient(t, handler)
+		_, err := client.GetUpdates(context.Background(), "test-token")
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "解析响应失败")
+	})
+
+	t.Run("失败：业务错误（errcode != 0）", func(t *testing.T) {
+		handler := func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`{"ret": -14, "errcode": -14, "errmsg": "session expired"}`))
+		}
+
+		client, _ := setupTestClient(t, handler)
+		result, err := client.GetUpdates(context.Background(), "test-token")
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "iLink GetUpdates 失败")
+		assert.Contains(t, err.Error(), "session expired")
+		assert.NotNil(t, result)
+		assert.Equal(t, -14, result.ErrCode)
+		assert.Equal(t, "session expired", result.ErrMsg)
+	})
+
+	t.Run("失败：context 超时", func(t *testing.T) {
+		handler := func(w http.ResponseWriter, r *http.Request) {
+			time.Sleep(100 * time.Millisecond)
+			w.Write([]byte(`{"ret": 0, "msgs": []}`))
+		}
+
+		client, _ := setupTestClient(t, handler)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+		defer cancel()
+
+		_, err := client.GetUpdates(ctx, "test-token")
+
 		require.Error(t, err)
 	})
 }

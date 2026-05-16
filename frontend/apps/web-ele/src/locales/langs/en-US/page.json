@@ -131,6 +131,8 @@
     "bindSuccess": "WeChat bound successfully",
     "expired": "QR code expired",
     "refreshing": "Regenerate",
+    "pendingActivation": "Please send a message in WeChat to complete activation",
+    "activationTip": "Binding successful, waiting for activation verification...",
     "feishu": "Feishu",
     "dingtalk": "DingTalk",
     "telegram": "Telegram",

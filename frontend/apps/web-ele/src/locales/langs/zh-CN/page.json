@@ -131,6 +131,8 @@
     "bindSuccess": "微信已绑定",
     "expired": "二维码已过期",
     "refreshing": "重新生成",
+    "pendingActivation": "请在微信中发送任意消息完成激活",
+    "activationTip": "绑定成功，等待激活验证...",
     "feishu": "飞书",
     "dingtalk": "钉钉",
     "telegram": "Telegram",

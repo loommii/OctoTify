@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -16,6 +17,7 @@ import (
 	"octotify/internal/middleware"
 	"octotify/internal/sender"
 	"octotify/internal/service"
+	"octotify/pkg/aescipher"
 	"octotify/pkg/response"
 	"octotify/pkg/xerr"
 )
@@ -258,6 +260,133 @@ func TestChannelHandler_GetBindStatus(t *testing.T) {
 					assert.Equal(t, "h-bot-1", credsMap["ilink_bot_id"])
 					assert.Equal(t, "h-user-1", credsMap["ilink_user_id"])
 				}
+			}
+		})
+	}
+}
+
+// ============================================================================
+// TestChannelHandler_CheckActivation 测试检查激活消息的 Handler 层
+// ============================================================================
+
+func setupCheckActivationTest(t *testing.T, iLinkHandler http.HandlerFunc, userID *int64) (*gin.Engine, string, string) {
+	t.Helper()
+	gin.SetMode(gin.TestMode)
+
+	iLinkServer := httptest.NewServer(iLinkHandler)
+	t.Cleanup(func() { iLinkServer.Close() })
+
+	db := service.SetupTestDB(t)
+	logger := service.SetupTestLogger(t)
+
+	ilinkClient := ilink.NewClient(logger, ilink.WithBaseURL(iLinkServer.URL))
+	factory := sender.NewSenderFactory(logger, ilinkClient)
+	svc := service.NewChannelServiceForTest(db, logger, factory, ilinkClient)
+
+	testUser := service.CreateTestUser(t, db, "handler_check_activation_user", "Password1")
+
+	cipherB64, nonceB64, err := aescipher.GlobalEncryptBase64([]byte("handler-bot-token"))
+	require.NoError(t, err, "加密 bot_token 失败")
+
+	handler := NewChannelHandler(svc, logger)
+
+	r := gin.New()
+	r.Use(middleware.ErrorHandler(logger))
+
+	if userID != nil {
+		r.Use(func(c *gin.Context) {
+			c.Set(middleware.ContextKeyUserID, strconv.FormatInt(testUser.ID, 10))
+			c.Next()
+		})
+	}
+
+	r.POST("/channels/wechat-clawbot/check-activation", handler.CheckActivation)
+
+	return r, cipherB64, nonceB64
+}
+
+func TestChannelHandler_CheckActivation(t *testing.T) {
+	tests := []struct {
+		name         string
+		userID       *int64
+		requestBody  string
+		iLinkHandler http.HandlerFunc
+		wantHTTPCode int
+		wantBizCode  int
+		wantResult   bool
+	}{
+		{
+			name:        "成功：返回 has_activation=true",
+			userID:      int64Ptr(1),
+			requestBody: `{"bot_token_ciphertext": "%s", "bot_token_nonce": "%s"}`,
+			iLinkHandler: func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				w.Write([]byte(`{"ret": 0, "msgs": [{"from_user_id": "user@handler.im.wechat", "message_type": 1}]}`))
+			},
+			wantHTTPCode: http.StatusOK,
+			wantBizCode:  0,
+			wantResult:   true,
+		},
+		{
+			name:        "成功：返回 has_activation=false",
+			userID:      int64Ptr(1),
+			requestBody: `{"bot_token_ciphertext": "%s", "bot_token_nonce": "%s"}`,
+			iLinkHandler: func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				w.Write([]byte(`{"ret": 0, "msgs": []}`))
+			},
+			wantHTTPCode: http.StatusOK,
+			wantBizCode:  0,
+			wantResult:   false,
+		},
+		{
+			name:         "失败：未认证",
+			userID:       nil,
+			requestBody:  `{"bot_token_ciphertext": "test", "bot_token_nonce": "test"}`,
+			iLinkHandler: nil,
+			wantHTTPCode: http.StatusOK,
+			wantBizCode:  xerr.ErrUnauthorized.Code,
+		},
+		{
+			name:         "失败：缺少 bot_token_ciphertext 参数",
+			userID:       int64Ptr(1),
+			requestBody:  `{"bot_token_nonce": "test"}`,
+			iLinkHandler: nil,
+			wantHTTPCode: http.StatusOK,
+			wantBizCode:  xerr.ErrBadRequest.Code,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			iLinkHandler := tt.iLinkHandler
+			if iLinkHandler == nil {
+				iLinkHandler = func(w http.ResponseWriter, r *http.Request) {
+					w.WriteHeader(http.StatusOK)
+				}
+			}
+
+			r, cipherB64, nonceB64 := setupCheckActivationTest(t, iLinkHandler, tt.userID)
+
+			body := tt.requestBody
+			if tt.userID != nil {
+				body = fmt.Sprintf(tt.requestBody, cipherB64, nonceB64)
+			}
+
+			req := httptest.NewRequest(http.MethodPost, "/channels/wechat-clawbot/check-activation", strings.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			r.ServeHTTP(w, req)
+
+			assert.Equal(t, tt.wantHTTPCode, w.Code)
+
+			resp := parseResponse(t, w)
+			assert.Equal(t, tt.wantBizCode, resp.Code)
+
+			if tt.wantBizCode == 0 {
+				dataMap, ok := resp.Data.(map[string]interface{})
+				require.True(t, ok, "响应 data 应为 map")
+				assert.Equal(t, tt.wantResult, dataMap["has_activation"])
 			}
 		})
 	}

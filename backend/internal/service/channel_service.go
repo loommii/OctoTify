@@ -752,3 +752,42 @@ func (s *ChannelService) processChannelConfig(ctx context.Context, channelType s
 
 	return nil, fmt.Errorf("微信ClawBot配置缺少 bot_token_ciphertext/bot_token_nonce 或 bot_token 字段")
 }
+
+// CheckActivationMessage 检查用户是否已向微信ClawBot发送激活消息
+// 参数:
+//   - ctx: 上下文
+//   - botTokenCiphertext: Bot Token 密文
+//   - botTokenNonce: 加密 Nonce
+//
+// 返回:
+//   - hasActivation: 是否已发送激活消息
+//   - err: 错误信息
+func (s *ChannelService) CheckActivationMessage(ctx context.Context, botTokenCiphertext string, botTokenNonce string) (bool, error) {
+	plaintext, err := aescipher.GlobalDecryptBase64(botTokenCiphertext, botTokenNonce)
+	if err != nil {
+		s.log(ctx).Error("BotToken 解密失败", zap.Error(err))
+		return false, fmt.Errorf("凭证解密失败: %w", err)
+	}
+	if len(plaintext) == 0 {
+		return false, fmt.Errorf("解密后的 BotToken 为空")
+	}
+
+	botToken := string(plaintext)
+
+	resp, err := s.ilinkClient.GetUpdates(ctx, botToken)
+	if err != nil {
+		s.log(ctx).Error("调用 iLink GetUpdates 失败",
+			zap.Error(err),
+		)
+		return false, fmt.Errorf("获取消息失败: %w", err)
+	}
+
+	hasActivation := len(resp.Msgs) > 0
+
+	s.log(ctx).Info("激活消息检查完成",
+		zap.Bool("has_activation", hasActivation),
+		zap.Int("msg_count", len(resp.Msgs)),
+	)
+
+	return hasActivation, nil
+}

@@ -24,6 +24,13 @@
       <p class="text-gray-400 text-sm mt-1">{{ $t('page.channel.scanTip') }}</p>
     </div>
 
+    <!-- 待激活（已扫码，等待发送消息） -->
+    <div v-else-if="state === 'pending_activation'" class="flex-col-center py-6">
+      <IconifyIcon icon="mdi:message-processing" class="text-blue-500 text-5xl" />
+      <p class="mt-3 text-lg font-medium text-gray-700">{{ $t('page.channel.pendingActivation') }}</p>
+      <p class="text-gray-400 text-sm mt-1">{{ $t('page.channel.activationTip') }}</p>
+    </div>
+
     <!-- 扫码确认 -->
     <div v-else-if="state === 'confirmed'" class="flex-col-center py-6">
       <IconifyIcon icon="mdi:check-circle" class="text-green-500 text-5xl" />
@@ -57,7 +64,7 @@ const emit = defineEmits<{
 }>();
 
 // 获取微信绑定状态和方法
-const { state, qrCodeUrl, credential, startBind, stopPolling } = useWechatBind();
+const { state, qrCodeUrl, credential, startBind, stopPolling, stopActivationPolling } = useWechatBind();
 
 // 使用 useQRCode 将二维码 URL 转换为二维码图片
 const qrCodeImage = useQRCode(qrCodeUrl, {
@@ -77,7 +84,7 @@ function handleRefresh() {
 
 // 监听凭证变化，通知父组件
 watch(credential, (newVal) => {
-  if (newVal) {
+  if (newVal && state.value === 'pending_activation') {
     emit('bound', newVal);
   }
 });
@@ -85,5 +92,6 @@ watch(credential, (newVal) => {
 // 组件卸载时停止轮询
 onBeforeUnmount(() => {
   stopPolling();
+  stopActivationPolling();
 });
 </script>

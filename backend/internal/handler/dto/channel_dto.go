@@ -285,3 +285,14 @@ type ChannelDTO struct {
 	UpdatedAt  int64         `json:"updated_at_ts" example:"1714636800000"`   // 更新时间（Unix 毫秒时间戳）
 	LastUsedAt int64         `json:"last_used_at_ts" example:"1714636800000"` // 最后使用时间（Unix 毫秒时间戳，0 表示未使用）
 }
+
+// CheckActivationReq 检查激活消息请求
+type CheckActivationReq struct {
+	BotTokenCiphertext string `json:"bot_token_ciphertext" binding:"required"` // Bot Token 密文
+	BotTokenNonce      string `json:"bot_token_nonce" binding:"required"`      // 加密 Nonce
+}
+
+// CheckActivationResp 检查激活消息响应
+type CheckActivationResp struct {
+	HasActivation bool `json:"has_activation" example:"true"` // 是否已发送激活消息
+}

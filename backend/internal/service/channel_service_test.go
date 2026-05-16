@@ -16,6 +16,7 @@ import (
 	"octotify/internal/handler/dto"
 	"octotify/internal/model"
 	"octotify/internal/sender"
+	"octotify/pkg/aescipher"
 	"octotify/pkg/xerr"
 )
 
@@ -1027,6 +1028,102 @@ func TestChannelService_PollBindStatus(t *testing.T) {
 				}
 			} else {
 				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+// ============================================================================
+// TestChannelService_CheckActivationMessage 测试检查激活消息功能
+// ============================================================================
+
+func TestChannelService_CheckActivationMessage(t *testing.T) {
+	logger := SetupTestLogger(t)
+	ctx := context.Background()
+
+	cipherB64, nonceB64, err := aescipher.GlobalEncryptBase64([]byte("test-bot-token"))
+	require.NoError(t, err, "加密 bot_token 失败")
+
+	invalidCipher := "invalid-cipher"
+	invalidNonce := "invalid-nonce"
+
+	tests := []struct {
+		name             string
+		cipherText       string
+		nonce            string
+		iLinkHandler     http.HandlerFunc
+		wantResult       bool
+		wantErr          bool
+		errContains      string
+	}{
+		{
+			name:       "成功：有激活消息",
+			cipherText: cipherB64,
+			nonce:      nonceB64,
+			iLinkHandler: func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				w.Write([]byte(`{"ret": 0, "msgs": [{"from_user_id": "user@test.im.wechat", "message_type": 1}]}`))
+			},
+			wantResult:  true,
+			wantErr:     false,
+		},
+		{
+			name:       "成功：无激活消息",
+			cipherText: cipherB64,
+			nonce:      nonceB64,
+			iLinkHandler: func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				w.Write([]byte(`{"ret": 0, "msgs": []}`))
+			},
+			wantResult:  false,
+			wantErr:     false,
+		},
+		{
+			name:        "失败：凭证解密失败",
+			cipherText:  invalidCipher,
+			nonce:       invalidNonce,
+			iLinkHandler: nil,
+			wantErr:     true,
+			errContains: "凭证解密失败",
+		},
+		{
+			name:       "失败：iLink API 调用失败",
+			cipherText: cipherB64,
+			nonce:      nonceB64,
+			iLinkHandler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusInternalServerError)
+			},
+			wantErr:     true,
+			errContains: "获取消息失败",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			iLinkHandler := tt.iLinkHandler
+			if iLinkHandler == nil {
+				iLinkHandler = func(w http.ResponseWriter, r *http.Request) {
+					w.WriteHeader(http.StatusOK)
+				}
+			}
+
+			iLinkServer := httptest.NewServer(iLinkHandler)
+			defer iLinkServer.Close()
+
+			ilinkClient := ilink.NewClient(logger, ilink.WithBaseURL(iLinkServer.URL))
+			factory := sender.NewSenderFactory(logger, ilinkClient)
+			svc := NewChannelService(nil, logger, factory, ilinkClient)
+
+			hasActivation, err := svc.CheckActivationMessage(ctx, tt.cipherText, tt.nonce)
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				if tt.errContains != "" {
+					assert.Contains(t, err.Error(), tt.errContains)
+				}
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.wantResult, hasActivation)
 			}
 		})
 	}

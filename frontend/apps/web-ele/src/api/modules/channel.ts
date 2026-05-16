@@ -65,6 +65,11 @@ export namespace ChannelApi {
       ilink_user_id: string;
     };
   }
+
+  /** 检查激活状态响应 */
+  export interface CheckActivationResponse {
+    has_activation: boolean;
+  }
 }
 
 /**
@@ -154,6 +159,18 @@ export async function wechatBindStatusApi(qrcode: string) {
   return requestClient.post<ChannelApi.WechatBindStatus>(
     '/api/channels/wechat-clawbot/bind/status',
     { qrcode },
+    { timeout: 60_000 },  // 60 秒超时
+  );
+}
+
+/**
+ * 检查微信 ClawBot 激活状态
+ * 使用凭证进行长轮询检查用户是否已发送消息
+ */
+export async function checkActivationApi(data: { bot_token_ciphertext: string; bot_token_nonce: string }) {
+  return requestClient.post<ChannelApi.CheckActivationResponse>(
+    '/api/channels/wechat-clawbot/check-activation',
+    data,
     { timeout: 60_000 },  // 60 秒超时
   );
 }

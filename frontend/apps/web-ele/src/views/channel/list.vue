@@ -271,7 +271,7 @@ async function handleTest(row: ChannelApi.ChannelDTO) {
     await testChannelApi(row.id);
     ElMessage.success($t('page.channel.testSuccess'));
   } catch {
-    ElMessage.error($t('page.channel.testFailed'));
+    // 错误消息已由框架的 errorMessageResponseInterceptor 统一处理
   }
 }
 

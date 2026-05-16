@@ -240,14 +240,88 @@ func (c *Client) SendMessage(ctx context.Context, req *SendMessageRequest, botTo
 
 	if logger != nil {
 		logger.Debug("iLink SendMessage 解析结果",
-			zap.Int("ret", result.Ret),
+			zap.Int("errcode", result.ErrCode),
 			zap.String("errmsg", result.ErrMsg),
 		)
 	}
 
-	// 检查业务状态码，ret != 0 表示 iLink 服务端处理失败
-	if result.Ret != 0 {
-		return &result, fmt.Errorf("iLink 推送失败: %s (ret: %d)", result.ErrMsg, result.Ret)
+	// 检查业务状态码，ErrCode != 0 表示 iLink 服务端处理失败
+	if result.ErrCode != 0 {
+		return &result, fmt.Errorf("iLink 推送失败: %s (errcode: %d)", result.ErrMsg, result.ErrCode)
+	}
+
+	return &result, nil
+}
+
+// GetUpdates 调用 iLink API 获取用户发送的消息
+// 用于绑定后检查用户是否已发送激活消息
+// 对应 iLink API: POST /bot/getupdates
+// 必需请求头:
+//   - Authorization: Bearer {botToken}
+//   - AuthorizationType: ilink_bot_token
+//   - X-WECHAT-UIN: 客户端身份标识
+func (c *Client) GetUpdates(ctx context.Context, botToken string) (*GetUpdatesResponse, error) {
+	const path = "/bot/getupdates"
+
+	getCtx, cancel := context.WithTimeout(ctx, GetUpdatesTimeout)
+	defer cancel()
+
+	logger := ctxutil.LoggerWithRequestID(ctx, c.logger)
+	if logger != nil {
+		logger.Debug("iLink GetUpdates 请求",
+			zap.String("method", "POST"),
+			zap.String("path", path),
+		)
+	}
+
+	reqBody := GetUpdatesRequest{
+		GetUpdatesBuf: "",
+		BaseInfo:      BaseInfo{ChannelVersion: "1.0.0"},
+	}
+
+	bodyBytes, err := sonic.Marshal(reqBody)
+	if err != nil {
+		return nil, fmt.Errorf("序列化请求体失败: %w", err)
+	}
+
+	resp, err := c.restyClient.R().
+		SetContext(getCtx).
+		SetHeader("Content-Type", "application/json").
+		SetHeader("AuthorizationType", "ilink_bot_token").
+		SetHeader("Authorization", "Bearer "+botToken).
+		SetHeader("X-WECHAT-UIN", c.getWechatUIN()).
+		SetBody(bodyBytes).
+		Post(path)
+
+	if err != nil {
+		return nil, fmt.Errorf("请求失败: %w", err)
+	}
+
+	if !resp.IsSuccess() {
+		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode(), string(resp.Bytes()))
+	}
+
+	if logger != nil {
+		logger.Debug("iLink GetUpdates 响应",
+			zap.Int("status_code", resp.StatusCode()),
+			zap.String("raw_response", string(resp.Bytes())),
+		)
+	}
+
+	var result GetUpdatesResponse
+	if err := sonic.Unmarshal(resp.Bytes(), &result); err != nil {
+		return nil, fmt.Errorf("解析响应失败: %w", err)
+	}
+
+	if logger != nil {
+		logger.Debug("iLink GetUpdates 解析结果",
+			zap.Int("errcode", result.ErrCode),
+			zap.Int("msg_count", len(result.Msgs)),
+		)
+	}
+
+	if result.ErrCode != 0 {
+		return &result, fmt.Errorf("iLink GetUpdates 失败: %s (errcode: %d)", result.ErrMsg, result.ErrCode)
 	}
 
 	return &result, nil

@@ -84,6 +84,7 @@ func (s *Server) setupChannelRoutes(api *gin.RouterGroup) {
 	{
 		wechatClawbot.POST("/bind", s.channelHandler.StartBind)            // 发起扫码绑定
 		wechatClawbot.POST("/bind/status", s.channelHandler.GetBindStatus) // 查询绑定状态
+		wechatClawbot.POST("/check-activation", s.channelHandler.CheckActivation) // 检查激活消息
 	}
 }
 

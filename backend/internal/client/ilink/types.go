@@ -18,6 +18,11 @@ const PollAPITimeout = 40 * time.Second
 // 与 weclaw 项目保持一致，设置为 15 秒
 const SendAPITimeout = 15 * time.Second
 
+// GetUpdatesTimeout 获取消息 API 的 HTTP 请求超时
+// iLink 的 getupdates 接口是长轮询设计，服务端最长挂起 35 秒
+// 与 weclaw 保持一致（35+5=40 秒），额外留 5 秒缓冲
+const GetUpdatesTimeout = 45 * time.Second
+
 // Credentials 绑定成功后的凭证
 // 包含调用 iLink API 所需的全部认证信息
 type Credentials struct {
@@ -65,8 +70,9 @@ type BaseInfo struct {
 // SendMessageResponse 发送消息响应体
 // iLink API 返回的发送结果
 type SendMessageResponse struct {
-	Ret    int    `json:"ret"`              // 业务状态码：0 表示成功，非 0 表示失败
-	ErrMsg string `json:"errmsg,omitempty"` // 错误信息，仅在失败时返回
+	Ret     int    `json:"ret"`               // 保留字段，JSON 缺失时 Go 零值为 0，不可用于判断成功/失败
+	ErrCode int    `json:"errcode,omitempty"` // 业务错误码：0 或不存在表示成功，非 0 表示失败
+	ErrMsg  string `json:"errmsg,omitempty"`  // 错误信息，仅在失败时返回
 }
 
 // QRCodeResponse 调用 iLink API 获取二维码的响应
@@ -82,4 +88,31 @@ type QRStatusResponse struct {
 	BotToken    string `json:"bot_token"`
 	ILinkBotID  string `json:"ilink_bot_id"`
 	ILinkUserID string `json:"ilink_user_id"`
+}
+
+// GetUpdatesRequest 获取用户消息请求体
+// 对应 iLink API POST /bot/getupdates 的请求结构
+type GetUpdatesRequest struct {
+	GetUpdatesBuf string   `json:"get_updates_buf"`
+	BaseInfo      BaseInfo `json:"base_info"`
+}
+
+// GetUpdatesResponse 获取用户消息响应体
+type GetUpdatesResponse struct {
+	Ret                  int             `json:"ret"`
+	ErrCode              int             `json:"errcode,omitempty"`
+	ErrMsg               string          `json:"errmsg,omitempty"`
+	Msgs                 []WeixinMessage `json:"msgs"`
+	GetUpdatesBuf        string          `json:"get_updates_buf"`
+	LongPollingTimeoutMs int             `json:"longpolling_timeout_ms,omitempty"`
+}
+
+// WeixinMessage 微信消息结构
+type WeixinMessage struct {
+	FromUserID   string        `json:"from_user_id"`
+	ToUserID     string        `json:"to_user_id"`
+	MessageType  int           `json:"message_type"`
+	MessageState int           `json:"message_state"`
+	ItemList     []MessageItem `json:"item_list"`
+	ContextToken string        `json:"context_token"`
 }

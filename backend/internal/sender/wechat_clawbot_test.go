@@ -409,7 +409,7 @@ func TestWechatClawbotSender_Send_ClientIDUnique(t *testing.T) {
 func TestWechatClawbotSender_Send_BusinessError(t *testing.T) {
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"ret":10001,"errmsg":"quota exceeded"}`))
+		w.Write([]byte(`{"errcode":10001,"errmsg":"quota exceeded"}`))
 	}
 
 	sender, _ := setupTestSender(t, handler)

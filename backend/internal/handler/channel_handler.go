@@ -349,3 +349,33 @@ func (h *ChannelHandler) sendBindResponse(c *gin.Context, status string, credent
 
 	response.Success(c, resp)
 }
+
+// CheckActivation godoc
+// @Security     BearerAuth
+func (h *ChannelHandler) CheckActivation(c *gin.Context) {
+	userID, ok := h.getUserID(c)
+	if !ok {
+		return
+	}
+
+	// 审计日志：记录用户检查激活状态
+	h.logger.Info("检查激活状态",
+		zap.Int64("user_id", userID),
+	)
+
+	var req dto.CheckActivationReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Fail(c, xerr.ErrBadRequest.Code, "请求参数格式错误")
+		return
+	}
+
+	hasActivation, err := h.channelService.CheckActivationMessage(c.Request.Context(), req.BotTokenCiphertext, req.BotTokenNonce)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	response.Success(c, dto.CheckActivationResp{
+		HasActivation: hasActivation,
+	})
+}
