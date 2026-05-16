@@ -27,7 +27,7 @@ func (s *Server) setupOpenAPI() {
 	// 基础信息
 	doc.Info(func(info openapi.Info) {
 		info.Title("OctoTify API").
-			Version("1.0.0").
+			Version("1.2.0").
 			Description("OctoTify 是一个消息总线平台，支持多种消息来源和推送渠道。\n\n" +
 				"核心功能：消息来源管理、推送渠道管理、消息推送与记录。")
 	})
@@ -44,8 +44,8 @@ func (s *Server) setupOpenAPI() {
 	})
 
 	doc.ComponentSecurityScheme("SourceTokenAuth", func(s openapi.SecurityScheme) {
-		s.Type("http").Scheme("bearer").
-			Description("推送消息时使用 Source Token，输入格式：Bearer src{uuid}，例如：Bearer src0196a3b2c4d50000a1b2c3d4e5f67890")
+		s.Type("apiKey").In("path").Name("token").
+			Description("推送消息时使用 Source Token，通过 URL 路径参数传递，格式：src{uuid}，例如：src0196a3b2c4d50000a1b2c3d4e5f67890")
 	})
 
 	// 注册所有 DTO 为组件 Schema

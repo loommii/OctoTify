@@ -64,7 +64,7 @@ type PageReq struct {
 	PageSize int `form:"page_size" binding:"omitempty,min=1,max=100" example:"20"` // 每页条数，默认 20，最大 100
 }
 
-// Normalize 规范化分页参数，确保 page 和pageSize 在有效范围内
+// Normalize 规范化分页参数，确保 page 和 pageSize 在有效范围内
 func (p *PageReq) Normalize() {
 	if p.Page < 1 {
 		p.Page = 1

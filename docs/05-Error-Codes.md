@@ -11,7 +11,7 @@
 | 错误码范围 | 模块 | 说明 |
 |------------|------|------|
 | `0` | 通用 | 请求成功 |
-| `100000` ~ `100099` | 通用错误 | 参数错误、JWT 错误等 |
+| `100000` ~ `100099` | 通用错误 | 参数错误等 |
 | `110100` ~ `110199` | 注册模块 | 注册相关错误 |
 | `110200` ~ `110299` | 登录模块 | 登录相关错误 |
 | `110300` ~ `110399` | 刷新令牌模块 | Token 刷新相关错误 |
@@ -21,6 +21,7 @@
 | `110700` ~ `110799` | Message 模块 | 消息推送相关错误 |
 | `110800` ~ `110899` | 用户管理模块 | 用户管理相关错误 |
 | `110900` ~ `110999` | 微信绑定模块 | 微信绑定本地业务逻辑错误（二维码过期、凭证加解密） |
+| `111000` ~ `111099` | JWT 鉴权模块 | JWT 令牌解析、验证相关错误 |
 | `200000` ~ `200099` | 第三方服务 | 第三方接口调用错误（含微信 iLink API） |
 
 ---
@@ -139,16 +140,25 @@
 | 错误码 | 错误常量 | 错误消息 (中文) | Error Message (English) |
 |--------|---------|----------------|------------------------|
 | 110901 | ErrBindExpired | 绑定二维码已过期 | Binding QR code expired |
-| 110902 | ErrCredentialEncryptFailed | 凭证加密失败 | Failed to encrypt credentials |
-| 110903 | ErrCredentialDecryptFailed | 凭证解密失败 | Failed to decrypt credentials |
+| 110902 | ErrCredentialEncryptFailed | 凭证加密失败 | Credential encryption failed |
+| 110903 | ErrCredentialDecryptFailed | 凭证解密失败 | Credential decryption failed |
 
-### 3.11 第三方服务 2000XX
+### 3.11 JWT 鉴权模块 1110XX
+
+| 错误码 | 错误常量 | 错误消息 (中文) | Error Message (English) |
+|--------|---------|----------------|------------------------|
+| 111000 | ErrJWTMissingToken | 未提供认证令牌 | Authentication token not provided |
+| 111001 | ErrJWTInvalidFormat | 认证令牌格式错误 | Invalid authentication token format |
+| 111002 | ErrJWTInvalidToken | 认证令牌无效或已过期 | Invalid or expired authentication token |
+| 111003 | ErrJWTWrongTokenType | 无效的令牌类型 | Invalid token type |
+
+### 3.12 第三方服务 2000XX
 
 | 错误码 | 错误常量 | 错误消息 (中文) | Error Message (English) |
 |--------|---------|----------------|------------------------|
 | 200000 | ErrThirdPartyCallFailed | 第三方接口调用失败 | Third-party API call failed |
-| 200001 | ErrQRCodeFetchFailed | 获取绑定二维码失败 | Failed to fetch bind QR code |
-| 200002 | ErrBindStatusFailed | 查询绑定状态失败 | Failed to query bind status |
+| 200001 | ErrQRCodeFetchFailed | 获取绑定二维码失败 | Failed to get binding QR code |
+| 200002 | ErrBindStatusFailed | 查询绑定状态失败 | Failed to query binding status |
 
 ---
 
@@ -185,5 +195,6 @@ if req.Name == "" {
 
 | 日期 | 版本 | 变更 |
 |------|------|------|
-| 2026-05-10 | 2.0 | 新增模块、拆分第三方错误码、双语错误消息、表格化清单 |
-| 2026-05-02 | 1.0 | 初始版本 |
+| 2026-05-16 | 1.2.0 | 新增 JWT 鉴权模块 (1110XX)、修正 4 处英文翻译 |
+| 2026-05-10 | 1.1.0 | 新增模块、拆分第三方错误码、双语错误消息、表格化清单 |
+| 2026-05-02 | 1.0.0 | 初始版本 |

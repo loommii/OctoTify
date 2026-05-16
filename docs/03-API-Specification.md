@@ -19,15 +19,15 @@
 | 布尔值字段 | `is_` / `has_` / `can_` 前缀 | `is_active`、`has_permission` |
 | 枚举值字段 | `_type` / `_status` 后缀 | `source_type`、`order_status` |
 
-### 4.3 Go 结构体示例
+### 4.3 JSON 示例
 
-```go
-type SourceResp struct {
-    ID        int64     `json:"id"`
-    Name      string    `json:"name"`
-    IsActive  bool      `json:"is_active"`
-    SourceType string   `json:"source_type"`
-    CreatedAt time.Time `json:"created_at"`
+```json
+{
+  "id": 1,
+  "name": "CI Pipeline",
+  "is_active": true,
+  "source_type": "ci",
+  "created_at_ts": 1705298400123
 }
 ```
 
@@ -36,15 +36,14 @@ type SourceResp struct {
 | 风格 | 示例 | 说明 |
 |------|------|------|
 | camelCase | `serverName` | 不使用，与前端 JavaScript 变量命名冲突 |
-| PascalCase | `ServerName` | 不使用，仅用于 Go 结构体字段名 |
+| PascalCase | `ServerName` | 不使用 |
 | SCREAMING_SNAKE_CASE | `SERVER_NAME` | 不使用，仅用于常量 |
 
 ### 4.5 设计理由
 
-1. **Go 社区惯例**：标准库 `encoding/json` 和主流框架（Gin、Echo）均采用 snake_case
-2. **与数据库一致**：数据库字段通常使用 snake_case，减少映射转换
-3. **RESTful 惯例**：大多数 RESTful API 使用 snake_case 作为 JSON 字段命名
-4. **可读性**：多单词字段用下划线分隔，比 camelCase 更易读
+1. **与数据库一致**：数据库字段通常使用 snake_case，减少映射转换
+2. **RESTful 惯例**：大多数 RESTful API 使用 snake_case 作为 JSON 字段命名
+3. **可读性**：多单词字段用下划线分隔，比 camelCase 更易读
 
 ---
 
@@ -52,34 +51,33 @@ type SourceResp struct {
 
 ### 5.1 响应格式
 
-| 字段类型 | 格式 | 示例 |
-|----------|------|------|
-| 日期时间 | `YYYY-MM-DD HH:MM:SS` | `2024-01-15 14:30:00` |
-| 时间戳 | Unix 毫秒时间戳（int64） | `1705298400123` |
+| 字段后缀 | 类型 | 格式 | 示例 |
+|----------|------|------|------|
+| `_at` | string | `YYYY-MM-DD HH:MM:SS` | `2024-01-15 14:30:00` |
+| `_ts` | int64 | Unix 毫秒时间戳 | `1705298400123` |
 
 ### 5.2 字段命名规则
 
-| 含义 | 可读时间字段 | 时间戳字段 |
-|------|-------------|-----------|
+| 含义 | `_at` 字段（字符串） | `_ts` 字段（时间戳） |
+|------|---------------------|---------------------|
 | 创建时间 | `created_at` | `created_at_ts` |
 | 更新时间 | `updated_at` | `updated_at_ts` |
 | 删除时间 | `deleted_at` | `deleted_at_ts` |
 
 **说明：**
-- `_at` 结尾的字段：可读时间字符串，格式 `YYYY-MM-DD HH:MM:SS`
-- `_ts` 结尾的字段：Unix 毫秒时间戳，int64 类型
-- 其他时间字段（如 `last_used_at`）遵循相同命名规则：`last_used_at`（字符串）、`last_used_at_ts`（时间戳）
+- `_at` 结尾：可读时间字符串，格式 `YYYY-MM-DD HH:MM:SS`
+- `_ts` 结尾：Unix 毫秒时间戳，int64 类型
+- 两者**不要求同时返回**，但字段后缀必须与类型严格匹配
+- 其他时间字段（如 `last_used_at` / `last_used_at_ts`）遵循相同规则
 
-### 5.3 Go 结构体示例
+### 5.3 JSON 示例
 
-```go
-type SourceResp struct {
-    ID          int64  `json:"id"`
-    Name        string `json:"name"`
-    CreatedAt   string `json:"created_at"`    // "2024-01-15 14:30:00"
-    CreatedAtTs int64  `json:"created_at_ts"` // 1705298400123
-    UpdatedAt   string `json:"updated_at"`    // "2024-01-15 14:30:00"
-    UpdatedAtTs int64  `json:"updated_at_ts"` // 1705298400123
+```json
+{
+  "id": 1,
+  "name": "CI Pipeline",
+  "created_at": "2024-01-15 14:30:00",
+  "updated_at_ts": 1705298400123
 }
 ```
 
@@ -149,9 +147,8 @@ type SourceResp struct {
 | 规则 | 说明 |
 |------|------|
 | `page` 最小值 | 1，小于 1 自动修正为 1 |
-| `page_size` 最小值 | 1，小于 1 自动修正为 1 |
-| `page_size` 最大值 | 100，超过 100 自动修正为 100 |
-| 默认排序 | 按 `created_at` 降序（最新优先） |
+| `page_size` 范围 | 1-100，小于 1 使用默认值 20，超过 100 修正为 100 |
+| 默认排序 | 按 `created_at_ts` 降序（最新优先） |
 
 ### 8.3 响应格式
 
