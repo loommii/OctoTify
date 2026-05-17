@@ -1,0 +1,68 @@
+vars: {
+  d2-config: {
+    layout-engine: elk
+  }
+}
+
+shape: sequence_diagram
+
+classes: {
+  success: {
+    style.stroke: "#28a745"
+    style.animated: true
+  }
+  error: {
+    style.stroke: "#dc3545"
+    style.stroke-dash: 3
+    style.animated: true
+  }
+}
+
+service: MessageService
+db: SQLite
+
+推送成功更新为200: {
+  service.a -> db.a: "BEGIN TRANSACTION"
+  service.a -> db.a: "UPDATE messages SET status = 200, updated_at = ? WHERE id = ?"
+  
+  数据库更新失败: {
+    db.a --> service.a: "更新失败"
+    service.a -> db.a: "ROLLBACK"
+    service.a -> service.a: "记录状态更新失败日志" {
+      class: error
+    }
+  }
+  
+  数据库更新成功: {
+    db.a --> service.a: "成功"
+    service.a -> db.a: "COMMIT"
+    service.a -> service.a: "状态更新成功 (status=200 表示推送成功)" {
+      class: success
+    }
+  }
+}
+
+推送失败更新为300: {
+  service.a -> db.a: "BEGIN TRANSACTION"
+  service.a -> db.a: "UPDATE messages SET status = 300, updated_at = ? WHERE id = ?"
+  
+  数据库更新失败: {
+    db.a --> service.a: "更新失败"
+    service.a -> db.a: "ROLLBACK"
+    service.a -> service.a: "记录状态更新失败日志" {
+      class: error
+    }
+  }
+  
+  数据库更新成功: {
+    db.a --> service.a: "成功"
+    service.a -> db.a: "COMMIT"
+    service.a -> service.a: "状态更新成功 (status=300 表示推送失败)" {
+      class: success
+    }
+  }
+}
+
+note: "状态码说明：200=推送成功，300=推送失败，-1=已删除" {
+  near: bottom-center
+}

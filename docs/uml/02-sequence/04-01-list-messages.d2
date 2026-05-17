@@ -1,0 +1,97 @@
+vars: {
+  d2-config: {
+    layout-engine: elk
+  }
+}
+
+shape: sequence_diagram
+
+classes: {
+  success: {
+    style.stroke: "#28a745"
+    style.animated: true
+  }
+  error: {
+    style.stroke: "#dc3545"
+    style.stroke-dash: 3
+    style.animated: true
+  }
+}
+
+user: 用户
+frontend: 前端
+server: HTTPServer
+jwt: JWTAuth 中间件
+handler: MessageHandler
+service: MessageService
+db: SQLite
+
+user -> frontend.a: "访问消息列表页面"
+frontend.a -> server.a: "GET /api/messages?page=1&pageSize=20"
+server.a -> jwt.a: "JWTAuth(accessToken)"
+
+未提供认证令牌: {
+  jwt.a --> server.a: "{code: 100001, msg: 未提供认证令牌}" {
+    class: error
+  }
+  server.a --> frontend.a: "{code: 100001, msg: 未提供认证令牌}" {
+    class: error
+  }
+  frontend.a --> frontend.a: "使用 Refresh Token 调用刷新接口，刷新成功后重试" {
+    class: error
+  }
+}
+
+令牌无效或已过期: {
+  jwt.a --> server.a: "{code: 100001, msg: 认证令牌无效或已过期}" {
+    class: error
+  }
+  server.a --> frontend.a: "{code: 100001, msg: 认证令牌无效或已过期}" {
+    class: error
+  }
+  frontend.a --> frontend.a: "使用 Refresh Token 调用刷新接口，刷新成功后重试" {
+    class: error
+  }
+}
+
+令牌有效: {
+  jwt.a --> server.a: "userId (从 claims 中提取)"
+  server.a -> handler.a: "ListMessages(userId, pageReq)"
+  handler.a -> service.a: "ListMessages(ctx, userId, pageReq)"
+  
+  查询失败: {
+    service.a -> db.a: "SELECT COUNT(*) FROM messages m INNER JOIN sources s ON m.source_id = s.id WHERE s.user_id = ? AND m.status != -1"
+    db.a --> service.a: "查询错误"
+    service.a --> handler.a: "ErrMessageRecordFailed (110704)" {
+      class: error
+    }
+    handler.a --> server.a: "{code: 110704, msg: 查询消息失败}" {
+      class: error
+    }
+    server.a --> frontend.a: "{code: 110704, msg: 查询消息失败}" {
+      class: error
+    }
+    frontend.a --> user: "显示错误提示" {
+      class: error
+    }
+  }
+  
+  查询成功: {
+    service.a -> db.a: "SELECT COUNT(*) FROM messages m INNER JOIN sources s ON m.source_id = s.id WHERE s.user_id = ? AND m.status != -1"
+    db.a --> service.a: "total"
+    service.a -> db.a: "SELECT m.*, s.name as source_name FROM messages m INNER JOIN sources s ON m.source_id = s.id WHERE s.user_id = ? AND m.status != -1 ORDER BY m.created_at DESC LIMIT ? OFFSET ?"
+    db.a --> service.a: "messages[]"
+    service.a --> handler.a: "{list, total, page, pageSize}" {
+      class: success
+    }
+    handler.a --> server.a: "{code: 0, data: {list, total, page, pageSize}}" {
+      class: success
+    }
+    server.a --> frontend.a: "{code: 0, data: {list, total, page, pageSize}}" {
+      class: success
+    }
+    frontend.a --> user: "显示消息列表（分页）" {
+      class: success
+    }
+  }
+}

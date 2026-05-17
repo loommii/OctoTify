@@ -1,0 +1,136 @@
+vars: {
+  d2-config: {
+    layout-engine: elk
+  }
+}
+
+shape: sequence_diagram
+
+classes: {
+  success: {
+    style.stroke: "#28a745"
+    style.animated: true
+  }
+  error: {
+    style.stroke: "#dc3545"
+    style.stroke-dash: 3
+    style.animated: true
+  }
+}
+
+user: 用户
+frontend: 前端
+server: HTTPServer
+jwt: JWTAuth 中间件
+handler: ChannelHandler
+service: ChannelService
+db: SQLite
+
+user -> frontend.a: "选择渠道类型、输入名称、配置"
+frontend.a -> server.a: "POST /api/channels {type, name, config}"
+server.a -> jwt.a: "JWTAuth(accessToken)"
+
+未提供认证令牌: {
+  jwt.a --> server.a: "{code: 100001, msg: 未提供认证令牌}" {
+    class: error
+  }
+  server.a --> frontend.a: "{code: 100001, msg: 未提供认证令牌}" {
+    class: error
+  }
+  frontend.a --> frontend.a: "使用 Refresh Token 调用刷新接口" {
+    class: error
+  }
+}
+
+令牌无效或已过期: {
+  jwt.a --> server.a: "{code: 100001, msg: 认证令牌无效或已过期}" {
+    class: error
+  }
+  server.a --> frontend.a: "{code: 100001, msg: 认证令牌无效或已过期}" {
+    class: error
+  }
+  frontend.a --> frontend.a: "使用 Refresh Token 调用刷新接口" {
+    class: error
+  }
+}
+
+令牌有效: {
+  jwt.a --> server.a: "userId (从 claims 中提取)"
+  server.a -> handler.a: "createChannel(userId, req)"
+  
+  JSON解析失败: {
+    handler.a --> server.a: "{code: 100000, msg: 请求参数格式错误}" {
+      class: error
+    }
+    server.a --> frontend.a: "{code: 100000, msg: 请求参数格式错误}" {
+      class: error
+    }
+    frontend.a --> user: "显示错误提示" {
+      class: error
+    }
+  }
+  
+  JSON解析通过: {
+    handler.a -> service.a: "CreateChannel(ctx, userId, req)"
+    
+    service.a -> service.a: "processChannelConfig(解密 wechat_clawbot 配置)"
+    
+    配置解析失败: {
+      service.a --> handler.a: "error(渠道配置无效)" {
+        class: error
+      }
+      handler.a --> server.a: "{code: 100000, msg: 渠道配置无效}" {
+        class: error
+      }
+      server.a --> frontend.a: "{code: 100000, msg: 渠道配置无效}" {
+        class: error
+      }
+      frontend.a --> user: "显示错误提示" {
+        class: error
+      }
+    }
+    
+    配置解析成功: {
+      service.a -> db.a: "BEGIN TRANSACTION"
+      service.a -> db.a: "INSERT INTO channels (user_id, type, name, config, status, created_at, updated_at)"
+      
+      数据库插入失败: {
+        db.a --> service.a: "插入失败"
+        service.a -> db.a: "ROLLBACK"
+        service.a --> handler.a: "ErrChannelInsertFailed (110602)" {
+          class: error
+        }
+        handler.a --> server.a: "{code: 110602, msg: 创建渠道失败}" {
+          class: error
+        }
+        server.a --> frontend.a: "{code: 110602, msg: 创建渠道失败}" {
+          class: error
+        }
+        frontend.a --> user: "显示错误提示" {
+          class: error
+        }
+      }
+      
+      数据库插入成功: {
+        db.a --> service.a: "channelId"
+        service.a -> db.a: "COMMIT"
+        service.a --> handler.a: "channel" {
+          class: success
+        }
+        handler.a --> server.a: "{code: 0, data: channel}" {
+          class: success
+        }
+        server.a --> frontend.a: "{code: 0, data: channel}" {
+          class: success
+        }
+        frontend.a --> user: "创建渠道成功" {
+          class: success
+        }
+      }
+    }
+  }
+}
+
+note: "事务说明：渠道插入在事务中执行，配置解密针对 wechat_clawbot 类型" {
+  near: bottom-center
+}

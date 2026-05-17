@@ -1,0 +1,143 @@
+vars: {
+  d2-config: {
+    layout-engine: elk
+  }
+}
+
+shape: sequence_diagram
+
+classes: {
+  success: {
+    style.stroke: "#28a745"
+    style.animated: true
+  }
+  error: {
+    style.stroke: "#dc3545"
+    style.stroke-dash: 3
+    style.animated: true
+  }
+}
+
+user: 用户
+frontend: 前端
+server: HTTPServer
+jwt: JWTAuth 中间件
+handler: SourceHandler
+service: SourceService
+db: SQLite
+
+user -> frontend.a: "输入名称、描述、选择渠道"
+frontend.a -> server.a: "POST /api/sources {name, description, channel_ids}"
+server.a -> jwt.a: "JWTAuth(accessToken)"
+
+未提供认证令牌: {
+  jwt.a --> server.a: "{code: 100001, msg: 未提供认证令牌}" {
+    class: error
+  }
+  server.a --> frontend.a: "{code: 100001, msg: 未提供认证令牌}" {
+    class: error
+  }
+  frontend.a --> frontend.a: "使用 Refresh Token 调用刷新接口" {
+    class: error
+  }
+}
+
+令牌无效或已过期: {
+  jwt.a --> server.a: "{code: 100001, msg: 认证令牌无效或已过期}" {
+    class: error
+  }
+  server.a --> frontend.a: "{code: 100001, msg: 认证令牌无效或已过期}" {
+    class: error
+  }
+  frontend.a --> frontend.a: "使用 Refresh Token 调用刷新接口" {
+    class: error
+  }
+}
+
+令牌有效: {
+  jwt.a --> server.a: "userId (从 claims 中提取)"
+  server.a -> handler.a: "createSource(userId, req)"
+  
+  JSON解析失败: {
+    handler.a --> server.a: "{code: 100000, msg: 请求参数格式错误}" {
+      class: error
+    }
+    server.a --> frontend.a: "{code: 100000, msg: 请求参数格式错误}" {
+      class: error
+    }
+    frontend.a --> user: "显示错误提示" {
+      class: error
+    }
+  }
+  
+  JSON解析通过: {
+    handler.a -> service.a: "CreateSource(userId, req)"
+    
+    service.a -> service.a: "校验名称不能为空"
+    
+    名称为空: {
+      service.a --> handler.a: "ErrSourceParamNameEmpty (110500)" {
+        class: error
+      }
+      handler.a --> server.a: "{code: 110500, msg: 来源名称不能为空}" {
+        class: error
+      }
+      server.a --> frontend.a: "{code: 110500, msg: 来源名称不能为空}" {
+        class: error
+      }
+      frontend.a --> user: "显示错误提示" {
+        class: error
+      }
+    }
+    
+    名称有效: {
+      service.a -> service.a: "生成 Token：前缀 src + UUIDv7 无连字符（共 35 位）"
+      service.a -> db.a: "SELECT COUNT(*) FROM sources WHERE token = ?"
+      db.a --> service.a: "0（Token 唯一）"
+      
+      创建失败: {
+        service.a -> db.a: "BEGIN TRANSACTION"
+        service.a -> db.a: "INSERT INTO sources (user_id, name, description, token, status)"
+        db.a --> service.a: "插入失败"
+        service.a -> db.a: "ROLLBACK"
+        service.a --> handler.a: "ErrSourceInsertFailed (110501)" {
+          class: error
+        }
+        handler.a --> server.a: "{code: 110501, msg: 创建来源失败}" {
+          class: error
+        }
+        server.a --> frontend.a: "{code: 110501, msg: 创建来源失败}" {
+          class: error
+        }
+        frontend.a --> user: "显示错误提示" {
+          class: error
+        }
+      }
+      
+      创建成功: {
+        service.a -> db.a: "BEGIN TRANSACTION"
+        service.a -> db.a: "INSERT INTO sources (user_id, name, description, token, status)"
+        db.a --> service.a: "sourceId"
+        service.a -> db.a: "INSERT INTO source_channels (source_id, channel_id, status) VALUES ..."
+        db.a --> service.a: "批量插入成功"
+        service.a -> db.a: "COMMIT"
+        service.a --> handler.a: "{id, user_id, name, token, description, status, created_at}" {
+          class: success
+        }
+        handler.a --> server.a: "{code: 0, data: {id, user_id, name, token, description, status, created_at}}" {
+          class: success
+        }
+        server.a --> frontend.a: "{code: 0, data: {id, user_id, name, token, description, status, created_at}}" {
+          class: success
+        }
+        frontend.a --> user: "创建成功，显示 Source Token" {
+          class: success
+        }
+      }
+    }
+  }
+}
+
+note: "事务说明：Source 插入与 source_channels 批量插入在同一事务中" {
+  near: bottom-center
+}

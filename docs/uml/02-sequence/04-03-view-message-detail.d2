@@ -1,0 +1,130 @@
+vars: {
+  d2-config: {
+    layout-engine: elk
+  }
+}
+
+shape: sequence_diagram
+
+classes: {
+  success: {
+    style.stroke: "#28a745"
+    style.animated: true
+  }
+  error: {
+    style.stroke: "#dc3545"
+    style.stroke-dash: 3
+    style.animated: true
+  }
+}
+
+user: 用户
+frontend: 前端
+server: HTTPServer
+jwt: JWTAuth 中间件
+handler: MessageHandler
+service: MessageService
+db: SQLite
+
+user -> frontend.a: "点击某条消息"
+frontend.a -> server.a: "GET /api/messages/:id"
+server.a -> jwt.a: "JWTAuth(accessToken)"
+
+未提供认证令牌: {
+  jwt.a --> server.a: "{code: 100001, msg: 未提供认证令牌}" {
+    class: error
+  }
+  server.a --> frontend.a: "{code: 100001, msg: 未提供认证令牌}" {
+    class: error
+  }
+  frontend.a --> frontend.a: "使用 Refresh Token 调用刷新接口，刷新成功后重试" {
+    class: error
+  }
+}
+
+令牌无效或已过期: {
+  jwt.a --> server.a: "{code: 100001, msg: 认证令牌无效或已过期}" {
+    class: error
+  }
+  server.a --> frontend.a: "{code: 100001, msg: 认证令牌无效或已过期}" {
+    class: error
+  }
+  frontend.a --> frontend.a: "使用 Refresh Token 调用刷新接口，刷新成功后重试" {
+    class: error
+  }
+}
+
+令牌有效: {
+  jwt.a --> server.a: "userId (从 claims 中提取)"
+  server.a -> handler.a: "GetMessageDetail(userId, messageId)"
+  
+  messageId格式错误: {
+    handler.a --> server.a: "{code: 100000, msg: 无效的消息 ID}" {
+      class: error
+    }
+    server.a --> frontend.a: "{code: 100000, msg: 无效的消息 ID}" {
+      class: error
+    }
+    frontend.a --> user: "显示错误提示" {
+      class: error
+    }
+  }
+  
+  参数校验通过: {
+    handler.a -> service.a: "GetMessageByID(ctx, userId, messageId)"
+    
+    service.a -> db.a: "SELECT m.id, m.source_id, s.name as source_name, m.channel_id, c.name as channel_name, c.type as channel_type, m.title, m.content, m.status, m.created_at, m.updated_at FROM messages m LEFT JOIN sources s ON m.source_id = s.id LEFT JOIN channels c ON m.channel_id = c.id WHERE m.id = ? AND s.user_id = ? AND m.status != -1"
+    
+    查询失败: {
+      db.a --> service.a: "查询错误"
+      service.a --> handler.a: "ErrMessageRecordFailed (110704)" {
+        class: error
+      }
+      handler.a --> server.a: "{code: 110704, msg: 查询消息失败}" {
+        class: error
+      }
+      server.a --> frontend.a: "{code: 110704, msg: 查询消息失败}" {
+        class: error
+      }
+      frontend.a --> user: "显示错误提示" {
+        class: error
+      }
+    }
+    
+    消息不存在或已删除: {
+      db.a --> service.a: "nil"
+      service.a --> handler.a: "ErrNotFound (100003)" {
+        class: error
+      }
+      handler.a --> server.a: "{code: 100003, msg: 资源不存在}" {
+        class: error
+      }
+      server.a --> frontend.a: "{code: 100003, msg: 资源不存在}" {
+        class: error
+      }
+      frontend.a --> user: "显示消息不存在提示" {
+        class: error
+      }
+    }
+    
+    消息存在: {
+      db.a --> service.a: "{id, source_id, source_name, channel_id, channel_name, channel_type, title, content, status, created_at, updated_at}"
+      service.a --> handler.a: "MessageDetailDTO" {
+        class: success
+      }
+      handler.a --> server.a: "{code: 0, data: messageDetail}" {
+        class: success
+      }
+      server.a --> frontend.a: "{code: 0, data: messageDetail}" {
+        class: success
+      }
+      frontend.a --> user: "显示消息详情（包含来源名称、渠道名称、渠道类型）" {
+        class: success
+      }
+    }
+  }
+}
+
+note: "三表 JOIN：messages LEFT JOIN sources LEFT JOIN channels 获取完整关联信息" {
+  near: bottom-center
+}

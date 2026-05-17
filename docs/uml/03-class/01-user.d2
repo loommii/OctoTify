@@ -1,0 +1,257 @@
+vars: {
+  layout: elk
+}
+
+direction: right
+
+style: {
+  font-size: 13
+}
+
+classes: {
+  model: {
+    style.fill: "#e8f5e9"
+    style.stroke: "#2e7d32"
+  }
+  service: {
+    style.fill: "#e3f2fd"
+    style.stroke: "#1565c0"
+  }
+  handler: {
+    style.fill: "#fff3e0"
+    style.stroke: "#e65100"
+  }
+  dto: {
+    style.fill: "#f3e5f5"
+    style.stroke: "#7b1fa2"
+  }
+  middleware: {
+    style.fill: "#fce4ec"
+    style.stroke: "#c62828"
+  }
+  pkg: {
+    style.fill: "#e0f2f1"
+    style.stroke: "#00695c"
+  }
+  external: {
+    style.fill: "#f5f5f5"
+    style.stroke: "#9e9e9e"
+    style.stroke-dash: 4
+  }
+}
+
+"User" {
+  shape: class
+  class: model
+  +ID: int64
+  +Username: string
+  +PasswordHash: string
+  +CreatedAt: time.Time
+  +UpdatedAt: time.Time
+}
+
+"RefreshToken" {
+  shape: class
+  class: model
+  +ID: int64
+  +JTI: string
+  +UserID: int64
+  +Revoked: bool
+  +CreatedAt: time.Time
+}
+
+"JWTHelper" {
+  shape: class
+  class: pkg
+  -privateKey: "*rsa.PrivateKey"
+  -publicKey: "*rsa.PublicKey"
+  -expiredTime: time.Duration
+  +GenerateToken(claims JWTClaims): string
+  +ValidateToken(token string): (*jwt.Token, *JWTClaims, error)
+}
+
+"JWTClaims" {
+  shape: class
+  class: pkg
+  +UID: string
+  +TokenType: string
+  "+jwt.RegisteredClaims": ""
+  +IsAccessToken(): bool
+  +IsRefreshToken(): bool
+}
+
+"AppError" {
+  shape: class
+  class: pkg
+  +Code: int
+  +Msg: string
+  +Internal: string
+  +WithInternal(err error): "*AppError"
+}
+
+"Response" {
+  shape: class
+  class: pkg
+  +Code: int
+  +Msg: string
+  +Data: any
+  +Success(c *gin.Context, data any)
+  +Fail(c *gin.Context, code int, msg string)
+}
+
+"PageResult" {
+  shape: class
+  class: pkg
+  +List: any
+  +Total: int64
+  +Page: int
+  +PageSize: int
+}
+
+"UserService" {
+  shape: class
+  class: service
+  -db: "*gorm.DB"
+  -accessJWTHelper: "*JWTHelper"
+  -refreshJWTHelper: "*JWTHelper"
+  -logger: "*zap.Logger"
+  +Register(ctx, req *RegisterReq): (*AuthResp, error)
+  +GetUserProfile(ctx, userID int64): (*UserProfileResp, error)
+  +ChangePassword(ctx, userID int64, oldPwd, newPwd string): error
+}
+
+"AuthService" {
+  shape: class
+  class: service
+  -db: "*gorm.DB"
+  -accessJWTHelper: "*JWTHelper"
+  -refreshJWTHelper: "*JWTHelper"
+  -logger: "*zap.Logger"
+  +Login(ctx, req *LoginReq): (*AuthResp, error)
+  +Logout(ctx, userID int64): error
+  +RefreshAccessToken(ctx, refreshToken string): (*AuthResp, error)
+}
+
+"UserHandler" {
+  shape: class
+  class: handler
+  -userService: "*UserService"
+  +Register(c *gin.Context)
+  +ChangePassword(c *gin.Context)
+  +GetUserProfile(c *gin.Context)
+}
+
+"AuthHandler" {
+  shape: class
+  class: handler
+  -authService: "*AuthService"
+  +Login(c *gin.Context)
+  +Logout(c *gin.Context)
+  +RefreshToken(c *gin.Context)
+}
+
+"JWTAuth" {
+  shape: class
+  class: middleware
+  +JWTAuth(jwtHelper *JWTHelper): gin.HandlerFunc
+}
+
+"AuthCredentials" {
+  shape: class
+  class: dto
+  +Username: string
+  +Password: string
+}
+
+"RegisterReq" {
+  shape: class
+  class: dto
+  AuthCredentials
+}
+
+"LoginReq" {
+  shape: class
+  class: dto
+  AuthCredentials
+}
+
+"UserDTO" {
+  shape: class
+  class: dto
+  +ID: int64
+  +Username: string
+  +CreatedAt: int64
+}
+
+"AuthResp" {
+  shape: class
+  class: dto
+  +AccessToken: string
+  +RefreshToken: string
+  +User: UserDTO
+}
+
+"UserProfileResp" {
+  shape: class
+  class: dto
+  +User: UserDTO
+}
+
+"RefreshReq" {
+  shape: class
+  class: dto
+  +RefreshToken: string
+}
+
+"ChangePasswordReq" {
+  shape: class
+  class: dto
+  +OldPassword: string
+  +NewPassword: string
+}
+
+"PageReq" {
+  shape: class
+  class: dto
+  +Page: int
+  +PageSize: int
+  +Normalize()
+}
+
+"gin.Context" {
+  shape: class
+  class: external
+}
+
+"gorm.DB" {
+  shape: class
+  class: external
+}
+
+"zap.Logger" {
+  shape: class
+  class: external
+}
+
+"gin.HandlerFunc" {
+  shape: class
+  class: external
+}
+
+"UserHandler" -> "UserService": uses
+"AuthHandler" -> "AuthService": uses
+"UserService" -> "User": creates
+"UserService" -> "RefreshToken": creates
+"UserService" -> "JWTHelper": uses
+"AuthService" -> "User": queries
+"AuthService" -> "RefreshToken": creates
+"AuthService" -> "JWTHelper": uses
+"JWTHelper" -> "JWTClaims": generates
+"JWTAuth" -> "JWTHelper": validates
+"AuthResp" -> "UserDTO": contains
+"UserProfileResp" -> "UserDTO": contains
+"RegisterReq" -> "AuthCredentials": embeds
+"LoginReq" -> "AuthCredentials": embeds
+"UserService" -> "AppError": returns
+"AuthService" -> "AppError": returns
+"Response" -> "PageResult": wraps

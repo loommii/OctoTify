@@ -1,0 +1,96 @@
+vars: {
+  d2-config: {
+    layout-engine: elk
+  }
+}
+
+shape: sequence_diagram
+
+classes: {
+  success: {
+    style.stroke: "#28a745"
+    style.animated: true
+  }
+  error: {
+    style.stroke: "#dc3545"
+    style.stroke-dash: 3
+    style.animated: true
+  }
+}
+
+user: 用户
+frontend: 前端
+server: HTTPServer
+handler: AuthHandler
+auth: AuthService
+db: SQLite
+
+user -> frontend.a: "点击退出登录"
+frontend.a -> server.a: "POST /api/auth/logout"
+server.a -> handler.a: "logout(req)"
+
+未提供认证令牌: {
+  handler.a --> server.a: "{code: 100001, msg: 未提供认证令牌}" {
+    class: error
+  }
+  server.a --> frontend.a: "{code: 100001, msg: 未提供认证令牌}" {
+    class: error
+  }
+  frontend.a --> user: "显示错误提示" {
+    class: error
+  }
+}
+
+认证令牌无效: {
+  handler.a --> server.a: "{code: 100001, msg: 认证令牌无效或已过期}" {
+    class: error
+  }
+  server.a --> frontend.a: "{code: 100001, msg: 认证令牌无效或已过期}" {
+    class: error
+  }
+  frontend.a --> user: "显示错误提示" {
+    class: error
+  }
+}
+
+认证通过: {
+  handler.a -> auth.b: "Logout(userId)"
+
+  auth.b -> db.b: "UPDATE refresh_tokens SET revoked = 1 WHERE user_id = ?"
+
+  撤销令牌失败: {
+    db.b --> auth.b: "更新失败"
+    auth.b --> handler.b: "ErrLogoutFailed (110304)" {
+      class: error
+    }
+    handler.b --> server.b: "{code: 110304, msg: 退出登录失败}" {
+      class: error
+    }
+    server.b --> frontend.b: "{code: 110304, msg: 退出登录失败}" {
+      class: error
+    }
+    frontend.b --> user: "显示错误提示，跳转至登录页" {
+      class: error
+    }
+  }
+
+  撤销令牌成功: {
+    db.b --> auth.b: "更新行数"
+    auth.b --> handler.b: "成功" {
+      class: success
+    }
+    handler.b --> server.b: "{code: 0, msg: 退出登录成功}" {
+      class: success
+    }
+    server.b --> frontend.b: "{code: 0, msg: 退出登录成功}" {
+      class: success
+    }
+    frontend.b --> user: "清除本地 Token，跳转至登录页" {
+      class: success
+    }
+  }
+}
+
+note: "前端行为：无论成功或失败，前端均清除本地 Access Token 和 Refresh Token" {
+  near: bottom-center
+}

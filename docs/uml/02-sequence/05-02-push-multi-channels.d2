@@ -1,0 +1,145 @@
+vars: {
+  d2-config: {
+    layout-engine: elk
+  }
+}
+
+shape: sequence_diagram
+
+classes: {
+  success: {
+    style.stroke: "#28a745"
+    style.animated: true
+  }
+  error: {
+    style.stroke: "#dc3545"
+    style.stroke-dash: 3
+    style.animated: true
+  }
+}
+
+service: MessageService
+factory: SenderFactory
+sender: Sender
+db: SQLite
+
+service.a -> service.a: "遍历 channels[]，使用 errgroup.Group 并发推送"
+
+渠道1并发推送: {
+  service.a -> db.a: "BEGIN TRANSACTION"
+  service.a -> db.a: "INSERT INTO messages (source_id, channel_id, title, content, status, created_at, updated_at)"
+  
+  消息记录创建失败: {
+    db.a --> service.a: "插入失败"
+    service.a -> db.a: "ROLLBACK"
+    service.a -> service.a: "记录该渠道推送失败结果" {
+      class: error
+    }
+  }
+  
+  消息记录创建成功: {
+    db.a --> service.a: "messageId"
+    service.a -> db.a: "COMMIT"
+    
+    service.a -> factory.a: "create(channel.type)"
+    
+    不支持的渠道类型: {
+      factory.a --> service.a: "nil, error"
+      service.a -> db.a: "BEGIN TRANSACTION"
+      service.a -> db.a: "UPDATE messages SET status = 300, updated_at = ? WHERE id = ?"
+      db.a --> service.a: "成功"
+      service.a -> db.a: "COMMIT"
+      service.a -> service.a: "记录该渠道推送失败结果" {
+        class: error
+      }
+    }
+    
+    Sender创建成功: {
+      factory.a --> service.a: "sender"
+      
+      service.a -> service.a: "context.WithTimeout(ctx, 30s)"
+      service.a -> sender.a: "send(ctx, channel.config, title, message)"
+      sender.a -> sender.a: "调用渠道API推送消息"
+      
+      推送失败: {
+        sender.a --> service.a: "error(第三方API返回错误)"
+        service.a -> db.a: "BEGIN TRANSACTION"
+        service.a -> db.a: "UPDATE messages SET status = 300, updated_at = ? WHERE id = ?"
+        db.a --> service.a: "成功"
+        service.a -> db.a: "COMMIT"
+        service.a -> service.a: "记录该渠道推送失败结果" {
+          class: error
+        }
+      }
+      
+      推送成功: {
+        sender.a --> service.a: "success" {
+          class: success
+        }
+        service.a -> db.a: "BEGIN TRANSACTION"
+        service.a -> db.a: "UPDATE messages SET status = 200, updated_at = ? WHERE id = ?"
+        db.a --> service.a: "成功" {
+          class: success
+        }
+        service.a -> db.a: "COMMIT"
+        service.a -> service.a: "记录该渠道推送成功结果"
+      }
+    }
+  }
+}
+
+渠道2并发推送: {
+  service.a -> db.a: "BEGIN TRANSACTION"
+  service.a -> db.a: "INSERT INTO messages (source_id, channel_id, title, content, status, created_at, updated_at)"
+  
+  消息记录创建失败: {
+    db.a --> service.a: "插入失败"
+    service.a -> db.a: "ROLLBACK"
+    service.a -> service.a: "记录该渠道推送失败结果" {
+      class: error
+    }
+  }
+  
+  消息记录创建成功: {
+    db.a --> service.a: "messageId"
+    service.a -> db.a: "COMMIT"
+    
+    service.a -> factory.a: "create(channel.type)"
+    factory.a --> service.a: "sender"
+    
+    service.a -> service.a: "context.WithTimeout(ctx, 30s)"
+    service.a -> sender.a: "send(ctx, channel.config, title, message)"
+    sender.a -> sender.a: "调用渠道API推送消息"
+    
+    推送失败: {
+      sender.a --> service.a: "error"
+      service.a -> db.a: "BEGIN TRANSACTION"
+      service.a -> db.a: "UPDATE messages SET status = 300, updated_at = ? WHERE id = ?"
+      db.a --> service.a: "成功"
+      service.a -> db.a: "COMMIT"
+      service.a -> service.a: "记录该渠道推送失败结果" {
+        class: error
+      }
+    }
+    
+    推送成功: {
+      sender.a --> service.a: "success" {
+        class: success
+      }
+      service.a -> db.a: "BEGIN TRANSACTION"
+      service.a -> db.a: "UPDATE messages SET status = 200, updated_at = ? WHERE id = ?"
+      db.a --> service.a: "成功" {
+        class: success
+      }
+      service.a -> db.a: "COMMIT"
+      service.a -> service.a: "记录该渠道推送成功结果"
+    }
+  }
+}
+
+service.a -> service.a: "g.Wait() 等待所有 goroutine 完成"
+service.a -> service.a: "汇总推送结果 (成功数/失败数)"
+
+note: "并发说明：使用 errgroup.Group 实现多渠道并发推送，每个渠道独立事务，30s 超时控制" {
+  near: bottom-center
+}

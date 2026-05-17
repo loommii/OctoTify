@@ -1,0 +1,201 @@
+vars: {
+  d2-config: {
+    layout-engine: elk
+  }
+}
+
+shape: sequence_diagram
+
+classes: {
+  success: {
+    style.stroke: "#28a745"
+    style.animated: true
+  }
+  error: {
+    style.stroke: "#dc3545"
+    style.stroke-dash: 3
+    style.animated: true
+  }
+}
+
+external: 外部系统 (CI/CD, Webhook)
+server: HTTPServer
+handler: PushHandler
+service: MessageService
+factory: SenderFactory
+sender: Sender
+db: SQLite
+
+external.a -> server.a: "POST /api/message/push/:token {title, message}"
+server.a -> handler.a: "pushMessage(token, req)"
+
+handler.a -> handler.a: "sourceToken = c.Param(\"token\")"
+
+sourceToken为空: {
+  handler.a --> server.a: "{code: 100000, msg: 来源 Token 不能为空}" {
+    class: error
+  }
+  server.a --> external.a: "{code: 100000, msg: 来源 Token 不能为空}" {
+    class: error
+  }
+}
+
+sourceToken有效: {
+  handler.a -> handler.a: "ShouldBindJSON(req)"
+  
+  请求体解析失败: {
+    handler.a --> server.a: "validation error" {
+      class: error
+    }
+    server.a --> external.a: "validation error" {
+      class: error
+    }
+  }
+  
+  请求体解析通过: {
+    handler.a -> service.a: "PushMessage(ctx, sourceToken, req)"
+    service.a -> db.a: "SELECT * FROM sources WHERE token = ? AND status = 1"
+    
+    数据库查询失败: {
+      db.a --> service.a: "查询错误"
+      service.a --> handler.a: "ErrSourceQueryFailed (110505)" {
+        class: error
+      }
+      handler.a --> server.a: "{code: 110505, msg: 查询来源失败}" {
+        class: error
+      }
+      server.a --> external.a: "{code: 110505, msg: 查询来源失败}" {
+        class: error
+      }
+    }
+    
+    Source不存在或已禁用: {
+      db.a --> service.a: "nil"
+      service.a --> handler.a: "ErrSourceNotFound (110503)" {
+        class: error
+      }
+      handler.a --> server.a: "{code: 110503, msg: 来源不存在或已禁用}" {
+        class: error
+      }
+      server.a --> external.a: "{code: 110503, msg: 来源不存在或已禁用}" {
+        class: error
+      }
+    }
+    
+    Source有效: {
+      db.a --> service.a: "source"
+      
+      service.a -> db.a: "SELECT c.* FROM channels c JOIN source_channels sc ON sc.channel_id = c.id WHERE sc.source_id = ? AND c.status = 1"
+      
+      数据库查询失败: {
+        db.a --> service.a: "查询错误"
+        service.a --> handler.a: "ErrChannelQueryFailed (110605)" {
+          class: error
+        }
+        handler.a --> server.a: "{code: 110605, msg: 查询渠道失败}" {
+          class: error
+        }
+        server.a --> external.a: "{code: 110605, msg: 查询渠道失败}" {
+          class: error
+        }
+      }
+      
+      无可用渠道: {
+        db.a --> service.a: "channels[] (empty)"
+        service.a --> handler.a: "ErrMessageNoChannels (110703)" {
+          class: error
+        }
+        handler.a --> server.a: "{code: 110703, msg: 来源未绑定任何渠道}" {
+          class: error
+        }
+        server.a --> external.a: "{code: 110703, msg: 来源未绑定任何渠道}" {
+          class: error
+        }
+      }
+      
+      有可用渠道: {
+        db.a --> service.a: "channels[]"
+        
+        service.a -> service.a: "pushToChannels(source, channels, req)"
+        
+        渠道1推送: {
+          service.a -> db.a: "BEGIN TRANSACTION"
+          service.a -> db.a: "INSERT INTO messages (source_id, channel_id, title, content, status, created_at, updated_at)"
+          db.a --> service.a: "messageId"
+          service.a -> db.a: "COMMIT"
+          service.a -> factory.a: "Create(channel.type)"
+          factory.a --> service.a: "sender"
+          service.a -> service.a: "context.WithTimeout(ctx, 30s)"
+          service.a -> sender.a: "Send(ctx, config, title, message)"
+          
+          推送成功: {
+            sender.a --> service.a: "success"
+            service.a -> db.a: "BEGIN TRANSACTION"
+            service.a -> db.a: "UPDATE messages SET status = 200, updated_at = ? WHERE id = ?"
+            db.a --> service.a: "成功" {
+              class: success
+            }
+            service.a -> db.a: "COMMIT"
+          }
+          
+          推送失败: {
+            sender.a --> service.a: "error"
+            service.a -> db.a: "BEGIN TRANSACTION"
+            service.a -> db.a: "UPDATE messages SET status = 300, updated_at = ? WHERE id = ?"
+            db.a --> service.a: "成功" {
+              class: success
+            }
+            service.a -> db.a: "COMMIT"
+          }
+        }
+        
+        渠道2推送: {
+          service.a -> db.a: "BEGIN TRANSACTION"
+          service.a -> db.a: "INSERT INTO messages (source_id, channel_id, title, content, status, created_at, updated_at)"
+          db.a --> service.a: "messageId"
+          service.a -> db.a: "COMMIT"
+          service.a -> factory.a: "Create(channel.type)"
+          factory.a --> service.a: "sender"
+          service.a -> service.a: "context.WithTimeout(ctx, 30s)"
+          service.a -> sender.a: "Send(ctx, config, title, message)"
+          
+          推送成功: {
+            sender.a --> service.a: "success"
+            service.a -> db.a: "BEGIN TRANSACTION"
+            service.a -> db.a: "UPDATE messages SET status = 200, updated_at = ? WHERE id = ?"
+            db.a --> service.a: "成功" {
+              class: success
+            }
+            service.a -> db.a: "COMMIT"
+          }
+          
+          推送失败: {
+            sender.a --> service.a: "error"
+            service.a -> db.a: "BEGIN TRANSACTION"
+            service.a -> db.a: "UPDATE messages SET status = 300, updated_at = ? WHERE id = ?"
+            db.a --> service.a: "成功" {
+              class: success
+            }
+            service.a -> db.a: "COMMIT"
+          }
+        }
+        
+        service.a -> service.a: "汇总推送结果 (成功数/失败数)"
+        service.a -> service.a: "记录推送完成日志"
+        service.a --> handler.a: "PushResponse{total, success, failed, results}" {
+          class: success
+        }
+        handler.a --> server.a: "{code: 0, data: results}" {
+          class: success
+        }
+        server.a --> external.a: "{code: 0, msg: 请求成功, data: results}" {
+          class: success
+        }
+      }
+    }
+  }
+}
+
+note: "推送流程：每个渠道独立事务（创建消息记录 + 更新推送状态），使用 SenderFactory 创建对应渠道 Sender" {
+  near: bottom-center
+}

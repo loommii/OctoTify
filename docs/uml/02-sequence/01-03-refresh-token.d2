@@ -1,0 +1,110 @@
+vars: {
+  d2-config: {
+    layout-engine: elk
+  }
+}
+
+shape: sequence_diagram
+
+classes: {
+  success: {
+    style.stroke: "#28a745"
+    style.animated: true
+  }
+  error: {
+    style.stroke: "#dc3545"
+    style.stroke-dash: 3
+    style.animated: true
+  }
+}
+
+frontend: 前端
+server: HTTPServer
+handler: AuthHandler
+auth: AuthService
+accessJWT: Access JWT Helper
+refreshJWT: Refresh JWT Helper
+db: SQLite
+
+frontend.a -> server.a: "POST /api/auth/refresh {refresh_token}"
+server.a -> handler.a: "refreshToken(req)"
+handler.a -> auth.a: "refreshAccessToken(refreshToken)"
+
+auth.a -> refreshJWT.a: "validateToken(refreshToken)"
+
+令牌无效: {
+  refreshJWT.a --> auth.a: "invalid (签名错误或已过期)"
+  auth.a --> handler.a: "ErrRefreshTokenInvalid (110300)" {
+    class: error
+  }
+  handler.a --> server.a: "{code: 110300, msg: 刷新令牌无效}" {
+    class: error
+  }
+  server.a --> frontend.a: "{code: 110300, msg: 刷新令牌无效}" {
+    class: error
+  }
+  frontend.a --> frontend.a: "清除本地 Token，跳转登录页" {
+    class: error
+  }
+}
+
+令牌有效: {
+  refreshJWT.b --> auth.b: "claims (jti, uid, token_type)"
+
+  auth.b -> db.b: "SELECT * FROM refresh_tokens WHERE jti = ?"
+
+  令牌不存在: {
+    db.b --> auth.b: "nil"
+    auth.b --> handler.b: "ErrRefreshTokenInvalid (110300)" {
+      class: error
+    }
+    handler.b --> server.b: "{code: 110300, msg: 刷新令牌无效}" {
+      class: error
+    }
+    server.b --> frontend.b: "{code: 110300, msg: 刷新令牌无效}" {
+      class: error
+    }
+    frontend.b --> frontend.b: "清除本地 Token，跳转登录页" {
+      class: error
+    }
+  }
+
+  令牌存在: {
+    db.b --> auth.b: "refreshToken"
+    auth.b -> auth.b: "检查 revoked 字段（是否已撤销）"
+
+    令牌已撤销: {
+      auth.b --> handler.b: "ErrRefreshTokenRevoked (110301)" {
+        class: error
+      }
+      handler.b --> server.b: "{code: 110301, msg: 刷新令牌已撤销}" {
+        class: error
+      }
+      server.b --> frontend.b: "{code: 110301, msg: 刷新令牌已撤销}" {
+        class: error
+      }
+      frontend.b --> frontend.b: "清除本地 Token，跳转登录页" {
+        class: error
+      }
+    }
+
+    令牌未撤销: {
+      auth.b -> db.b: "SELECT * FROM users WHERE id = ?"
+      db.b --> auth.b: "user"
+      auth.b -> accessJWT.b: "generateToken(claims {uid, token_type: access})"
+      accessJWT.b --> auth.b: "newAccessToken"
+      auth.b --> handler.b: "{newAccessToken, refreshToken}" {
+        class: success
+      }
+      handler.b --> server.b: "{code: 0, data: {access_token, refresh_token, user}}" {
+        class: success
+      }
+      server.b --> frontend.b: "{code: 0, data: {access_token, refresh_token, user}}" {
+        class: success
+      }
+      frontend.b --> frontend.b: "更新本地 Access Token" {
+        class: success
+      }
+    }
+  }
+}

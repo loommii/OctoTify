@@ -1,0 +1,136 @@
+vars: {
+  d2-config: {
+    layout-engine: elk
+  }
+}
+
+shape: sequence_diagram
+
+classes: {
+  success: {
+    style.stroke: "#28a745"
+    style.animated: true
+  }
+  error: {
+    style.stroke: "#dc3545"
+    style.stroke-dash: 3
+    style.animated: true
+  }
+}
+
+user: 用户
+frontend: 前端
+server: HTTPServer
+jwt: JWTAuth 中间件
+handler: ChannelHandler
+service: ChannelService
+db: SQLite
+
+user -> frontend.a: "修改名称、配置"
+frontend.a -> server.a: "PUT /api/channels/:id {name, config}"
+server.a -> jwt.a: "JWTAuth(accessToken)"
+
+未提供认证令牌: {
+  jwt.a --> server.a: "{code: 100001, msg: 未提供认证令牌}" {
+    class: error
+  }
+  server.a --> frontend.a: "{code: 100001, msg: 未提供认证令牌}" {
+    class: error
+  }
+  frontend.a --> frontend.a: "使用 Refresh Token 调用刷新接口" {
+    class: error
+  }
+}
+
+令牌无效或已过期: {
+  jwt.a --> server.a: "{code: 100001, msg: 认证令牌无效或已过期}" {
+    class: error
+  }
+  server.a --> frontend.a: "{code: 100001, msg: 认证令牌无效或已过期}" {
+    class: error
+  }
+  frontend.a --> frontend.a: "使用 Refresh Token 调用刷新接口" {
+    class: error
+  }
+}
+
+令牌有效: {
+  jwt.a --> server.a: "userId (从 claims 中提取)"
+  server.a -> handler.a: "updateChannel(userId, channelId, req)"
+
+  handler.a -> service.b: "getChannelById(channelId, userId)"
+  service.b -> db.b: "SELECT * FROM channels WHERE id = ? AND user_id = ?"
+
+  渠道不存在: {
+    db.b --> service.b: "nil"
+    service.b --> handler.b: "ErrChannelNotFound (110603)" {
+      class: error
+    }
+    handler.b --> server.b: "{code: 110603, msg: 渠道不存在}" {
+      class: error
+    }
+    server.b --> frontend.b: "{code: 110603, msg: 渠道不存在}" {
+      class: error
+    }
+    frontend.b --> user: "显示错误提示" {
+      class: error
+    }
+  }
+
+  渠道已删除: {
+    db.b --> service.b: "channel (status = -1)"
+    service.b --> handler.b: "ErrChannelAlreadyDeleted (110609)" {
+      class: error
+    }
+    handler.b --> server.b: "{code: 110609, msg: 渠道已删除}" {
+      class: error
+    }
+    server.b --> frontend.b: "{code: 110609, msg: 渠道已删除}" {
+      class: error
+    }
+    frontend.b --> user: "显示错误提示" {
+      class: error
+    }
+  }
+
+  渠道存在: {
+    db.b --> service.b: "channel"
+    service.b --> handler.b: "channel"
+
+    handler.b -> service.b: "updateChannel(channelId, name, config, userId)"
+
+    数据库更新失败: {
+      service.b -> db.b: "UPDATE channels SET name = ?, config = ? WHERE id = ? AND user_id = ?"
+      db.b --> service.b: "更新失败"
+      service.b --> handler.b: "ErrChannelUpdateFailed (110610)" {
+        class: error
+      }
+      handler.b --> server.b: "{code: 110610, msg: 更新渠道失败}" {
+        class: error
+      }
+      server.b --> frontend.b: "{code: 110610, msg: 更新渠道失败}" {
+        class: error
+      }
+      frontend.b --> user: "显示错误提示" {
+        class: error
+      }
+    }
+
+    数据库更新成功: {
+      service.b -> db.b: "UPDATE channels SET name = ?, config = ?, updated_at = ? WHERE id = ? AND user_id = ?"
+      db.b --> service.b: "成功"
+      service.b --> handler.b: "成功" {
+        class: success
+      }
+      handler.b --> server.b: "{code: 0}" {
+        class: success
+      }
+      server.b --> frontend.b: "{code: 0, msg: 更新成功}" {
+        class: success
+      }
+      frontend.b --> user: "编辑成功" {
+        class: success
+      }
+    }
+  }
+}
