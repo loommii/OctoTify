@@ -91,22 +91,16 @@ server.a -> jwt.a: "JWTAuth(accessToken)"
     }
     
     名称有效: {
-      service.a -> service.a: "生成 Token：前缀 src + UUIDv7 无连字符（共 35 位）"
-      service.a -> db.a: "SELECT COUNT(*) FROM sources WHERE token = ?"
-      db.a --> service.a: "0（Token 唯一）"
+      service.a -> service.a: "校验渠道ID存在性（如果提供了channel_ids）"
       
-      创建失败: {
-        service.a -> db.a: "BEGIN TRANSACTION"
-        service.a -> db.a: "INSERT INTO sources (user_id, name, description, token, status)"
-        db.a --> service.a: "插入失败"
-        service.a -> db.a: "ROLLBACK"
-        service.a --> handler.a: "ErrSourceInsertFailed (110501)" {
+      渠道不存在: {
+        service.a --> handler.a: "ErrChannelNotFound (110603)" {
           class: error
         }
-        handler.a --> server.a: "{code: 110501, msg: 创建来源失败}" {
+        handler.a --> server.a: "{code: 110603, msg: 渠道不存在}" {
           class: error
         }
-        server.a --> frontend.a: "{code: 110501, msg: 创建来源失败}" {
+        server.a --> frontend.a: "{code: 110603, msg: 渠道不存在}" {
           class: error
         }
         frontend.a --> user: "显示错误提示" {
@@ -114,24 +108,49 @@ server.a -> jwt.a: "JWTAuth(accessToken)"
         }
       }
       
-      创建成功: {
-        service.a -> db.a: "BEGIN TRANSACTION"
-        service.a -> db.a: "INSERT INTO sources (user_id, name, description, token, status)"
-        db.a --> service.a: "sourceId"
-        service.a -> db.a: "INSERT INTO source_channels (source_id, channel_id, status) VALUES ..."
-        db.a --> service.a: "批量插入成功"
-        service.a -> db.a: "COMMIT"
-        service.a --> handler.a: "{id, user_id, name, token, description, status, created_at}" {
-          class: success
+      渠道存在或未提供channel_ids: {
+        service.a -> service.a: "生成 Token：前缀 src + UUIDv7 无连字符（共 35 位）"
+        service.a -> db.a: "SELECT COUNT(*) FROM sources WHERE token = ?"
+        db.a --> service.a: "0（Token 唯一）"
+        
+        创建失败: {
+          service.a -> db.a: "BEGIN TRANSACTION"
+          service.a -> db.a: "INSERT INTO sources (user_id, name, description, token, status)"
+          db.a --> service.a: "插入失败"
+          service.a -> db.a: "ROLLBACK"
+          service.a --> handler.a: "ErrSourceInsertFailed (110501)" {
+            class: error
+          }
+          handler.a --> server.a: "{code: 110501, msg: 创建来源失败}" {
+            class: error
+          }
+          server.a --> frontend.a: "{code: 110501, msg: 创建来源失败}" {
+            class: error
+          }
+          frontend.a --> user: "显示错误提示" {
+            class: error
+          }
         }
-        handler.a --> server.a: "{code: 0, data: {id, user_id, name, token, description, status, created_at}}" {
-          class: success
-        }
-        server.a --> frontend.a: "{code: 0, data: {id, user_id, name, token, description, status, created_at}}" {
-          class: success
-        }
-        frontend.a --> user: "创建成功，显示 Source Token" {
-          class: success
+        
+        创建成功: {
+          service.a -> db.a: "BEGIN TRANSACTION"
+          service.a -> db.a: "INSERT INTO sources (user_id, name, description, token, status)"
+          db.a --> service.a: "sourceId"
+          service.a -> db.a: "INSERT INTO source_channels (source_id, channel_id, status) VALUES ..."
+          db.a --> service.a: "批量插入成功"
+          service.a -> db.a: "COMMIT"
+          service.a --> handler.a: "{id, user_id, name, token, description, status, created_at}" {
+            class: success
+          }
+          handler.a --> server.a: "{code: 0, data: {id, user_id, name, token, description, status, created_at}}" {
+            class: success
+          }
+          server.a --> frontend.a: "{code: 0, data: {id, user_id, name, token, description, status, created_at}}" {
+            class: success
+          }
+          frontend.a --> user: "创建成功，显示 Source Token" {
+            class: success
+          }
         }
       }
     }

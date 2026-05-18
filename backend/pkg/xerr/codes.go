@@ -100,6 +100,8 @@ const (
 	CodeMessageNoChannels        = 110703
 	CodeMessageRecordFailed      = 110704
 	CodeMessageAlreadyDeleted    = 110705
+	CodeMessageChannelsDisabled  = 110706 // 来源绑定的渠道均已停用
+	CodeMessageChannelsDeleted   = 110707 // 来源绑定的渠道均已删除
 
 	// 用户管理模块错误 1108XX
 	CodeUserProfileNotFound    = 110800
@@ -204,6 +206,8 @@ var (
 	ErrMessageNoChannels        = New(CodeMessageNoChannels)
 	ErrMessageRecordFailed      = New(CodeMessageRecordFailed)
 	ErrMessageAlreadyDeleted    = New(CodeMessageAlreadyDeleted)
+	ErrMessageChannelsDisabled  = New(CodeMessageChannelsDisabled)
+	ErrMessageChannelsDeleted   = New(CodeMessageChannelsDeleted)
 )
 
 // 用户管理模块错误 1108XX

@@ -238,6 +238,14 @@ var errorMessages = map[int]map[string]string{
 		"zh-CN": "消息已删除",
 		"en-US": "Message already deleted",
 	},
+	CodeMessageChannelsDisabled: {
+		"zh-CN": "来源绑定的渠道均已停用",
+		"en-US": "All bound channels are disabled",
+	},
+	CodeMessageChannelsDeleted: {
+		"zh-CN": "来源绑定的渠道均已删除",
+		"en-US": "All bound channels are deleted",
+	},
 
 	// 用户管理模块错误 1108XX
 	CodeUserProfileNotFound: {

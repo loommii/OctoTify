@@ -191,6 +191,7 @@
     "newPasswordRequired": "Please enter new password",
     "confirmPasswordRequired": "Please re-enter new password",
     "passwordMismatch": "Passwords do not match",
-    "passwordStrengthRule": "8-128 characters, must contain at least one uppercase letter, one lowercase letter, and one digit"
+    "passwordStrengthRule": "8-128 characters, must contain at least one uppercase letter, one lowercase letter, and one digit",
+    "newPasswordSameAsOld": "New password cannot be the same as old password"
   }
 }

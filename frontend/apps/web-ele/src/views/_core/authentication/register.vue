@@ -24,7 +24,7 @@ const loading = ref(false);
 const passwordRule = z
   .string()
   .min(8, { message: $t('authentication.passwordMinLength') })
-  .max(128, { message: $t('authentication.passwordMaxLength') })
+  .max(64, { message: $t('authentication.passwordMaxLength') })
   .regex(/[a-z]/, { message: $t('authentication.passwordRequireLowercase') })
   .regex(/[A-Z]/, { message: $t('authentication.passwordRequireUppercase') })
   .regex(/[0-9]/, { message: $t('authentication.passwordRequireNumber') });

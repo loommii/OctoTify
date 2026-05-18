@@ -28,7 +28,7 @@
   "goToLogin": "Login instead",
   "passwordStrength": "Use 8 or more characters with a mix of letters, numbers & symbols",
   "passwordMinLength": "Password must be at least 8 characters",
-  "passwordMaxLength": "Password cannot exceed 128 characters",
+  "passwordMaxLength": "Password cannot exceed 64 characters",
   "passwordRequireLowercase": "Password must contain at least one lowercase letter",
   "passwordRequireUppercase": "Password must contain at least one uppercase letter",
   "passwordRequireNumber": "Password must contain at least one number",

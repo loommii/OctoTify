@@ -94,3 +94,6 @@ frontend/*.sln
 frontend/*.sw?
 frontend/.history
 frontend/.cursor
+
+# AI
+.playwright-mcp

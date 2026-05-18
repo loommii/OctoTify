@@ -17,6 +17,7 @@ import (
 	"octotify/internal/sender"
 	"octotify/pkg/aescipher"
 	"octotify/pkg/ctxutil"
+	"octotify/pkg/validator"
 	"octotify/pkg/xerr"
 )
 
@@ -71,6 +72,11 @@ func (s *ChannelService) GetChannelTypes() []dto.ChannelTypeMeta {
 //   - 错误信息（如果创建失败）
 func (s *ChannelService) CreateChannel(ctx context.Context, userID int64, req *dto.CreateChannelReq) (*dto.ChannelDTO, error) {
 	q := query.Use(s.db)
+
+	// 校验渠道配置必填字段
+	if err := validator.ValidateChannelConfig(req.Type, req.Config); err != nil {
+		return nil, xerr.ErrBadRequest.WithInternal(err)
+	}
 
 	// 对微信ClawBot渠道，解密密文并校验，确保配置有效
 	configData, err := s.processChannelConfig(ctx, req.Type, req.Config.ToJSON())
@@ -165,6 +171,11 @@ func (s *ChannelService) UpdateChannel(ctx context.Context, userID int64, channe
 			zap.Int64("channel_id", channelID),
 		)
 		return xerr.ErrChannelAlreadyDeleted
+	}
+
+	// 校验渠道配置必填字段
+	if err := validator.ValidateChannelConfig(channel.Type, req.Config); err != nil {
+		return xerr.ErrBadRequest.WithInternal(err)
 	}
 
 	// 对微信ClawBot渠道，解密密文并校验，确保配置有效

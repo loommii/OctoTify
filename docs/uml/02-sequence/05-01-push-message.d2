@@ -85,7 +85,7 @@ sourceToken有效: {
     Source有效: {
       db.a --> service.a: "source"
       
-      service.a -> db.a: "SELECT c.* FROM channels c JOIN source_channels sc ON sc.channel_id = c.id WHERE sc.source_id = ? AND c.status = 1"
+      service.a -> db.a: "SELECT c.* FROM channels c JOIN source_channels sc ON sc.channel_id = c.id WHERE sc.source_id = ?"
       
       数据库查询失败: {
         db.a --> service.a: "查询错误"
@@ -100,7 +100,7 @@ sourceToken有效: {
         }
       }
       
-      无可用渠道: {
+      无绑定渠道: {
         db.a --> service.a: "channels[] (empty)"
         service.a --> handler.a: "ErrMessageNoChannels (110703)" {
           class: error
@@ -113,8 +113,36 @@ sourceToken有效: {
         }
       }
       
-      有可用渠道: {
+      有绑定渠道: {
         db.a --> service.a: "channels[]"
+        service.a -> service.a: "按状态分类渠道（active/disabled/deleted）"
+        
+        渠道均停用: {
+          service.a --> handler.a: "ErrMessageChannelsDisabled (110706)" {
+            class: error
+          }
+          handler.a --> server.a: "{code: 110706, msg: 来源绑定的渠道均已停用}" {
+            class: error
+          }
+          server.a --> external.a: "{code: 110706, msg: 来源绑定的渠道均已停用}" {
+            class: error
+          }
+        }
+        
+        渠道均删除: {
+          service.a --> handler.a: "ErrMessageChannelsDeleted (110707)" {
+            class: error
+          }
+          handler.a --> server.a: "{code: 110707, msg: 来源绑定的渠道均已删除}" {
+            class: error
+          }
+          server.a --> external.a: "{code: 110707, msg: 来源绑定的渠道均已删除}" {
+            class: error
+          }
+        }
+        
+        有可用渠道: {
+          service.a -> service.a: "筛选出 status = 1 的渠道"
         
         service.a -> service.a: "pushToChannels(source, channels, req)"
         

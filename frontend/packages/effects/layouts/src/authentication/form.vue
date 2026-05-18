@@ -16,7 +16,7 @@ defineProps<{
     <!-- Router View with Transition and KeepAlive -->
     <RouterView v-slot="{ Component, route }">
       <Transition appear mode="out-in" name="slide-right">
-        <KeepAlive :include="['Login']">
+        <KeepAlive :include="['Login', 'Register']">
           <component
             :is="Component"
             :key="route.fullPath"

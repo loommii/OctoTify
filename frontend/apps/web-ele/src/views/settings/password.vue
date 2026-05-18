@@ -79,7 +79,7 @@ const formData = reactive({
 });
 
 // 密码强度校验：8-128 字符，至少包含小写字母、大写字母、数字各一个
-const passwordPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,128}$/;
+const passwordPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,64}$/;
 
 const rules: FormRules = {
   old_password: [
@@ -87,6 +87,16 @@ const rules: FormRules = {
   ],
   new_password: [
     { required: true, message: $t('page.settings.newPasswordRequired'), trigger: 'blur' },
+    {
+      validator: (_rule, value, callback) => {
+        if (value === formData.old_password) {
+          callback(new Error($t('page.settings.newPasswordSameAsOld')));
+        } else {
+          callback();
+        }
+      },
+      trigger: 'blur',
+    },
     {
       pattern: passwordPattern,
       message: $t('page.settings.passwordStrengthRule'),

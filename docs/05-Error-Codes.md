@@ -127,6 +127,8 @@
 | 110703 | ErrMessageNoChannels | 来源未绑定任何渠道 | Source not bound to any channel |
 | 110704 | ErrMessageRecordFailed | 记录消息状态失败 | Failed to record message status |
 | 110705 | ErrMessageAlreadyDeleted | 消息已删除 | Message already deleted |
+| 110706 | ErrMessageChannelsDisabled | 来源绑定的渠道均已停用 | All bound channels are disabled |
+| 110707 | ErrMessageChannelsDeleted | 来源绑定的渠道均已删除 | All bound channels are deleted |
 
 ### 3.9 用户管理模块 1108XX
 

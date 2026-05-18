@@ -3,7 +3,7 @@ package dto
 // AuthCredentials 认证凭据（注册/登录通用）
 type AuthCredentials struct {
 	Username string `json:"username" binding:"required,username" example:"octotify"`    // 用户名，3-64 个字符，仅允许字母、数字和下划线
-	Password string `json:"password" binding:"required,password" example:"P@ssw0rd123"` // 密码，8-128 个字符，需包含大小写字母和数字
+	Password string `json:"password" binding:"required,password" example:"P@ssw0rd123"` // 密码，8-64 个字符，需包含大小写字母和数字
 }
 
 // RegisterReq 用户注册请求
@@ -31,7 +31,7 @@ type RefreshReq struct {
 // ChangePasswordReq 修改密码请求
 type ChangePasswordReq struct {
 	OldPassword string `json:"old_password" binding:"required,password" example:"OldP@ssw0rd123"` // 旧密码
-	NewPassword string `json:"new_password" binding:"required,password" example:"NewP@ssw0rd123"` // 新密码，8-128 个字符，需包含大小写字母和数字
+	NewPassword string `json:"new_password" binding:"required,password" example:"NewP@ssw0rd123"` // 新密码，8-64 个字符，需包含大小写字母和数字
 }
 
 // AuthResp 认证响应（登录/注册/刷新令牌）

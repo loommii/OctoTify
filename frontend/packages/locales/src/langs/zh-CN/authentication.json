@@ -28,7 +28,7 @@
   "goToLogin": "去登录",
   "passwordStrength": "使用 8 个或更多字符，混合字母、数字和符号",
   "passwordMinLength": "密码长度不能少于 8 个字符",
-  "passwordMaxLength": "密码长度不能超过 128 个字符",
+  "passwordMaxLength": "密码长度不能超过 64 个字符",
   "passwordRequireLowercase": "密码需包含至少一个小写字母",
   "passwordRequireUppercase": "密码需包含至少一个大写字母",
   "passwordRequireNumber": "密码需包含至少一个数字",

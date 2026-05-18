@@ -350,9 +350,9 @@ func (s *MessageService) DeleteMessage(ctx context.Context, userID int64, messag
 	return nil
 }
 
-// PushMessage 推送消息
-// 按照 UML 05-01-push-message.puml 实现
-// 通过来源 Token 验证来源有效性，查询绑定的渠道，并发推送到各渠道
+// PushMessage 推送消息（通过来源 Token）
+// 按照 UML 05-01-push-message.d2 实现
+// 通过来源 Token 验证来源有效性，查询绑定的渠道，按状态分类后并发推送到可用渠道
 func (s *MessageService) PushMessage(ctx context.Context, sourceToken string, req *dto.PushMessageReq) (*dto.PushResponse, error) {
 	q := query.Use(s.db)
 
@@ -377,13 +377,10 @@ func (s *MessageService) PushMessage(ctx context.Context, sourceToken string, re
 		return nil, xerr.ErrSourceQueryFailed.WithInternal(err)
 	}
 
-	// 查询来源绑定的可用渠道（status = 1 表示正常）
-	channels, err := q.Channel.WithContext(ctx).
+	// 查询来源绑定的所有渠道（不限状态）
+	allChannels, err := q.Channel.WithContext(ctx).
 		Join(q.SourceChannel, q.SourceChannel.ChannelID.EqCol(q.Channel.ID)).
-		Where(
-			q.SourceChannel.SourceID.Eq(source.ID),
-			q.Channel.Status.Eq(model.ChannelStatusActive),
-		).
+		Where(q.SourceChannel.SourceID.Eq(source.ID)).
 		Find()
 	if err != nil {
 		s.log(ctx).Error("查询渠道失败",
@@ -393,16 +390,47 @@ func (s *MessageService) PushMessage(ctx context.Context, sourceToken string, re
 		return nil, xerr.ErrChannelQueryFailed.WithInternal(err)
 	}
 
-	// 检查是否有可用渠道
-	if len(channels) == 0 {
+	// 检查是否绑定了任何渠道
+	if len(allChannels) == 0 {
 		s.log(ctx).Warn("来源未绑定任何渠道",
 			zap.Int64("source_id", source.ID),
 		)
 		return nil, xerr.ErrMessageNoChannels
 	}
 
+	// 查询可用渠道（status = 1 表示正常）
+	activeChannels := make([]*model.Channel, 0, len(allChannels))
+	hasDisabled := false
+	hasDeleted := false
+	for _, ch := range allChannels {
+		switch ch.Status {
+		case model.ChannelStatusActive:
+			activeChannels = append(activeChannels, ch)
+		case model.ChannelStatusDisabled:
+			hasDisabled = true
+		case model.ChannelStatusDeleted:
+			hasDeleted = true
+		}
+	}
+
+	// 检查是否有可用渠道
+	if len(activeChannels) == 0 {
+		if hasDeleted {
+			s.log(ctx).Warn("来源绑定的渠道均已删除",
+				zap.Int64("source_id", source.ID),
+			)
+			return nil, xerr.ErrMessageChannelsDeleted
+		}
+		if hasDisabled {
+			s.log(ctx).Warn("来源绑定的渠道均已停用",
+				zap.Int64("source_id", source.ID),
+			)
+			return nil, xerr.ErrMessageChannelsDisabled
+		}
+	}
+
 	// 并发推送到各渠道
-	return s.pushToChannels(ctx, source, channels, req)
+	return s.pushToChannels(ctx, source, activeChannels, req)
 }
 
 // pushToChannels 并发推送到多个渠道

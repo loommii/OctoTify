@@ -66,6 +66,21 @@ func (s *SourceService) CreateSource(ctx context.Context, userID int64, req *dto
 
 		// 绑定渠道：批量插入 source_channels 关联记录
 		if len(req.ChannelIDs) > 0 {
+			// 校验渠道存在性（同时校验渠道属于当前用户且未删除）
+			count, err := tx.Channel.WithContext(ctx).
+				Where(
+					tx.Channel.ID.In(req.ChannelIDs...),
+					tx.Channel.UserID.Eq(userID),
+					tx.Channel.Status.Neq(model.ChannelStatusDeleted),
+				).
+				Count()
+			if err != nil {
+				return xerr.ErrChannelQueryFailed.WithInternal(err)
+			}
+			if count != int64(len(req.ChannelIDs)) {
+				return xerr.ErrChannelNotFound
+			}
+
 			sourceChannels := make([]*model.SourceChannel, 0, len(req.ChannelIDs))
 			now := time.Now()
 			for _, channelID := range req.ChannelIDs {

@@ -53,11 +53,9 @@ function setupAccessGuard(router: Router) {
     // 基本路由，这些路由不需要进入权限拦截
     if (coreRouteNames.includes(to.name as string)) {
       if (to.path === LOGIN_PATH && accessStore.accessToken) {
-        return decodeURIComponent(
-          (to.query?.redirect as string) ||
+        return (to.query?.redirect as string) ||
             userStore.userInfo?.homePath ||
-            preferences.app.defaultHomePath,
-        );
+            preferences.app.defaultHomePath;
       }
       return true;
     }
@@ -77,7 +75,7 @@ function setupAccessGuard(router: Router) {
           query:
             to.fullPath === preferences.app.defaultHomePath
               ? {}
-              : { redirect: encodeURIComponent(to.fullPath) },
+              : { redirect: to.fullPath },
           // 携带当前跳转的页面，登录后重新跳转该页面
           replace: true,
         };
@@ -113,7 +111,7 @@ function setupAccessGuard(router: Router) {
         : to.fullPath)) as string;
 
     return {
-      ...router.resolve(decodeURIComponent(redirectPath)),
+      ...router.resolve(redirectPath as string),
       replace: true,
     };
   });
