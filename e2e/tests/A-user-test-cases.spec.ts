@@ -324,3 +324,52 @@ test.describe('UC_ChangePassword: 修改密码', () => {
     });
   });
 });
+
+test.describe('UC_RefreshToken: 刷新令牌', () => {
+  test('A-38: 使用无效 refresh_token - 刷新失败，返回错误提示', async ({ page, registerPage, loginPage, header }) => {
+    const username = `user_${Date.now()}`;
+    const password = 'Test123456';
+    let refreshToken = '';
+
+    await test.step('准备：注册新用户并登录', async () => {
+      await registerPage.goto();
+      await registerPage.register(username, password);
+      await page.waitForURL(/\/auth\/login/, { timeout: 15000 });
+
+      await loginPage.goto();
+      await loginPage.login(username, password);
+      await page.waitForURL(/\/dashboard/, { timeout: 15000 });
+    });
+
+    await test.step('查看个人资料', async () => {
+      await header.gotoProfile();
+      await page.waitForURL(/\/settings\/profile/, { timeout: 10000 });
+      const displayedUsername = await page.getByText(username).textContent();
+      expect(displayedUsername).toBe(username);
+    });
+
+    await test.step('获取 refresh_token', async () => {
+      const response = await page.request.post('/api/auth/login', {
+        data: { username, password },
+      });
+      const respData = await response.json();
+      expect(respData.code).toBe(0);
+      refreshToken = respData.data.refresh_token;
+      expect(refreshToken).toBeTruthy();
+    });
+
+    await test.step('退出登录', async () => {
+      await header.logout();
+      await page.waitForURL(/\/auth\/login/, { timeout: 10000 });
+    });
+
+    await test.step('使用已失效的 refresh_token 刷新', async () => {
+      const response = await page.request.post('/api/auth/refresh', {
+        data: { refresh_token: refreshToken },
+      });
+      const respData = await response.json();
+      expect(respData.code).toBe(110301);
+      expect(respData.msg).toBe('刷新令牌已撤销');
+    });
+  });
+});
