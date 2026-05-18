@@ -208,7 +208,7 @@ function handleTypeSelect(meta: ChannelApi.ChannelTypeMeta) {
   // 初始化配置字段
   meta.config_fields.forEach((field) => {
     if (field.type === 'number') {
-      configData[field.name] = undefined;
+      configData[field.name] = field.name === 'smtp_port' ? 587 : undefined;
     } else {
       configData[field.name] = '';
     }
