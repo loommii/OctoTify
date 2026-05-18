@@ -19,7 +19,7 @@ const router = useRouter();
 const loading = ref(false);
 
 /**
- * 密码强度校验：8-128 字符，需包含大小写字母+数字
+ * 密码强度校验：8-64 字符，需包含大小写字母+数字
  */
 const passwordRule = z
   .string()
@@ -28,6 +28,15 @@ const passwordRule = z
   .regex(/[a-z]/, { message: $t('authentication.passwordRequireLowercase') })
   .regex(/[A-Z]/, { message: $t('authentication.passwordRequireUppercase') })
   .regex(/[0-9]/, { message: $t('authentication.passwordRequireNumber') });
+
+/**
+ * 用户名格式校验：3-64 字符，只能包含字母、数字和下划线
+ */
+const usernameRule = z
+  .string()
+  .min(3, { message: $t('authentication.usernameMinLength') })
+  .max(64, { message: $t('authentication.usernameMaxLength') })
+  .regex(/^[a-zA-Z0-9_]+$/, { message: $t('authentication.usernameFormatTip') });
 
 const formSchema = computed((): VbenFormSchema[] => {
   return [
@@ -38,10 +47,8 @@ const formSchema = computed((): VbenFormSchema[] => {
       },
       fieldName: 'username',
       label: $t('authentication.username'),
-      rules: z
-        .string()
-        .min(1, { message: $t('authentication.usernameTip') })
-        .max(64, { message: $t('authentication.usernameMaxLength') }),
+      description: $t('authentication.usernameFormatTip'),
+      rules: usernameRule,
     },
     {
       component: 'VbenInputPassword',

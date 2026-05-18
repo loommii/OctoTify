@@ -78,7 +78,7 @@ const formData = reactive({
   confirm_password: '',
 });
 
-// 密码强度校验：8-128 字符，至少包含小写字母、大写字母、数字各一个
+// 密码强度校验：8-64 字符，至少包含小写字母、大写字母、数字各一个
 const passwordPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,64}$/;
 
 const rules: FormRules = {
@@ -132,7 +132,7 @@ async function handleSubmit() {
     // 跳转登录页
     await authStore.logout(false);
   } catch {
-    ElMessage.error($t('page.settings.passwordChangeFailed'));
+    // 错误消息已由框架的 errorMessageResponseInterceptor 统一处理
   } finally {
     submitting.value = false;
   }
