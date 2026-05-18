@@ -158,3 +158,53 @@ test.describe('UC_Login: 登录', () => {
     });
   });
 });
+
+test.describe('UC_ChangePassword: 修改密码', () => {
+  test('修改密码错误场景验证', async ({ page, passwordPage, registerPage, loginPage }) => {
+    const username = `user_${Date.now()}`;
+    const password = 'Test123456';
+
+    await test.step('准备：注册新用户并登录', async () => {
+      await registerPage.goto();
+      await registerPage.register(username, password);
+      await page.waitForURL(/\/auth\/login/, { timeout: 15000 });
+
+      await loginPage.goto();
+      await loginPage.login(username, password);
+      await page.waitForURL(/\/dashboard/, { timeout: 15000 });
+
+      await passwordPage.goto();
+      await passwordPage.expectLoaded();
+    });
+
+    await test.step('A-29: 旧密码错误', async () => {
+      await passwordPage.fillPasswordForm('WrongOldPwd1', 'NewTest123', 'NewTest123');
+      await passwordPage.submitButton.click();
+      const errorMessage = await passwordPage.getErrorMessage();
+      expect(errorMessage).toBe('旧密码错误');
+      // 等待 toast 消失，避免影响后续测试
+      await passwordPage.errorToast.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {});
+    });
+
+    await test.step('A-30: 新密码太短', async () => {
+      await passwordPage.fillPasswordForm(password, '123', '123');
+      await passwordPage.submitButton.click();
+      const errorMessage = await passwordPage.getErrorMessage();
+      expect(errorMessage).toContain('8-128 字符');
+    });
+
+    await test.step('A-32: 两次新密码不一致', async () => {
+      await passwordPage.fillPasswordForm(password, 'NewTest123', 'NewTest456');
+      await passwordPage.submitButton.click();
+      const errorMessage = await passwordPage.getErrorMessage();
+      expect(errorMessage).toBe('两次输入的密码不一致');
+    });
+
+    await test.step('A-33: 新密码与旧密码相同', async () => {
+      await passwordPage.fillPasswordForm(password, password, password);
+      await passwordPage.submitButton.click();
+      const errorMessage = await passwordPage.getErrorMessage();
+      expect(errorMessage).toBe('新密码不能与旧密码相同');
+    });
+  });
+});
