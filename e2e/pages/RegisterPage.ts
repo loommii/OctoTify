@@ -52,12 +52,9 @@ export class RegisterPage extends BasePage {
    */
   async fillRegisterForm(username: string, password: string) {
     await this.usernameInput.waitFor({ state: 'visible', timeout: 10000 });
-    await this.usernameInput.click();
-    await this.usernameInput.type(username);
-    await this.passwordInput.click();
-    await this.passwordInput.type(password);
-    await this.confirmPasswordInput.click();
-    await this.confirmPasswordInput.type(password);
+    await this.usernameInput.fill(username);
+    await this.passwordInput.fill(password);
+    await this.confirmPasswordInput.fill(password);
     await this.registerButton.click();
   }
 
