@@ -9,6 +9,8 @@ export class LoginPage extends BasePage {
   readonly passwordInput: Locator;
   readonly loginButton: Locator;
   readonly registerLink: Locator;
+  readonly errorToast: Locator;
+  readonly formAlert: Locator;
 
   constructor(page: Page) {
     super(page);
@@ -16,6 +18,8 @@ export class LoginPage extends BasePage {
     this.passwordInput = page.locator('input[name="password"]');
     this.loginButton = page.getByRole('button', { name: 'login' });
     this.registerLink = page.getByText('还没有账号? 创建账号');
+    this.errorToast = page.locator('.el-message--error .el-message__content');
+    this.formAlert = page.locator('[role="alert"]');
   }
 
   async goto() {
@@ -29,25 +33,29 @@ export class LoginPage extends BasePage {
    * @param password 密码
    */
   async login(username: string, password: string) {
-    // 等待页面加载完成
-    await this.page.waitForTimeout(1000);
-    
-    // 使用 locator.fill() 填写表单
-    await this.usernameInput.waitFor({ state: 'visible', timeout: 10000 });
-    await this.usernameInput.fill(username);
-    await this.passwordInput.fill(password);
-    
-    // 点击登录按钮
-    await this.loginButton.click();
-    
-    // 等待跳转到 dashboard
+    await this.fillLoginForm(username, password);
     await this.page.waitForURL(/\/dashboard/, { timeout: 15000 });
   }
 
-  /**
-   * 检查是否在登录页
-   */
   async expectLoaded() {
     await this.page.waitForURL(/\/auth\/login/);
+  }
+
+  async fillLoginForm(username: string, password: string) {
+    await this.usernameInput.waitFor({ state: 'visible', timeout: 10000 });
+    await this.usernameInput.click();
+    await this.usernameInput.type(username);
+    await this.passwordInput.click();
+    await this.passwordInput.type(password);
+    await this.loginButton.click();
+  }
+
+  async getErrorMessage(): Promise<string> {
+    const toastVisible = await this.errorToast.isVisible({ timeout: 2000 }).catch(() => false);
+    if (toastVisible) {
+      return (await this.errorToast.textContent()) ?? '';
+    }
+    await this.formAlert.first().waitFor({ state: 'visible', timeout: 5000 });
+    return (await this.formAlert.first().textContent()) ?? '';
   }
 }
