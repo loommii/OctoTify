@@ -97,3 +97,14 @@ frontend/.cursor
 
 # AI
 .playwright-mcp
+
+# E2E test config (contains sensitive data)
+e2e/test.config.toml
+
+# Playwright
+node_modules/
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/
