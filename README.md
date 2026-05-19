@@ -1,16 +1,15 @@
-# OctoTify
+<div align="center">
+  <a href="https://github.com/loommii/OctoTify">
+    <img alt="OctoTify Logo" width="175" src="./logo.png">
+  </a>
+  <br>
+  <br>
+  <h1>OctoTify</h1>
+</div>
 
-<p align="center">
-  <img src="./logo.png" alt="OctoTify Logo" width="200" />
-</p>
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-<p align="center">
-  <strong>A Message Bus Platform for Multi-Source, Multi-Channel Notifications</strong>
-</p>
-
-<p align="center">
-  <a href="./README.zh-CN.md">中文</a> · English
-</p>
+**[中文](./README.zh-CN.md)** | English
 
 ---
 
@@ -110,8 +109,8 @@ go run cmd/server/main.go
 
 ```bash
 cd frontend
-npm install
-npm run dev
+pnpm install
+pnpm dev:ele
 ```
 
 Or use the startup scripts in the `run/` directory.
@@ -123,8 +122,7 @@ Or use the startup scripts in the `run/` directory.
 External systems push messages via the following endpoint:
 
 ```bash
-POST /api/push/{sourceToken}
-Authorization: Bearer src019df95961e6743a85bb86bc1e42e181
+POST /api/push/src019df95961e6743a85bb86bc1e42e181
 Content-Type: application/json
 
 {
@@ -171,6 +169,37 @@ External System ──POST /api/push/{token}──→ OctoTify
 ```
 
 Backend uses **Go + Gin**, frontend uses **Vue 3 + Vite**, data storage uses **SQLite**, and the data access layer uses **GORM Gen**.
+
+---
+
+## 📋 Changelog
+
+### v1.2.0
+
+**New Features**
+- WeChat ClawBot channel with QR code binding and activation verification
+- Password step-up authentication for sensitive operations
+
+**UI Upgrade**
+- Complete frontend overhaul with brand new UI and interaction experience
+
+### v1.1.0
+
+**New Channels**
+- DingTalk channel with HMAC-SHA256 signature verification
+- Gotify self-hosted push channel
+
+### v1.0.0
+
+**Core Features**
+- Source management with unique push token generation
+- Multi-channel push: Feishu, Telegram, Email
+- Flexible routing: one source to multiple channels
+- Push history and audit trail
+
+**Deployment**
+- Docker Compose one-click deployment
+- SQLite database, ready to use out of the box
 
 ---
 

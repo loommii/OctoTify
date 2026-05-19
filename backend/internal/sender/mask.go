@@ -19,3 +19,27 @@ func maskEmailUsername(email string) string {
 	}
 	return "***" + email[atIdx:]
 }
+
+// maskIdentifier 对标识符进行脱敏处理（如ilink_bot_id、ilink_user_id等）
+// 仅显示前 4 位 + "..." + 后 4 位
+func maskIdentifier(identifier string) string {
+	if len(identifier) <= 8 {
+		return "****"
+	}
+	return identifier[:4] + "..." + identifier[len(identifier)-4:]
+}
+
+// maskURL 对 URL 进行脱敏处理，隐藏 query 参数中的敏感信息（如 access_token）
+func maskURL(urlStr string) string {
+	// 简单处理：如果包含 access_token，则将其值替换为 ***
+	if idx := strings.Index(urlStr, "access_token="); idx != -1 {
+		tokenStart := idx + len("access_token=")
+		// 找到 token 结束位置（& 或字符串末尾）
+		tokenEnd := strings.Index(urlStr[tokenStart:], "&")
+		if tokenEnd == -1 {
+			return urlStr[:tokenStart] + "***"
+		}
+		return urlStr[:tokenStart] + "***" + urlStr[tokenStart+tokenEnd:]
+	}
+	return urlStr
+}

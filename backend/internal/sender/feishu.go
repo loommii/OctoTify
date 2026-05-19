@@ -85,7 +85,12 @@ func (s *FeishuSender) Send(ctx context.Context, config datatypes.JSON, title st
 	// 如果配置了签名密钥，生成签名并附加到请求体
 	if cfg.Secret != "" {
 		timestamp := time.Now().Unix()
-		// timestamp + key 做 sha256, 再进行 base64 encode
+		// 飞书签名计算方式（特殊）：
+		// 1. 拼接 stringToSign = timestamp + "\n" + secret
+		// 2. 使用 HMAC-SHA256 算法，以 stringToSign 作为 key 对空数据进行签名
+		// 3. 将结果进行 Base64 编码
+		// 注意：飞书的 HMAC 签名是将 timestamp+secret 作为 HMAC 的 key，
+		// 而不是作为 data。这与常见的签名方式不同。
 		stringToSign := fmt.Sprintf("%v", timestamp) + "\n" + cfg.Secret
 
 		var data []byte

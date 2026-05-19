@@ -1,0 +1,90 @@
+vars: {
+  d2-config: {
+    layout-engine: elk
+  }
+}
+
+"外部系统": { shape: cloud; near: bottom-right }
+
+OctoTify消息总线: {
+  label: "OctoTify 消息总线"
+  grid-columns: 1
+  grid-gap: 10
+
+  用户模块: {
+    label: "用户模块"
+    grid-columns: 3
+    UC_Register: "注册账户"
+    UC_Login: "登录"
+    UC_RefreshToken: "刷新令牌"
+    UC_ChangePassword: "修改密码"
+    UC_GetUserProfile: "查询用户信息"
+    UC_Logout: "退出登录"
+  }
+
+  消息来源模块: {
+    label: "消息来源模块"
+    grid-columns: 3
+    UC_CreateSource: "创建消息来源"
+    UC_EditSource: "编辑消息来源"
+    UC_ListSources: "查看消息来源列表"
+    UC_ViewSourceDetail: "查看来源详情"
+    UC_ViewSourceToken: "查看来源令牌"
+    UC_ResetSourceToken: "重置来源令牌"
+    UC_DisableSource: "停用消息来源"
+    UC_EnableSource: "启用消息来源"
+    UC_DeleteSource: "删除消息来源"
+  }
+
+  推送渠道模块: {
+    label: "推送渠道模块"
+    grid-columns: 3
+    UC_CreateChannel: "创建推送渠道"
+    UC_EditChannel: "编辑推送渠道"
+    UC_ListChannels: "查看推送渠道列表"
+    UC_ViewChannelDetail: "查看渠道详情"
+    UC_TestChannel: "测试渠道连接"
+    UC_DisableChannel: "停用推送渠道"
+    UC_EnableChannel: "启用推送渠道"
+    UC_DeleteChannel: "删除推送渠道"
+  }
+
+  消息记录模块: {
+    label: "消息记录模块"
+    grid-columns: 2
+    UC_ListMessages: "查看消息记录列表"
+    UC_FilterMessages: "筛选消息记录"
+    UC_ViewMessageDetail: "查看消息详情"
+    UC_DeleteMessage: "删除消息记录"
+  }
+
+  消息推送模块: {
+    label: "消息推送模块"
+    grid-columns: 1
+    UC_PushMessage: "推送消息"
+    UC_PushMultiChannels: "并发推送到多个渠道"
+    UC_RecordStatus: "记录推送状态"
+  }
+}
+
+"用户": { shape: person; near: center-left }
+
+OctoTify消息总线.消息推送模块.UC_PushMessage -> OctoTify消息总线.消息推送模块.UC_PushMultiChannels: "«include»"
+OctoTify消息总线.消息推送模块.UC_PushMultiChannels -> OctoTify消息总线.消息推送模块.UC_RecordStatus: "«include»"
+
+"用户" -> OctoTify消息总线.用户模块
+"用户" -> OctoTify消息总线.消息来源模块
+"用户" -> OctoTify消息总线.推送渠道模块
+"用户" -> OctoTify消息总线.消息记录模块
+
+OctoTify消息总线.消息记录模块.UC_FilterMessages -> OctoTify消息总线.消息记录模块.UC_ListMessages: "«extend»"
+
+"外部系统" -> OctoTify消息总线.消息推送模块
+
+OctoTify消息总线.消息来源模块.UC_CreateSource: { tooltip: "创建后获得 Source Token，用于外部系统推送消息" }
+OctoTify消息总线.推送渠道模块.UC_CreateChannel: { tooltip: "选择渠道类型：微信 ClawBot / 飞书 / Telegram / 钉钉 / 邮件，并配置对应凭证" }
+OctoTify消息总线.消息来源模块.UC_EditSource: { tooltip: "编辑来源基本信息，管理绑定的渠道（勾选/取消）" }
+OctoTify消息总线.推送渠道模块.UC_TestChannel: { tooltip: "发送测试消息到渠道，验证渠道配置是否正确" }
+OctoTify消息总线.消息推送模块.UC_PushMessage: { tooltip: "外部系统携带 Source Token，平台自动推送到所有关联的 Channel" }
+OctoTify消息总线.消息推送模块.UC_PushMultiChannels: { tooltip: "并发推送到各渠道：微信 ClawBot / 飞书 / Telegram / 钉钉 / 邮件" }
+OctoTify消息总线.消息记录模块.UC_FilterMessages: { tooltip: "筛选条件：消息来源（Source）、推送渠道（Channel）、推送状态（成功/失败/待推送）、时间范围、关键词（标题/内容）" }

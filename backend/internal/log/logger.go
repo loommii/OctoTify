@@ -31,7 +31,7 @@ func NewLogger(level, format, output, logFile, errorFile string) (*zap.Logger, e
 
 	encoderCfg := zap.NewProductionEncoderConfig()
 	encoderCfg.TimeKey = "time"
-	encoderCfg.EncodeTime = zapcore.EpochMillisTimeEncoder
+	encoderCfg.EncodeTime = zapcore.TimeEncoderOfLayout(time.DateTime)
 	encoderCfg.EncodeDuration = zapcore.StringDurationEncoder
 
 	var encoder zapcore.Encoder

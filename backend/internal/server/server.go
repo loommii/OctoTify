@@ -1,15 +1,14 @@
 package server
 
 import (
+	"context"
 	"os"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 
-	swaggerFiles "github.com/swaggo/files"
-	ginSwagger "github.com/swaggo/gin-swagger"
-
+	"octotify/internal/client/ilink"
 	"octotify/internal/config"
 	"octotify/internal/handler"
 	"octotify/internal/middleware"
@@ -19,8 +18,6 @@ import (
 	"octotify/pkg/response"
 	"octotify/pkg/validator"
 	"octotify/pkg/xerr"
-
-	_ "octotify/docs/swagger"
 )
 
 // Server HTTP 服务器
@@ -38,6 +35,8 @@ type Server struct {
 	messageHandler  *handler.MessageHandler // 消息管理处理器
 	pushHandler     *handler.PushHandler    // 消息推送处理器
 	accessJWTHelper *jwtx.JWTHelper         // Access Token JWT 辅助工具
+
+	sourceService *service.SourceService // 来源服务（用于 StepUpAuth 中间件）
 }
 
 // New 创建并初始化 HTTP 服务器实例
@@ -61,6 +60,8 @@ func New(addr string, cfg *config.Config, db *gorm.DB, logger *zap.Logger) *Serv
 	s.initDependencies(cfg, db, logger)
 	// 注册中间件
 	s.setupMiddleware()
+	// 注册 OpenAPI 文档
+	s.setupOpenAPI()
 	// 注册 404/405 处理
 	s.setupNoRoute()
 	// 注册路由
@@ -120,12 +121,17 @@ func (s *Server) initDependencies(cfg *config.Config, db *gorm.DB, logger *zap.L
 
 	// 初始化来源服务及处理器
 	sourceService := service.NewSourceService(db, logger)
+	s.sourceService = sourceService
 	s.sourceHandler = handler.NewSourceHandler(sourceService)
 
+	// 初始化 iLink 客户端（全局共享实例，多 bot 场景下复用 HTTP 连接池）
+	ilinkClient := ilink.NewClient(s.logger)
+
 	// 初始化渠道服务及处理器
-	senderFactory := sender.NewSenderFactory(s.logger)
-	channelService := service.NewChannelService(db, logger, senderFactory)
-	s.channelHandler = handler.NewChannelHandler(channelService)
+	// ilinkClient 注入到 SenderFactory 和 ChannelService，统一管理 iLink 协议通信
+	senderFactory := sender.NewSenderFactory(s.logger, ilinkClient)
+	channelService := service.NewChannelService(db, logger, senderFactory, ilinkClient)
+	s.channelHandler = handler.NewChannelHandler(channelService, logger)
 
 	// 初始化消息服务及处理器
 	messageService := service.NewMessageService(db, logger, senderFactory)
@@ -157,104 +163,29 @@ func (s *Server) setupNoRoute() {
 	})
 }
 
-// setupRoutes 注册所有路由
-func (s *Server) setupRoutes() {
-	// 健康检查接口
-	s.engine.GET("/ping", handler.Ping(s.serverName))
-	// Swagger API 文档
-	s.engine.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
-
-	api := s.engine.Group("/api")
-
-	s.setupAuthRoutes(api)
-	s.setupUserRoutes(api)
-	s.setupSourceRoutes(api)
-	s.setupChannelRoutes(api)
-	s.setupMessageRoutes(api)
-	s.setupPushRoutes(api)
-}
-
-// setupAuthRoutes 注册认证相关路由
-func (s *Server) setupAuthRoutes(api *gin.RouterGroup) {
-	auth := api.Group("/auth")
-	{
-		auth.POST("/login", s.authHandler.Login)                                          // 用户登录
-		auth.POST("/refresh", s.authHandler.RefreshToken)                                 // 刷新 Token
-		auth.POST("/logout", middleware.JWTAuth(s.accessJWTHelper), s.authHandler.Logout) // 退出登录（需 JWT 认证）
-	}
-}
-
-// setupUserRoutes 注册用户管理相关路由
-func (s *Server) setupUserRoutes(api *gin.RouterGroup) {
-	user := api.Group("/user")
-	{
-		user.POST("/register", s.userHandler.Register)                                             // 用户注册
-		user.PUT("/password", middleware.JWTAuth(s.accessJWTHelper), s.userHandler.ChangePassword) // 修改密码（需 JWT 认证）
-		user.GET("/profile", middleware.JWTAuth(s.accessJWTHelper), s.userHandler.GetUserProfile)  // 获取用户信息（需 JWT 认证）
-	}
-}
-
-// setupSourceRoutes 注册消息来源管理相关路由
-func (s *Server) setupSourceRoutes(api *gin.RouterGroup) {
-	source := api.Group("/sources")
-	source.Use(middleware.JWTAuth(s.accessJWTHelper)) // 所有来源接口均需 JWT 认证
-	{
-		source.POST("", s.sourceHandler.CreateSource)              // 创建消息来源
-		source.PUT("/:id", s.sourceHandler.UpdateSource)           // 编辑消息来源
-		source.GET("", s.sourceHandler.ListSources)                // 查看来源列表
-		source.GET("/:id", s.sourceHandler.GetSourceDetail)        // 查看来源详情
-		source.POST("/:id/token", s.sourceHandler.GetSourceToken)  // 查看来源令牌（需密码二次验证）
-		source.PUT("/:id/token", s.sourceHandler.ResetSourceToken) // 重置来源令牌（需密码二次验证）
-		source.PUT("/:id/disable", s.sourceHandler.DisableSource)  // 停用消息来源（需密码二次验证）
-		source.PUT("/:id/enable", s.sourceHandler.EnableSource)    // 启用消息来源（需密码二次验证）
-		source.DELETE("/:id", s.sourceHandler.DeleteSource)        // 删除消息来源（需密码二次验证）
-	}
-}
-
-// setupChannelRoutes 注册推送渠道管理相关路由
-func (s *Server) setupChannelRoutes(api *gin.RouterGroup) {
-	channel := api.Group("/channels")
-	channel.Use(middleware.JWTAuth(s.accessJWTHelper)) // 所有渠道接口均需 JWT 认证
-	{
-		channel.POST("", s.channelHandler.CreateChannel)             // 创建渠道
-		channel.PUT("/:id", s.channelHandler.UpdateChannel)          // 编辑渠道
-		channel.GET("", s.channelHandler.ListChannels)               // 查看渠道列表
-		channel.GET("/:id", s.channelHandler.GetChannelDetail)       // 查看渠道详情
-		channel.POST("/:id/test", s.channelHandler.TestChannel)      // 测试渠道连接
-		channel.PUT("/:id/disable", s.channelHandler.DisableChannel) // 停用渠道
-		channel.PUT("/:id/enable", s.channelHandler.EnableChannel)   // 启用渠道
-		channel.DELETE("/:id", s.channelHandler.DeleteChannel)       // 删除渠道
-	}
-
-	// 渠道类型元数据接口（在 channels 组外，避免与 :id 路由冲突）
-	api.GET("/channel-types", middleware.JWTAuth(s.accessJWTHelper), s.channelHandler.GetChannelTypes) // 获取渠道类型元数据
-}
-
-// setupMessageRoutes 注册消息管理相关路由
-func (s *Server) setupMessageRoutes(api *gin.RouterGroup) {
-	message := api.Group("/messages")
-	message.Use(middleware.JWTAuth(s.accessJWTHelper)) // 所有消息接口均需 JWT 认证
-	{
-		message.GET("", s.messageHandler.ListMessages)          // 查看消息列表
-		message.GET("/filter", s.messageHandler.FilterMessages) // 筛选消息
-		message.GET("/:id", s.messageHandler.GetMessageDetail)  // 查看消息详情
-		message.DELETE("/:id", s.messageHandler.DeleteMessage)  // 删除消息
-	}
-}
-
-// setupPushRoutes 注册消息推送相关路由
-func (s *Server) setupPushRoutes(api *gin.RouterGroup) {
-	push := api.Group("/push")
-	{
-		push.POST("/:token", s.pushHandler.PushMessage) // 推送消息（通过来源 Token）
-	}
-}
-
 // Run 启动 HTTP 服务器
 func (s *Server) Run() error {
 	s.logger.Info("服务器启动", zap.String("addr", s.addr))
 	if err := s.engine.Run(s.addr); err != nil {
 		return err
 	}
+	return nil
+}
+
+// GetEngine 获取 Gin 引擎实例（用于 http.Server 包装）
+func (s *Server) GetEngine() *gin.Engine {
+	return s.engine
+}
+
+// Close 优雅关闭服务器资源
+func (s *Server) Close() {
+	s.logger.Info("服务器资源已关闭")
+}
+
+// Shutdown 优雅关闭服务器资源
+// 参数:
+//   - ctx: 关闭超时上下文
+func (s *Server) Shutdown(ctx context.Context) error {
+	s.logger.Info("服务器资源已关闭")
 	return nil
 }

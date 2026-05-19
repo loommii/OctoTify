@@ -1,0 +1,413 @@
+vars: {
+  layout: elk
+}
+
+direction: right
+
+style: {
+  font-size: 13
+}
+
+classes: {
+  model: {
+    style.fill: "#e8f5e9"
+    style.stroke: "#2e7d32"
+  }
+  service: {
+    style.fill: "#e3f2fd"
+    style.stroke: "#1565c0"
+  }
+  handler: {
+    style.fill: "#fff3e0"
+    style.stroke: "#e65100"
+  }
+  dto: {
+    style.fill: "#f3e5f5"
+    style.stroke: "#7b1fa2"
+  }
+  sender: {
+    style.fill: "#fff8e1"
+    style.stroke: "#f57f17"
+  }
+  client: {
+    style.fill: "#e8eaf6"
+    style.stroke: "#283593"
+  }
+  pkg: {
+    style.fill: "#e0f2f1"
+    style.stroke: "#00695c"
+  }
+  external: {
+    style.fill: "#f5f5f5"
+    style.stroke: "#9e9e9e"
+    style.stroke-dash: 4
+  }
+}
+
+"Channel" {
+  shape: class
+  class: model
+  +ID: int64
+  +UserID: int64
+  +Type: string
+  +Name: string
+  +Config: datatypes.JSON
+  +Status: int
+  +CreatedAt: time.Time
+  +UpdatedAt: time.Time
+  +LastUsedAt: "*time.Time"
+}
+
+"SourceChannel" {
+  shape: class
+  class: model
+  +SourceID: int64
+  +ChannelID: int64
+  +Status: int
+  +CreatedAt: time.Time
+}
+
+"ChannelService" {
+  shape: class
+  class: service
+  -db: "*gorm.DB"
+  -logger: "*zap.Logger"
+  -senderFactory: "*SenderFactory"
+  -ilinkClient: "*ilink.Client"
+  "GetChannelTypes()": "[]ChannelTypeMeta"
+  +CreateChannel(ctx, userID int64, req *CreateChannelReq): (*ChannelDTO, error)
+  +UpdateChannel(ctx, userID, channelID int64, req *UpdateChannelReq): error
+  "ListChannels(ctx, userID int64, pageReq *PageReq)": "([]*ChannelDTO, int64, error)"
+  +GetChannelByID(ctx, userID, channelID int64): (*ChannelDTO, error)
+  +TestChannel(ctx, userID, channelID int64): error
+  +DisableChannel(ctx, userID, channelID int64): error
+  +EnableChannel(ctx, userID, channelID int64): error
+  +DeleteChannel(ctx, userID, channelID int64): error
+  "StartBind(ctx, userID int64)": (qrcode, qrcodeURL string, err error)
+  "PollBindStatus(ctx, qrcode string)": (status string, credentials *Credentials, err error)
+  "CheckActivationMessage(ctx, ciphertext, nonce string)": (bool, error)
+}
+
+"ChannelHandler" {
+  shape: class
+  class: handler
+  -channelService: "*ChannelService"
+  -logger: "*zap.Logger"
+  +GetChannelTypes(c *gin.Context)
+  +CreateChannel(c *gin.Context)
+  +UpdateChannel(c *gin.Context)
+  +ListChannels(c *gin.Context)
+  +GetChannelDetail(c *gin.Context)
+  +TestChannel(c *gin.Context)
+  +DisableChannel(c *gin.Context)
+  +EnableChannel(c *gin.Context)
+  +DeleteChannel(c *gin.Context)
+  +StartBind(c *gin.Context)
+  +GetBindStatus(c *gin.Context)
+  +CheckActivation(c *gin.Context)
+}
+
+"Sender" {
+  shape: class
+  class: sender
+  "<<interface>>": ""
+  "Send(ctx, config datatypes.JSON, title, content string)": error
+}
+
+"SenderFactory" {
+  shape: class
+  class: sender
+  -mu: sync.RWMutex
+  -senders: "map[string]Sender"
+  -logger: "*zap.Logger"
+  +Create(channelType string): (Sender, error)
+  +Register(channelType string, snd Sender)
+}
+
+"WechatClawbotSender" {
+  shape: class
+  class: sender
+  -logger: "*zap.Logger"
+  -ilinkClient: "*ilink.Client"
+  "Send(ctx, config datatypes.JSON, title, content string)": error
+}
+
+"TelegramSender" {
+  shape: class
+  class: sender
+  -logger: "*zap.Logger"
+  -baseURL: string
+  "Send(ctx, config datatypes.JSON, title, content string)": error
+}
+
+"DingtalkSender" {
+  shape: class
+  class: sender
+  -logger: "*zap.Logger"
+  -client: "*dingtalk.Client"
+  "Send(ctx, config datatypes.JSON, title, content string)": error
+}
+
+"EmailSender" {
+  shape: class
+  class: sender
+  -logger: "*zap.Logger"
+  "Send(ctx, config datatypes.JSON, title, content string)": error
+}
+
+"FeishuSender" {
+  shape: class
+  class: sender
+  -logger: "*zap.Logger"
+  "Send(ctx, config datatypes.JSON, title, content string)": error
+}
+
+"WechatSender" {
+  shape: class
+  class: sender
+  -logger: "*zap.Logger"
+  "Send(ctx, config datatypes.JSON, title, content string)": error
+}
+
+"WebhookSender" {
+  shape: class
+  class: sender
+  -logger: "*zap.Logger"
+  "Send(ctx, config datatypes.JSON, title, content string)": error
+}
+
+"ilink.Client" {
+  shape: class
+  class: client
+  -restyClient: "*resty.Client"
+  -logger: "*zap.Logger"
+  +GetQRCode(ctx): (*QRCodeResponse, error)
+  +GetQRCodeStatus(ctx, qrcode string): (*QRStatusResponse, error)
+  "SendMessage(ctx, req *SendMessageRequest, botToken string)": (*SendMessageResponse, error)
+  +GetUpdates(ctx, botToken string): (*GetUpdatesResponse, error)
+}
+
+"Credentials" {
+  shape: class
+  class: client
+  +BotToken: string
+  +IlinkBotID: string
+  +IlinkUserID: string
+}
+
+"QRCodeResponse" {
+  shape: class
+  class: client
+  +RetCode: int
+  +QRCode: string
+  +QRCodeImgContent: string
+}
+
+"QRStatusResponse" {
+  shape: class
+  class: client
+  +Status: string
+  +BotToken: string
+  +ILinkBotID: string
+  +ILinkUserID: string
+}
+
+"AppError" {
+  shape: class
+  class: pkg
+  +Code: int
+  +Msg: string
+  +WithInternal(err error): "*AppError"
+}
+
+"Response" {
+  shape: class
+  class: pkg
+  +Success(c *gin.Context, data any)
+  +Fail(c *gin.Context, code int, msg string)
+}
+
+"AES Cipher" {
+  shape: class
+  class: pkg
+  "GlobalEncryptBase64(plaintext []byte)": "(string, string, error)"
+  "GlobalDecryptBase64(cipherB64, nonceB64 string)": "([]byte, error)"
+}
+
+"ChannelTypeMeta" {
+  shape: class
+  class: dto
+  +Type: string
+  +Name: string
+  +Description: string
+  "ConfigFields": "[]ConfigField"
+}
+
+"ConfigField" {
+  shape: class
+  class: dto
+  +Name: string
+  +Label: string
+  +Type: string
+  +Required: bool
+  +Placeholder: string
+}
+
+"CreateChannelReq" {
+  shape: class
+  class: dto
+  +Type: string
+  +Name: string
+  +Config: ChannelConfig
+}
+
+"UpdateChannelReq" {
+  shape: class
+  class: dto
+  +Name: string
+  +Config: ChannelConfig
+}
+
+"ChannelDTO" {
+  shape: class
+  class: dto
+  +ID: int64
+  +Type: string
+  +Name: string
+  +Config: ChannelConfig
+  +Status: int
+  +CreatedAt: int64
+  +UpdatedAt: int64
+  +LastUsedAt: int64
+}
+
+"ChannelConfig" {
+  shape: class
+  class: dto
+  "type": "map[string]any"
+  +Scan(value any): error
+  +Value(): (driver.Value, error)
+  +ToJSON(): datatypes.JSON
+}
+
+"StartBindResp" {
+  shape: class
+  class: dto
+  +QRCodeURL: string
+  +QRCode: string
+}
+
+"BindStatusResp" {
+  shape: class
+  class: dto
+  +Status: string
+  +Credential: "*BindCredentialsDTO"
+}
+
+"BindCredentialsDTO" {
+  shape: class
+  class: dto
+  +BotTokenCiphertext: string
+  +BotTokenNonce: string
+  +IlinkBotID: string
+  +IlinkUserID: string
+}
+
+"CheckActivationReq" {
+  shape: class
+  class: dto
+  +BotTokenCiphertext: string
+  +BotTokenNonce: string
+}
+
+"CheckActivationResp" {
+  shape: class
+  class: dto
+  +HasActivation: bool
+}
+
+"PageReq" {
+  shape: class
+  class: dto
+  +Page: int
+  +PageSize: int
+  +Normalize()
+}
+
+"gin.Context" {
+  shape: class
+  class: external
+}
+
+"gorm.DB" {
+  shape: class
+  class: external
+}
+
+"zap.Logger" {
+  shape: class
+  class: external
+}
+
+"gin.HandlerFunc" {
+  shape: class
+  class: external
+}
+
+"datatypes.JSON" {
+  shape: class
+  class: external
+}
+
+"ChannelHandler" -> "ChannelService": uses
+"ChannelService" -> "Channel": manages
+"ChannelService" -> "SourceChannel": queries
+"ChannelService" -> "SenderFactory": creates
+"ChannelService" -> "ilink.Client": calls
+"ChannelService" -> "AES Cipher": encrypts
+"ChannelService" -> "AppError": returns
+"SenderFactory" -> "Sender": creates
+"SenderFactory" -> "WechatClawbotSender": registers
+"SenderFactory" -> "TelegramSender": registers
+"SenderFactory" -> "DingtalkSender": registers
+"SenderFactory" -> "EmailSender": registers
+"SenderFactory" -> "FeishuSender": registers
+"SenderFactory" -> "WechatSender": registers
+"SenderFactory" -> "WebhookSender": registers
+"WechatClawbotSender" -> "Sender": {
+  label: implements
+  style.stroke-dash: 4
+}
+"TelegramSender" -> "Sender": {
+  label: implements
+  style.stroke-dash: 4
+}
+"DingtalkSender" -> "Sender": {
+  label: implements
+  style.stroke-dash: 4
+}
+"EmailSender" -> "Sender": {
+  label: implements
+  style.stroke-dash: 4
+}
+"FeishuSender" -> "Sender": {
+  label: implements
+  style.stroke-dash: 4
+}
+"WechatSender" -> "Sender": {
+  label: implements
+  style.stroke-dash: 4
+}
+"WebhookSender" -> "Sender": {
+  label: implements
+  style.stroke-dash: 4
+}
+"WechatClawbotSender" -> "ilink.Client": uses
+"ilink.Client" -> "Credentials": returns
+"ilink.Client" -> "QRCodeResponse": returns
+"ilink.Client" -> "QRStatusResponse": returns
+"ChannelTypeMeta" -> "ConfigField": contains
+"ChannelDTO" -> "ChannelConfig": uses
+"CreateChannelReq" -> "ChannelConfig": uses
+"UpdateChannelReq" -> "ChannelConfig": uses
+"BindStatusResp" -> "BindCredentialsDTO": contains

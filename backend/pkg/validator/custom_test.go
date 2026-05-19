@@ -255,3 +255,235 @@ func TestValidatePassword_BoundaryLength(t *testing.T) {
 func makeString(n int, ch string) string {
 	return generateString(n, ch)
 }
+
+// TestValidateChannelConfig 测试渠道配置必填字段校验
+func TestValidateChannelConfig(t *testing.T) {
+	tests := []struct {
+		name        string
+		channelType string
+		config      map[string]any
+		wantErr     bool
+		errContains string
+	}{
+		// === 合法配置 ===
+		{
+			name:        "telegram_合法_必填字段完整",
+			channelType: "telegram",
+			config:      map[string]any{"bot_token": "123456:ABC", "chat_id": "12345"},
+			wantErr:     false,
+		},
+		{
+			name:        "telegram_合法_包含可选字段",
+			channelType: "telegram",
+			config:      map[string]any{"bot_token": "123456:ABC", "chat_id": "12345", "proxy": "http://127.0.0.1:7890"},
+			wantErr:     false,
+		},
+		{
+			name:        "feishu_合法_只提供必填字段",
+			channelType: "feishu",
+			config:      map[string]any{"webhook_url": "https://open.feishu.cn/open-apis/bot/v2/hook/xxx"},
+			wantErr:     false,
+		},
+		{
+			name:        "feishu_合法_包含可选字段",
+			channelType: "feishu",
+			config:      map[string]any{"webhook_url": "https://open.feishu.cn/open-apis/bot/v2/hook/xxx", "secret": "xxx"},
+			wantErr:     false,
+		},
+		{
+			name:        "dingtalk_合法_必填字段完整",
+			channelType: "dingtalk",
+			config:      map[string]any{"webhook_url": "https://oapi.dingtalk.com/robot/send?access_token=xxx", "secret": "SECxxx"},
+			wantErr:     false,
+		},
+		{
+			name:        "email_合法_必填字段完整",
+			channelType: "email",
+			config: map[string]any{
+				"smtp_host": "smtp.example.com",
+				"smtp_port": 587,
+				"username":  "user@example.com",
+				"password":  "pass123",
+				"to":        "recipient@example.com",
+			},
+			wantErr: false,
+		},
+		{
+			name:        "wechat_clawbot_合法_必填字段完整",
+			channelType: "wechat_clawbot",
+			config: map[string]any{
+				"bot_token_ciphertext": "encrypted_token",
+				"bot_token_nonce":      "nonce_value",
+				"ilink_bot_id":         "bot_123",
+				"ilink_user_id":        "user_456",
+			},
+			wantErr: false,
+		},
+
+		// === 空配置 ===
+		{
+			name:        "空配置_telegram",
+			channelType: "telegram",
+			config:      map[string]any{},
+			wantErr:     true,
+			errContains: "缺少必填配置字段",
+		},
+		{
+			name:        "空配置_feishu",
+			channelType: "feishu",
+			config:      map[string]any{},
+			wantErr:     true,
+			errContains: "缺少必填配置字段",
+		},
+		{
+			name:        "空配置_email",
+			channelType: "email",
+			config:      map[string]any{},
+			wantErr:     true,
+			errContains: "缺少必填配置字段",
+		},
+
+		// === 缺失必填字段 ===
+		{
+			name:        "telegram_缺少bot_token",
+			channelType: "telegram",
+			config:      map[string]any{"chat_id": "12345"},
+			wantErr:     true,
+			errContains: "bot_token",
+		},
+		{
+			name:        "telegram_缺少chat_id",
+			channelType: "telegram",
+			config:      map[string]any{"bot_token": "123456:ABC"},
+			wantErr:     true,
+			errContains: "chat_id",
+		},
+		{
+			name:        "telegram_缺少多个必填字段",
+			channelType: "telegram",
+			config:      map[string]any{},
+			wantErr:     true,
+			errContains: "bot_token",
+		},
+		{
+			name:        "dingtalk_缺少secret",
+			channelType: "dingtalk",
+			config:      map[string]any{"webhook_url": "https://xxx"},
+			wantErr:     true,
+			errContains: "secret",
+		},
+		{
+			name:        "email_缺少多个必填字段",
+			channelType: "email",
+			config:      map[string]any{"smtp_host": "smtp.example.com"},
+			wantErr:     true,
+			errContains: "smtp_port",
+		},
+		{
+			name:        "wechat_clawbot_缺少ilink_user_id",
+			channelType: "wechat_clawbot",
+			config: map[string]any{
+				"bot_token_ciphertext": "encrypted_token",
+				"bot_token_nonce":      "nonce_value",
+				"ilink_bot_id":         "bot_123",
+			},
+			wantErr:     true,
+			errContains: "ilink_user_id",
+		},
+
+		// === 字段值为空字符串 ===
+		{
+			name:        "telegram_bot_token为空字符串",
+			channelType: "telegram",
+			config:      map[string]any{"bot_token": "", "chat_id": "12345"},
+			wantErr:     true,
+			errContains: "bot_token",
+		},
+		{
+			name:        "telegram_chat_id为空字符串",
+			channelType: "telegram",
+			config:      map[string]any{"bot_token": "123456:ABC", "chat_id": ""},
+			wantErr:     true,
+			errContains: "chat_id",
+		},
+		{
+			name:        "dingtalk_webhook_url为空字符串",
+			channelType: "dingtalk",
+			config:      map[string]any{"webhook_url": "", "secret": "SECxxx"},
+			wantErr:     true,
+			errContains: "webhook_url",
+		},
+
+		// === 字段值为 nil ===
+		{
+			name:        "telegram_bot_token为nil",
+			channelType: "telegram",
+			config:      map[string]any{"bot_token": nil, "chat_id": "12345"},
+			wantErr:     true,
+			errContains: "bot_token",
+		},
+		{
+			name:        "telegram_chat_id为nil",
+			channelType: "telegram",
+			config:      map[string]any{"bot_token": "123456:ABC", "chat_id": nil},
+			wantErr:     true,
+			errContains: "chat_id",
+		},
+
+		// === 未知渠道类型 ===
+		{
+			name:        "未知渠道类型",
+			channelType: "unknown_channel",
+			config:      map[string]any{"some_key": "some_value"},
+			wantErr:     true,
+			errContains: "未知的渠道类型",
+		},
+		{
+			name:        "空字符串渠道类型",
+			channelType: "",
+			config:      map[string]any{},
+			wantErr:     true,
+			errContains: "未知的渠道类型",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateChannelConfig(tt.channelType, tt.config)
+
+			if tt.wantErr && err == nil {
+				t.Errorf("expected error, but got none")
+				return
+			}
+
+			if !tt.wantErr && err != nil {
+				t.Errorf("expected no error, but got: %v", err)
+				return
+			}
+
+			if tt.wantErr && tt.errContains != "" {
+				if err == nil {
+					t.Errorf("expected error containing '%s', but got nil", tt.errContains)
+					return
+				}
+				if !containsStr(err.Error(), tt.errContains) {
+					t.Errorf("expected error containing '%s', but got: %v", tt.errContains, err)
+				}
+			}
+		})
+	}
+}
+
+// containsStr 检查字符串是否包含子串
+func containsStr(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(substr) == 0 || findSubstring(s, substr))
+}
+
+func findSubstring(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}

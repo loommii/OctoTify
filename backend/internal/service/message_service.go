@@ -12,6 +12,7 @@ import (
 	"octotify/internal/model"
 	"octotify/internal/query"
 	"octotify/internal/sender"
+	"octotify/pkg/ctxutil"
 	"octotify/pkg/xerr"
 )
 
@@ -29,6 +30,13 @@ func NewMessageService(db *gorm.DB, logger *zap.Logger, senderFactory *sender.Se
 		logger:        logger,
 		senderFactory: senderFactory,
 	}
+}
+
+func (s *MessageService) log(ctx context.Context) *zap.Logger {
+	if rid := ctxutil.GetRequestID(ctx); rid != "" {
+		return s.logger.With(zap.String("request_id", rid))
+	}
+	return s.logger
 }
 
 // ListMessages 查看消息列表
@@ -50,7 +58,7 @@ func (s *MessageService) ListMessages(ctx context.Context, userID int64, pageReq
 		).
 		Count()
 	if err != nil {
-		s.logger.Error("查询消息总数失败",
+		s.log(ctx).Error("查询消息总数失败",
 			zap.Error(err),
 			zap.Int64("user_id", userID),
 		)
@@ -69,7 +77,7 @@ func (s *MessageService) ListMessages(ctx context.Context, userID int64, pageReq
 		Limit(pageReq.PageSize).
 		Find()
 	if err != nil {
-		s.logger.Error("查询消息列表失败",
+		s.log(ctx).Error("查询消息列表失败",
 			zap.Error(err),
 			zap.Int64("user_id", userID),
 		)
@@ -91,7 +99,7 @@ func (s *MessageService) ListMessages(ctx context.Context, userID int64, pageReq
 		})
 	}
 
-	s.logger.Info("查询消息列表成功",
+	s.log(ctx).Info("查询消息列表成功",
 		zap.Int64("user_id", userID),
 		zap.Int("page", pageReq.Page),
 		zap.Int("page_size", pageReq.PageSize),
@@ -140,20 +148,19 @@ func (s *MessageService) FilterMessages(ctx context.Context, userID int64, filte
 		baseQuery = baseQuery.Where(q.Message.CreatedAt.Lte(time.UnixMilli(*filter.EndDate)))
 	}
 	// 关键词搜索：搜索标题和内容
-	// 注意：使用 Where().Or() 确保在基础查询范围内搜索，不会绕过用户隔离条件
+	// 注意：使用嵌套 Where 确保 OR 条件被括号包裹，不会绕过用户隔离条件
 	if filter.Keyword != "" {
 		keyword := "%" + filter.Keyword + "%"
 		baseQuery = baseQuery.Where(
-			q.Message.Title.Like(keyword),
-		).Or(
-			q.Message.Content.Like(keyword),
+			baseQuery.Where(q.Message.Title.Like(keyword)).
+				Or(q.Message.Content.Like(keyword)),
 		)
 	}
 
 	// 查询符合条件的消息总数
 	total, err := baseQuery.Count()
 	if err != nil {
-		s.logger.Error("查询消息总数失败",
+		s.log(ctx).Error("查询消息总数失败",
 			zap.Error(err),
 			zap.Int64("user_id", userID),
 		)
@@ -167,7 +174,7 @@ func (s *MessageService) FilterMessages(ctx context.Context, userID int64, filte
 		Limit(filter.PageSize).
 		Find()
 	if err != nil {
-		s.logger.Error("查询消息列表失败",
+		s.log(ctx).Error("查询消息列表失败",
 			zap.Error(err),
 			zap.Int64("user_id", userID),
 		)
@@ -189,7 +196,7 @@ func (s *MessageService) FilterMessages(ctx context.Context, userID int64, filte
 		})
 	}
 
-	s.logger.Info("筛选消息列表成功",
+	s.log(ctx).Info("筛选消息列表成功",
 		zap.Int64("user_id", userID),
 		zap.Int("page", filter.Page),
 		zap.Int("page_size", filter.PageSize),
@@ -216,13 +223,13 @@ func (s *MessageService) GetMessageByID(ctx context.Context, userID int64, messa
 		First()
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
-			s.logger.Error("消息不存在",
+			s.log(ctx).Warn("消息不存在",
 				zap.Int64("message_id", messageID),
 				zap.Int64("user_id", userID),
 			)
 			return nil, xerr.ErrNotFound
 		}
-		s.logger.Error("查询消息详情失败",
+		s.log(ctx).Error("查询消息详情失败",
 			zap.Error(err),
 			zap.Int64("message_id", messageID),
 		)
@@ -235,7 +242,7 @@ func (s *MessageService) GetMessageByID(ctx context.Context, userID int64, messa
 		Select(q.Source.Name).
 		First()
 	if err != nil && err != gorm.ErrRecordNotFound {
-		s.logger.Error("查询来源信息失败",
+		s.log(ctx).Error("查询来源信息失败",
 			zap.Error(err),
 			zap.Int64("source_id", message.SourceID),
 		)
@@ -248,7 +255,7 @@ func (s *MessageService) GetMessageByID(ctx context.Context, userID int64, messa
 		Select(q.Channel.Name, q.Channel.Type).
 		First()
 	if err != nil && err != gorm.ErrRecordNotFound {
-		s.logger.Error("查询渠道信息失败",
+		s.log(ctx).Error("查询渠道信息失败",
 			zap.Error(err),
 			zap.Int64("channel_id", message.ChannelID),
 		)
@@ -297,13 +304,13 @@ func (s *MessageService) DeleteMessage(ctx context.Context, userID int64, messag
 		First()
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
-			s.logger.Error("消息不存在",
+			s.log(ctx).Warn("消息不存在",
 				zap.Int64("message_id", messageID),
 				zap.Int64("user_id", userID),
 			)
 			return xerr.ErrNotFound
 		}
-		s.logger.Error("查询消息失败",
+		s.log(ctx).Error("查询消息失败",
 			zap.Error(err),
 			zap.Int64("message_id", messageID),
 		)
@@ -312,7 +319,7 @@ func (s *MessageService) DeleteMessage(ctx context.Context, userID int64, messag
 
 	// 检查消息是否已被删除
 	if message.Status == model.MessageStatusDeleted {
-		s.logger.Error("消息已删除",
+		s.log(ctx).Warn("消息已删除",
 			zap.Int64("message_id", messageID),
 		)
 		return xerr.ErrMessageAlreadyDeleted
@@ -329,23 +336,23 @@ func (s *MessageService) DeleteMessage(ctx context.Context, userID int64, messag
 		return err
 	})
 	if err != nil {
-		s.logger.Error("删除消息失败",
+		s.log(ctx).Error("删除消息失败",
 			zap.Error(err),
 			zap.Int64("message_id", messageID),
 		)
 		return xerr.ErrMessageRecordFailed.WithInternal(err)
 	}
 
-	s.logger.Info("消息已删除",
+	s.log(ctx).Info("消息已删除",
 		zap.Int64("message_id", messageID),
 	)
 
 	return nil
 }
 
-// PushMessage 推送消息
-// 按照 UML 05-01-push-message.puml 实现
-// 通过来源 Token 验证来源有效性，查询绑定的渠道，并发推送到各渠道
+// PushMessage 推送消息（通过来源 Token）
+// 按照 UML 05-01-push-message.d2 实现
+// 通过来源 Token 验证来源有效性，查询绑定的渠道，按状态分类后并发推送到可用渠道
 func (s *MessageService) PushMessage(ctx context.Context, sourceToken string, req *dto.PushMessageReq) (*dto.PushResponse, error) {
 	q := query.Use(s.db)
 
@@ -358,44 +365,72 @@ func (s *MessageService) PushMessage(ctx context.Context, sourceToken string, re
 		First()
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
-			s.logger.Error("来源不存在或已禁用",
+			s.log(ctx).Warn("来源不存在或已禁用",
 				zap.String("token", sourceToken),
 			)
 			return nil, xerr.ErrSourceNotFound
 		}
-		s.logger.Error("查询来源失败",
+		s.log(ctx).Error("查询来源失败",
 			zap.Error(err),
 			zap.String("token", sourceToken),
 		)
 		return nil, xerr.ErrSourceQueryFailed.WithInternal(err)
 	}
 
-	// 查询来源绑定的可用渠道（status = 1 表示正常）
-	channels, err := q.Channel.WithContext(ctx).
+	// 查询来源绑定的所有渠道（不限状态）
+	allChannels, err := q.Channel.WithContext(ctx).
 		Join(q.SourceChannel, q.SourceChannel.ChannelID.EqCol(q.Channel.ID)).
-		Where(
-			q.SourceChannel.SourceID.Eq(source.ID),
-			q.Channel.Status.Eq(model.ChannelStatusActive),
-		).
+		Where(q.SourceChannel.SourceID.Eq(source.ID)).
 		Find()
 	if err != nil {
-		s.logger.Error("查询渠道失败",
+		s.log(ctx).Error("查询渠道失败",
 			zap.Error(err),
 			zap.Int64("source_id", source.ID),
 		)
 		return nil, xerr.ErrChannelQueryFailed.WithInternal(err)
 	}
 
-	// 检查是否有可用渠道
-	if len(channels) == 0 {
-		s.logger.Error("来源未绑定任何渠道",
+	// 检查是否绑定了任何渠道
+	if len(allChannels) == 0 {
+		s.log(ctx).Warn("来源未绑定任何渠道",
 			zap.Int64("source_id", source.ID),
 		)
 		return nil, xerr.ErrMessageNoChannels
 	}
 
+	// 查询可用渠道（status = 1 表示正常）
+	activeChannels := make([]*model.Channel, 0, len(allChannels))
+	hasDisabled := false
+	hasDeleted := false
+	for _, ch := range allChannels {
+		switch ch.Status {
+		case model.ChannelStatusActive:
+			activeChannels = append(activeChannels, ch)
+		case model.ChannelStatusDisabled:
+			hasDisabled = true
+		case model.ChannelStatusDeleted:
+			hasDeleted = true
+		}
+	}
+
+	// 检查是否有可用渠道
+	if len(activeChannels) == 0 {
+		if hasDeleted {
+			s.log(ctx).Warn("来源绑定的渠道均已删除",
+				zap.Int64("source_id", source.ID),
+			)
+			return nil, xerr.ErrMessageChannelsDeleted
+		}
+		if hasDisabled {
+			s.log(ctx).Warn("来源绑定的渠道均已停用",
+				zap.Int64("source_id", source.ID),
+			)
+			return nil, xerr.ErrMessageChannelsDisabled
+		}
+	}
+
 	// 并发推送到各渠道
-	return s.pushToChannels(ctx, source, channels, req)
+	return s.pushToChannels(ctx, source, activeChannels, req)
 }
 
 // pushToChannels 并发推送到多个渠道
@@ -432,7 +467,7 @@ func (s *MessageService) pushToChannels(ctx context.Context, source *model.Sourc
 			})
 			if err != nil {
 				// 消息记录创建失败，记录失败结果
-				s.logger.Error("创建消息记录失败",
+				s.log(ctx).Error("创建消息记录失败",
 					zap.Error(err),
 					zap.Int64("channel_id", ch.ID),
 				)
@@ -450,7 +485,7 @@ func (s *MessageService) pushToChannels(ctx context.Context, source *model.Sourc
 			snd, err := s.senderFactory.Create(ch.Type)
 			if err != nil {
 				// 不支持的渠道类型，更新消息状态为失败
-				s.logger.Error("创建发送器失败",
+				s.log(ctx).Error("创建发送器失败",
 					zap.Error(err),
 					zap.String("channel_type", ch.Type),
 				)
@@ -473,7 +508,7 @@ func (s *MessageService) pushToChannels(ctx context.Context, source *model.Sourc
 			err = snd.Send(sendCtx, ch.Config, req.Title, req.Message)
 			if err != nil {
 				// 推送失败，更新消息状态为失败（300）
-				s.logger.Error("推送消息失败",
+				s.log(ctx).Error("推送消息失败",
 					zap.Error(err),
 					zap.Int64("channel_id", ch.ID),
 					zap.Int64("message_id", message.ID),
@@ -498,7 +533,7 @@ func (s *MessageService) pushToChannels(ctx context.Context, source *model.Sourc
 				Success:     true,
 			}
 
-			s.logger.Info("推送消息成功",
+			s.log(ctx).Info("推送消息成功",
 				zap.Int64("channel_id", ch.ID),
 				zap.Int64("message_id", message.ID),
 			)
@@ -509,7 +544,7 @@ func (s *MessageService) pushToChannels(ctx context.Context, source *model.Sourc
 
 	// 等待所有 goroutine 完成
 	if err := g.Wait(); err != nil {
-		s.logger.Error("并发推送消息失败",
+		s.log(ctx).Error("并发推送消息失败",
 			zap.Error(err),
 		)
 		return nil, xerr.ErrMessagePushFailed.WithInternal(err)
@@ -526,7 +561,7 @@ func (s *MessageService) pushToChannels(ctx context.Context, source *model.Sourc
 	}
 
 	// 记录推送完成日志
-	s.logger.Info("消息推送完成",
+	s.log(ctx).Info("消息推送完成",
 		zap.Int64("source_id", source.ID),
 		zap.Int("total", len(results)),
 		zap.Int("success", successCount),
@@ -557,7 +592,7 @@ func (s *MessageService) updateMessageStatus(ctx context.Context, messageID int6
 		})
 	if err != nil {
 		// 状态更新失败，记录错误日志（不返回错误，避免影响主流程）
-		s.logger.Error("更新消息状态失败",
+		s.log(ctx).Error("更新消息状态失败",
 			zap.Error(err),
 			zap.Int64("message_id", messageID),
 			zap.Int("status", status),

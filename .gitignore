@@ -1,16 +1,110 @@
-tmp/
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Dependencies
+**/node_modules/
+
+# Build outputs & Cache
+**/dist/
+**/.vite/
+**/*.tsbuildinfo
+
+# Backend specific
 backend/config/keys/
 backend/data/
 backend/server
 backend/generate
-backend/data/octotify.db
 
-# frontend
-frontend/node_modules/
-frontend/dist/
-frontend/*.tsbuildinfo
+# Pnpm store
+.pnpm-store/
 
-# playwright
-/tests/
+# Misc
+tmp/
+
+# ============================================
+# Frontend (Vben Admin)
+# ============================================
+
+# Frontend - Vben Admin boilerplate
+frontend/docs/
+frontend/playground/
+frontend/.github/
+frontend/.changeset/
+frontend/scripts/
+frontend/tea.yaml
+frontend/cspell.json
+frontend/.gitconfig
+frontend/.npmrc
+frontend/.gitpod.yml
+
+# Frontend - Editor files
+frontend/.vscode/launch.json
+frontend/.vscode/settings.json
+frontend/*.code-workspace
+
+# Frontend - Build outputs & Cache
+frontend/.turbo
+frontend/.temp
+frontend/.cache
+frontend/.nitro
+frontend/.output
+frontend/dev-dist
+frontend/.stylelintcache
+frontend/.eslintcache
+
+# Frontend - Misc
+frontend/yarn.lock
+frontend/package-lock.json
+frontend/.VSCodeCounter
+frontend/.omx
+frontend/vite.config.mts.*
+frontend/vite.config.mjs.*
+frontend/vite.config.js.*
+frontend/vite.config.ts.*
+
+# Frontend - AI
+frontend/.agent
+frontend/.agents
+frontend/.claude
+frontend/.codex
+frontend/skills-lock.json
+
+# Frontend - Editor
+frontend/.idea
+frontend/*.suo
+frontend/*.ntvs*
+frontend/*.njsproj
+frontend/*.sln
+frontend/*.sw?
+frontend/.history
+frontend/.cursor
+
+# AI
+.playwright-mcp
+
+# E2E test config (contains sensitive data)
+e2e/test.config.toml
+
+# Playwright
+node_modules/
 /test-results/
 /playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/

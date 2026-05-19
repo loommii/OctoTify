@@ -1,0 +1,181 @@
+vars: {
+  d2-config: {
+    layout-engine: elk
+  }
+}
+
+shape: sequence_diagram
+
+classes: {
+  success: {
+    style.stroke: "#28a745"
+    style.animated: true
+  }
+  error: {
+    style.stroke: "#dc3545"
+    style.stroke-dash: 3
+    style.animated: true
+  }
+}
+
+user: 用户
+frontend: 前端
+server: HTTPServer
+jwt: JWTAuth 中间件
+handler: ChannelHandler
+service: ChannelService
+factory: SenderFactory
+sender: Sender
+db: SQLite
+
+user -> frontend.a: "点击测试连接"
+frontend.a -> server.a: "POST /api/channels/:id/test"
+server.a -> jwt.a: "JWTAuth(accessToken)"
+
+未提供认证令牌: {
+  jwt.a --> server.a: "{code: 100001, msg: 未提供认证令牌}" {
+    class: error
+  }
+  server.a --> frontend.a: "{code: 100001, msg: 未提供认证令牌}" {
+    class: error
+  }
+  frontend.a --> frontend.a: "使用 Refresh Token 调用刷新接口" {
+    class: error
+  }
+}
+
+令牌无效或已过期: {
+  jwt.a --> server.a: "{code: 100001, msg: 认证令牌无效或已过期}" {
+    class: error
+  }
+  server.a --> frontend.a: "{code: 100001, msg: 认证令牌无效或已过期}" {
+    class: error
+  }
+  frontend.a --> frontend.a: "使用 Refresh Token 调用刷新接口" {
+    class: error
+  }
+}
+
+令牌有效: {
+  jwt.a --> server.a: "userId (从 claims 中提取)"
+  server.a -> handler.a: "testChannel(userId, channelId)"
+  
+  handler.a -> service.a: "TestChannel(ctx, userId, channelId)"
+  
+  service.a -> service.a: "getChannelForUser(userId, channelId, checkDeleted=true, checkDisabled=true)"
+  service.a -> db.a: "SELECT * FROM channels WHERE id = ? AND user_id = ?"
+  
+  渠道不存在: {
+    db.a --> service.a: "nil"
+    service.a --> handler.a: "ErrChannelNotFound (110603)" {
+      class: error
+    }
+    handler.a --> server.a: "{code: 110603, msg: 渠道不存在}" {
+      class: error
+    }
+    server.a --> frontend.a: "{code: 110603, msg: 渠道不存在}" {
+      class: error
+    }
+    frontend.a --> user: "显示错误提示" {
+      class: error
+    }
+  }
+  
+  渠道已删除: {
+    db.a --> service.a: "channel (status = -1)"
+    service.a --> handler.a: "ErrChannelAlreadyDeleted (110609)" {
+      class: error
+    }
+    handler.a --> server.a: "{code: 110609, msg: 渠道已删除}" {
+      class: error
+    }
+    server.a --> frontend.a: "{code: 110609, msg: 渠道已删除}" {
+      class: error
+    }
+    frontend.a --> user: "显示错误提示" {
+      class: error
+    }
+  }
+  
+  渠道已停用: {
+    db.a --> service.a: "channel (status = 2)"
+    service.a --> handler.a: "ErrChannelAlreadyDisabled (110607)" {
+      class: error
+    }
+    handler.a --> server.a: "{code: 110607, msg: 渠道已停用}" {
+      class: error
+    }
+    server.a --> frontend.a: "{code: 110607, msg: 渠道已停用}" {
+      class: error
+    }
+    frontend.a --> user: "提示渠道已停用" {
+      class: error
+    }
+  }
+  
+  渠道正常: {
+    db.a --> service.a: "channel (status = 1)"
+    
+    service.a -> factory.a: "Create(channel.type)"
+    
+    创建发送器失败: {
+      factory.a --> service.a: "nil, error(不支持的渠道类型)"
+      service.a --> handler.a: "ErrThirdPartyCallFailed (200000)" {
+        class: error
+      }
+      handler.a --> server.a: "{code: 200000, msg: 测试失败}" {
+        class: error
+      }
+      server.a --> frontend.a: "{code: 200000, msg: 测试失败}" {
+        class: error
+      }
+      frontend.a --> user: "显示测试失败" {
+        class: error
+      }
+    }
+    
+    创建发送器成功: {
+      factory.a --> service.a: "sender"
+      service.a -> sender.a: "Send(ctx, config, title, testContent)"
+      sender.a -> sender.a: "调用渠道API发送测试消息"
+      
+      发送失败: {
+        sender.a --> service.a: "error(第三方API返回错误)"
+        service.a --> handler.a: "ErrThirdPartyCallFailed (200000)" {
+          class: error
+        }
+        handler.a --> server.a: "{code: 200000, msg: 测试失败: 错误信息}" {
+          class: error
+        }
+        server.a --> frontend.a: "{code: 200000, msg: 测试失败: 错误信息}" {
+          class: error
+        }
+        frontend.a --> user: "显示测试失败" {
+          class: error
+        }
+      }
+      
+      发送成功: {
+        sender.a --> service.a: "success" {
+          class: success
+        }
+        service.a --> handler.a: "success" {
+          class: success
+        }
+        handler.a --> server.a: "{code: 0, msg: 测试成功}" {
+          class: success
+        }
+        server.a --> frontend.a: "{code: 0, msg: 测试成功}" {
+          class: success
+        }
+        frontend.a --> user: "测试连接成功" {
+          class: success
+        }
+      }
+    }
+  }
+}
+
+note: "超时说明：sender.Send 使用 context.WithTimeout(ctx, 30s) 控制第三方调用超时" {
+  near: bottom-center
+}

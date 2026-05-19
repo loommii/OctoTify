@@ -9,6 +9,9 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"unicode/utf8"
+
+	"octotify/internal/client/telegram"
 
 	"go.uber.org/zap/zaptest"
 	"gorm.io/datatypes"
@@ -68,42 +71,12 @@ func TestEscapeHTML(t *testing.T) {
 	}
 }
 
-func TestNewHTTPClient(t *testing.T) {
-	tests := []struct {
-		name    string
-		proxy   string
-		wantErr bool
-		errMsg  string
-	}{
-		{"无代理创建成功", "", false, ""},
-		{"有效HTTP代理创建成功", "http://127.0.0.1:7890", false, ""},
-		{"有效HTTPS代理创建成功", "https://127.0.0.1:7890", false, ""},
-		{"无效代理URL返回错误", "://invalid", true, "解析代理地址失败"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			client, err := newHTTPClient(tt.proxy)
-			if tt.wantErr {
-				if err == nil {
-					t.Fatalf("expected error containing %q, got nil", tt.errMsg)
-				}
-				if !strings.Contains(err.Error(), tt.errMsg) {
-					t.Fatalf("expected error containing %q, got %q", tt.errMsg, err.Error())
-				}
-				return
-			}
-			if err != nil {
-				t.Fatalf("expected no error, got %v", err)
-			}
-			if client == nil {
-				t.Fatal("expected non-nil client")
-			}
-			if client.Timeout != telegramHTTPTimeout {
-				t.Fatalf("expected timeout %v, got %v", telegramHTTPTimeout, client.Timeout)
-			}
-		})
-	}
+func newTestSender(t *testing.T, serverURL string) *TelegramSender {
+	t.Helper()
+	logger := zaptest.NewLogger(t)
+	sender := NewTelegramSender(logger)
+	sender.baseURL = serverURL + "/bot"
+	return sender
 }
 
 func TestTelegramSender_Send(t *testing.T) {
@@ -158,7 +131,7 @@ func TestTelegramSender_Send(t *testing.T) {
 			content:     "test",
 			handler:     nil,
 			wantErr:     true,
-			errContains: "创建 HTTP 客户端失败",
+			errContains: "发送 Telegram 请求失败",
 		},
 		{
 			name:        "推送成功",
@@ -214,19 +187,15 @@ func TestTelegramSender_Send(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			logger := zaptest.NewLogger(t)
-			sender := NewTelegramSender(logger)
-
 			var cleanup func()
+			var sender *TelegramSender
+
 			if tt.handler != nil {
 				server := httptest.NewServer(tt.handler)
-				original := telegramAPIBaseURL
-				telegramAPIBaseURL = server.URL + "/bot"
-				cleanup = func() {
-					telegramAPIBaseURL = original
-					server.Close()
-				}
+				sender = newTestSender(t, server.URL)
+				cleanup = server.Close
 			} else {
+				sender = newTestSender(t, "http://127.0.0.1:1")
 				cleanup = func() {}
 			}
 			defer cleanup()
@@ -250,16 +219,11 @@ func TestTelegramSender_Send(t *testing.T) {
 }
 
 func TestTelegramSender_Send_NetworkError(t *testing.T) {
-	logger := zaptest.NewLogger(t)
-	sender := NewTelegramSender(logger)
-
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	serverURL := server.URL
 	server.Close()
 
-	original := telegramAPIBaseURL
-	telegramAPIBaseURL = serverURL + "/bot"
-	defer func() { telegramAPIBaseURL = original }()
+	sender := newTestSender(t, serverURL)
 
 	config := datatypes.JSON(`{"bot_token":"testtoken","chat_id":"-1001234567890"}`)
 	err := sender.Send(context.Background(), config, "test", "test")
@@ -272,10 +236,7 @@ func TestTelegramSender_Send_NetworkError(t *testing.T) {
 }
 
 func TestTelegramSender_Send_MessageTruncation(t *testing.T) {
-	logger := zaptest.NewLogger(t)
-	sender := NewTelegramSender(logger)
-
-	var capturedBody telegramMessage
+	var capturedBody telegram.MessageRequest
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)
 		r.Body.Close()
@@ -286,9 +247,7 @@ func TestTelegramSender_Send_MessageTruncation(t *testing.T) {
 	}))
 	defer server.Close()
 
-	original := telegramAPIBaseURL
-	telegramAPIBaseURL = server.URL + "/bot"
-	defer func() { telegramAPIBaseURL = original }()
+	sender := newTestSender(t, server.URL)
 
 	longContent := strings.Repeat("a", 5000)
 	config := datatypes.JSON(`{"bot_token":"testtoken","chat_id":"-1001234567890"}`)
@@ -299,8 +258,8 @@ func TestTelegramSender_Send_MessageTruncation(t *testing.T) {
 	if !strings.Contains(capturedBody.Text, "[消息已截断]") {
 		t.Fatalf("expected truncated message to contain '[消息已截断]', got %q", capturedBody.Text)
 	}
-	if len(capturedBody.Text) > telegramMaxMessageLen {
-		t.Fatalf("expected message length <= %d, got %d", telegramMaxMessageLen, len(capturedBody.Text))
+	if utf8.RuneCountInString(capturedBody.Text) > telegramMaxMessageLen {
+		t.Fatalf("expected message length <= %d (chars), got %d (chars)", telegramMaxMessageLen, utf8.RuneCountInString(capturedBody.Text))
 	}
 	if capturedBody.ChatID != "-1001234567890" {
 		t.Fatalf("expected chat_id '-1001234567890', got %q", capturedBody.ChatID)
@@ -311,10 +270,7 @@ func TestTelegramSender_Send_MessageTruncation(t *testing.T) {
 }
 
 func TestTelegramSender_Send_HTMLEscaping(t *testing.T) {
-	logger := zaptest.NewLogger(t)
-	sender := NewTelegramSender(logger)
-
-	var capturedBody telegramMessage
+	var capturedBody telegram.MessageRequest
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)
 		r.Body.Close()
@@ -325,9 +281,7 @@ func TestTelegramSender_Send_HTMLEscaping(t *testing.T) {
 	}))
 	defer server.Close()
 
-	original := telegramAPIBaseURL
-	telegramAPIBaseURL = server.URL + "/bot"
-	defer func() { telegramAPIBaseURL = original }()
+	sender := newTestSender(t, server.URL)
 
 	config := datatypes.JSON(`{"bot_token":"testtoken","chat_id":"-1001234567890"}`)
 	err := sender.Send(context.Background(), config, "<script>", "a & b > c")

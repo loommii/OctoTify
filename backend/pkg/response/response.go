@@ -10,7 +10,6 @@ import (
 )
 
 // Response 统一响应结构
-// @Description 所有 API 接口返回的统一格式，包含业务状态码、消息和数据
 type Response struct {
 	Code int    `json:"code"`           // 业务状态码，0 表示成功，非 0 表示失败
 	Msg  string `json:"msg"`            // 提示信息，成功时为"请求成功"，失败时为错误描述
@@ -37,6 +36,11 @@ func SuccessWithMsg(c *gin.Context, msg string, data any) {
 
 // Fail 失败响应，统一返回 HTTP 200 + 业务 code
 func Fail(c *gin.Context, code int, msg string) {
+	lang := c.GetHeader("Accept-Language")
+	translatedMsg := xerr.TranslateMsg(code, lang)
+	if translatedMsg != "" {
+		msg = translatedMsg
+	}
 	c.JSON(http.StatusOK, Response{
 		Code: code,
 		Msg:  msg,
@@ -44,7 +48,12 @@ func Fail(c *gin.Context, code int, msg string) {
 }
 
 // Unauthorized JWT 鉴权失败响应，返回 HTTP 401 + 业务 code
-func Unauthorized(c *gin.Context, code int, msg string) {
+func Unauthorized(c *gin.Context, code int) {
+	lang := c.GetHeader("Accept-Language")
+	msg := xerr.TranslateMsg(code, lang)
+	if msg == "" {
+		msg = "未登录或Token已过期"
+	}
 	c.JSON(http.StatusUnauthorized, Response{
 		Code: code,
 		Msg:  msg,
@@ -53,6 +62,11 @@ func Unauthorized(c *gin.Context, code int, msg string) {
 
 // FailWithData 失败响应，携带附加数据
 func FailWithData(c *gin.Context, code int, msg string, data any) {
+	lang := c.GetHeader("Accept-Language")
+	translatedMsg := xerr.TranslateMsg(code, lang)
+	if translatedMsg != "" {
+		msg = translatedMsg
+	}
 	c.JSON(http.StatusOK, Response{
 		Code: code,
 		Msg:  msg,
@@ -61,7 +75,6 @@ func FailWithData(c *gin.Context, code int, msg string, data any) {
 }
 
 // PageResult 分页响应数据
-// @Description 所有分页接口返回的数据结构
 type PageResult struct {
 	List     any   `json:"list"`      // 数据列表
 	Total    int64 `json:"total"`     // 总记录数
@@ -80,7 +93,6 @@ func SuccessWithPage(c *gin.Context, list any, total int64, page, pageSize int) 
 }
 
 // FieldError 字段级校验错误
-// @Description 参数校验失败时的字段错误信息
 type FieldError struct {
 	Field   string `json:"field"`   // 字段名称
 	Message string `json:"message"` // 错误描述

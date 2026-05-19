@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"octotify/internal/client/dingtalk"
 	"strings"
 	"testing"
 	"time"
@@ -114,7 +115,7 @@ func TestDingtalkSender_Send_Success(t *testing.T) {
 		}
 
 		// 验证请求体
-		var msg dingtalkMessage
+		var msg dingtalk.MessageRequest
 		if err := json.NewDecoder(r.Body).Decode(&msg); err != nil {
 			t.Fatalf("failed to decode request body: %v", err)
 		}
@@ -327,7 +328,7 @@ func TestDingtalkSender_Send_ContextCanceled(t *testing.T) {
 	}`, server.URL))
 
 	ctx, cancel := context.WithCancel(context.Background())
-	
+
 	// 立即取消
 	cancel()
 

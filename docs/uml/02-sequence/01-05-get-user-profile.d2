@@ -1,0 +1,67 @@
+vars: {
+  d2-config: {
+    layout-engine: elk
+  }
+}
+
+shape: sequence_diagram
+
+classes: {
+  success: {
+    style.stroke: "#28a745"
+    style.animated: true
+  }
+  error: {
+    style.stroke: "#dc3545"
+    style.stroke-dash: 3
+    style.animated: true
+  }
+}
+
+user: 用户
+frontend: 前端
+server: HTTPServer
+handler: UserHandler
+userSvc: UserService
+db: SQLite
+
+user -> frontend.a: "访问个人中心"
+frontend.a -> server.a: "GET /api/user/profile"
+server.a -> handler.a: "getUserProfile(req)"
+handler.a -> userSvc.a: "getUserById(userId)"
+
+查询用户: {
+  userSvc.a -> db.a: "SELECT id, username, created_at FROM users WHERE id = ?"
+
+  用户不存在: {
+    db.a --> userSvc.a: "nil"
+    userSvc.a --> handler.a: "ErrUserProfileNotFound (110500)" {
+      class: error
+    }
+    handler.a --> server.a: "{code: 110500, msg: 用户不存在}" {
+      class: error
+    }
+    server.a --> frontend.a: "{code: 110500, msg: 用户不存在}" {
+      class: error
+    }
+    frontend.a --> user: "显示错误提示" {
+      class: error
+    }
+  }
+
+  用户存在: {
+    db.a --> userSvc.a: "user"
+    userSvc.a --> handler.a: "user" {
+      class: success
+    }
+    handler.a --> server.a: "{code: 0, data: {user: {id, username, createdAt}}}" {
+      class: success
+    }
+    server.a --> frontend.a: "{code: 0, data: {user: {id, username, createdAt}}}" {
+      class: success
+    }
+    frontend.a --> user: "显示用户信息" {
+      class: success
+    }
+  }
+}

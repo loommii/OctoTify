@@ -1,0 +1,126 @@
+vars: {
+  d2-config: {
+    layout-engine: elk
+  }
+}
+
+shape: sequence_diagram
+
+classes: {
+  success: {
+    style.stroke: "#28a745"
+    style.animated: true
+  }
+  error: {
+    style.stroke: "#dc3545"
+    style.stroke-dash: 3
+    style.animated: true
+  }
+}
+
+user: 用户
+frontend: 前端
+server: HTTPServer
+handler: UserHandler
+userService: UserService
+accessJWT: Access JWT Helper
+refreshJWT: Refresh JWT Helper
+db: SQLite
+
+user -> frontend.a: "输入用户名、密码"
+frontend.a -> server.a: "POST /api/user/register {username, password}"
+server.a -> handler.a: "register(req)"
+
+参数校验失败: {
+  handler.a --> server.a: "{code: 100000, msg: 请求参数格式错误}" {
+    class: error
+  }
+  server.a --> frontend.a: "{code: 100000, msg: 请求参数格式错误}" {
+    class: error
+  }
+  frontend.a --> user: "显示错误提示" {
+    class: error
+  }
+}
+
+参数校验通过: {
+  handler.a -> userService.b: "Register(ctx, req)"
+
+  用户名已存在: {
+    userService.b -> db.b: "SELECT * FROM users WHERE username = ?"
+    db.b --> userService.b: "user（用户名已存在）"
+    userService.b --> handler.b: "ErrRegisterUsernameExists (110104)" {
+      class: error
+    }
+    handler.b --> server.b: "{code: 110104, msg: 用户名已存在}" {
+      class: error
+    }
+    server.b --> frontend.b: "{code: 110104, msg: 用户名已存在}" {
+      class: error
+    }
+    frontend.b --> user: "显示错误提示" {
+      class: error
+    }
+  }
+
+  用户名可用: {
+    userService.b -> db.b: "SELECT * FROM users WHERE username = ?"
+    db.b --> userService.b: "nil（用户名不存在）"
+
+    userService.b -> userService.b: "密码哈希 (bcrypt.GenerateFromPassword)"
+
+    创建用户或保存令牌失败: {
+      userService.b -> db.b: "BEGIN TRANSACTION"
+      userService.b -> db.b: "INSERT INTO users (username, password_hash, created_at)"
+      db.b --> userService.b: "userId"
+      userService.b -> accessJWT.b: "GenerateToken({uid, type: access})"
+      accessJWT.b --> userService.b: "accessToken"
+      userService.b -> refreshJWT.b: "GenerateToken({uid, type: refresh, jti})"
+      refreshJWT.b --> userService.b: "refreshToken"
+      userService.b -> db.b: "INSERT INTO refresh_tokens (jti, user_id, revoked)"
+      db.b --> userService.b: "失败"
+      userService.b -> db.b: "ROLLBACK"
+      userService.b --> handler.b: "ErrRegisterFailed (110105)" {
+        class: error
+      }
+      handler.b --> server.b: "{code: 110105, msg: 注册失败}" {
+        class: error
+      }
+      server.b --> frontend.b: "{code: 110105, msg: 注册失败}" {
+        class: error
+      }
+      frontend.b --> user: "显示错误提示" {
+        class: error
+      }
+    }
+
+    创建用户和保存令牌成功: {
+      userService.b -> db.b: "BEGIN TRANSACTION"
+      userService.b -> db.b: "INSERT INTO users (username, password_hash, created_at)"
+      db.b --> userService.b: "userId"
+      userService.b -> accessJWT.b: "GenerateToken({uid, type: access})"
+      accessJWT.b --> userService.b: "accessToken"
+      userService.b -> refreshJWT.b: "GenerateToken({uid, type: refresh, jti})"
+      refreshJWT.b --> userService.b: "refreshToken"
+      userService.b -> db.b: "INSERT INTO refresh_tokens (jti, user_id, revoked)"
+      db.b --> userService.b: "成功"
+      userService.b -> db.b: "COMMIT"
+      userService.b --> handler.b: "{accessToken, refreshToken, user}" {
+        class: success
+      }
+      handler.b --> server.b: "{code: 0, data: {access_token, refresh_token, user}}" {
+        class: success
+      }
+      server.b --> frontend.b: "{code: 0, data: {access_token, refresh_token, user}}" {
+        class: success
+      }
+      frontend.b --> user: "注册成功，自动登录，跳转首页" {
+        class: success
+      }
+    }
+  }
+}
+
+note: "事务说明：用户插入与 refresh_token 插入在同一事务中，任一失败则 ROLLBACK" {
+  near: bottom-center
+}

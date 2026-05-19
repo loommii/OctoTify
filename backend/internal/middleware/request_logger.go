@@ -8,6 +8,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
+
+	"octotify/pkg/ctxutil"
 )
 
 // responseWriter 自定义响应写入器，用于捕获响应体内容
@@ -40,19 +42,29 @@ func RequestLogger(logger *zap.Logger, debugBody bool) gin.HandlerFunc {
 			path = path + "?" + c.Request.URL.RawQuery
 		}
 
+		rid := ctxutil.GetRequestID(c.Request.Context())
+
 		if debugBody && logger.Core().Enabled(zap.DebugLevel) {
 			logFullRequestResponse(c, logger, path, start)
 			return
 		}
 
+		// 记录请求开始日志
+		logger.Debug("请求开始",
+			zap.String("request_id", rid),
+			zap.String("method", c.Request.Method),
+			zap.String("path", path),
+			zap.String("client_ip", c.ClientIP()),
+		)
+
 		c.Next()
 
 		latency := time.Since(start)
 		status := c.Writer.Status()
-		rid, _ := c.Get("request_id")
 
-		logger.Info("request completed",
-			zap.Any("request_id", rid),
+		// 记录请求完成日志
+		logger.Info("请求完成",
+			zap.String("request_id", rid),
 			zap.String("method", c.Request.Method),
 			zap.String("path", path),
 			zap.Int("status", status),
@@ -61,20 +73,32 @@ func RequestLogger(logger *zap.Logger, debugBody bool) gin.HandlerFunc {
 	}
 }
 
-// logFullRequestResponse 打印完整的请求和响应信息
+// logFullRequestResponse 打印完整的请求和响应信息（包含请求头、请求体、响应头、响应体）
 func logFullRequestResponse(c *gin.Context, logger *zap.Logger, path string, start time.Time) {
-	rid, _ := c.Get("request_id")
+	rid := ctxutil.GetRequestID(c.Request.Context())
 
+	// 读取请求体
 	reqBody, err := c.GetRawData()
 	if err != nil {
-		reqBody = []byte("failed to read request body: " + err.Error())
+		reqBody = []byte("读取请求体失败: " + err.Error())
 	}
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(reqBody))
 
+	// 收集请求头
 	reqHeaders := make([]string, 0)
 	for k, v := range c.Request.Header {
 		reqHeaders = append(reqHeaders, k+": "+strings.Join(v, ", "))
 	}
+
+	// 记录请求开始日志（完整模式）
+	logger.Debug("请求开始（完整模式）",
+		zap.String("request_id", rid),
+		zap.String("method", c.Request.Method),
+		zap.String("path", path),
+		zap.String("client_ip", c.ClientIP()),
+		zap.String("request_headers", strings.Join(reqHeaders, "\n")),
+		zap.String("request_body", string(reqBody)),
+	)
 
 	rw := &responseWriter{
 		ResponseWriter: c.Writer,
@@ -87,6 +111,7 @@ func logFullRequestResponse(c *gin.Context, logger *zap.Logger, path string, sta
 	latency := time.Since(start)
 	status := c.Writer.Status()
 
+	// 收集响应头
 	respHeaders := make([]string, 0)
 	for k, v := range rw.Header() {
 		respHeaders = append(respHeaders, k+": "+strings.Join(v, ", "))
@@ -94,23 +119,23 @@ func logFullRequestResponse(c *gin.Context, logger *zap.Logger, path string, sta
 
 	respBody := rw.body.String()
 
+	// 检测二进制内容类型，避免打印不可读的二进制数据
 	contentType := rw.Header().Get("Content-Type")
 	isBinary := strings.Contains(contentType, "image") ||
 		strings.Contains(contentType, "application/octet-stream") ||
 		strings.Contains(contentType, "application/pdf")
 
 	if isBinary {
-		respBody = "[binary content omitted]"
+		respBody = "[二进制内容已省略]"
 	}
 
-	logger.Debug("request completed (full dump)",
-		zap.Any("request_id", rid),
+	// 记录请求完成日志（完整模式）
+	logger.Debug("请求完成（完整模式）",
+		zap.String("request_id", rid),
 		zap.String("method", c.Request.Method),
 		zap.String("path", path),
 		zap.Int("status", status),
 		zap.Duration("latency", latency),
-		zap.String("request_headers", strings.Join(reqHeaders, "\n")),
-		zap.String("request_body", string(reqBody)),
 		zap.String("response_headers", strings.Join(respHeaders, "\n")),
 		zap.String("response_body", respBody),
 	)

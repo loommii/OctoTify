@@ -14,6 +14,7 @@ import (
 	"octotify/internal/handler/dto"
 	"octotify/internal/model"
 	"octotify/internal/query"
+	"octotify/pkg/ctxutil"
 	"octotify/pkg/xerr"
 )
 
@@ -29,6 +30,13 @@ func NewSourceService(db *gorm.DB, logger *zap.Logger) *SourceService {
 		db:     db,
 		logger: logger,
 	}
+}
+
+func (s *SourceService) log(ctx context.Context) *zap.Logger {
+	if rid := ctxutil.GetRequestID(ctx); rid != "" {
+		return s.logger.With(zap.String("request_id", rid))
+	}
+	return s.logger
 }
 
 // CreateSource 创建消息来源，生成唯一 Token 并绑定渠道
@@ -58,6 +66,21 @@ func (s *SourceService) CreateSource(ctx context.Context, userID int64, req *dto
 
 		// 绑定渠道：批量插入 source_channels 关联记录
 		if len(req.ChannelIDs) > 0 {
+			// 校验渠道存在性（同时校验渠道属于当前用户且未删除）
+			count, err := tx.Channel.WithContext(ctx).
+				Where(
+					tx.Channel.ID.In(req.ChannelIDs...),
+					tx.Channel.UserID.Eq(userID),
+					tx.Channel.Status.Neq(model.ChannelStatusDeleted),
+				).
+				Count()
+			if err != nil {
+				return xerr.ErrChannelQueryFailed.WithInternal(err)
+			}
+			if count != int64(len(req.ChannelIDs)) {
+				return xerr.ErrChannelNotFound
+			}
+
 			sourceChannels := make([]*model.SourceChannel, 0, len(req.ChannelIDs))
 			now := time.Now()
 			for _, channelID := range req.ChannelIDs {
@@ -76,7 +99,7 @@ func (s *SourceService) CreateSource(ctx context.Context, userID int64, req *dto
 		return nil
 	})
 	if err != nil {
-		s.logger.Error("创建来源失败",
+		s.log(ctx).Error("创建来源失败",
 			zap.Error(err),
 			zap.Int64("user_id", userID),
 			zap.String("name", req.Name),
@@ -84,7 +107,7 @@ func (s *SourceService) CreateSource(ctx context.Context, userID int64, req *dto
 		return nil, xerr.ErrSourceInsertFailed.WithInternal(err)
 	}
 
-	s.logger.Info("来源创建成功",
+	s.log(ctx).Info("来源创建成功",
 		zap.Int64("source_id", source.ID),
 		zap.String("name", source.Name),
 		zap.Int("channel_count", len(req.ChannelIDs)),
@@ -117,7 +140,7 @@ func (s *SourceService) ListSources(ctx context.Context, userID int64, pageReq *
 		).
 		Count()
 	if err != nil {
-		s.logger.Error("查询来源总数失败",
+		s.log(ctx).Error("查询来源总数失败",
 			zap.Error(err),
 			zap.Int64("user_id", userID),
 		)
@@ -135,7 +158,7 @@ func (s *SourceService) ListSources(ctx context.Context, userID int64, pageReq *
 		Limit(pageReq.PageSize).
 		Find()
 	if err != nil {
-		s.logger.Error("查询来源列表失败",
+		s.log(ctx).Error("查询来源列表失败",
 			zap.Error(err),
 			zap.Int64("user_id", userID),
 		)
@@ -155,7 +178,7 @@ func (s *SourceService) ListSources(ctx context.Context, userID int64, pageReq *
 		})
 	}
 
-	s.logger.Info("查询来源列表成功",
+	s.log(ctx).Info("查询来源列表成功",
 		zap.Int64("user_id", userID),
 		zap.Int("page", pageReq.Page),
 		zap.Int("page_size", pageReq.PageSize),
@@ -180,7 +203,7 @@ func (s *SourceService) generateUniqueToken(q *query.Query, ctx context.Context)
 		// 查询数据库校验 Token 唯一性
 		count, err := q.Source.WithContext(ctx).Where(q.Source.Token.Eq(token)).Count()
 		if err != nil {
-			s.logger.Error("校验 Token 唯一性失败", zap.Error(err))
+			s.log(ctx).Error("校验 Token 唯一性失败", zap.Error(err))
 			return "", xerr.ErrSourceTokenFailed.WithInternal(err)
 		}
 		if count == 0 {
@@ -202,13 +225,13 @@ func (s *SourceService) UpdateSource(ctx context.Context, sourceID int64, userID
 	).First()
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
-			s.logger.Error("来源不存在",
+			s.log(ctx).Warn("来源不存在",
 				zap.Int64("source_id", sourceID),
 				zap.Int64("user_id", userID),
 			)
 			return xerr.ErrSourceNotFound
 		}
-		s.logger.Error("查询来源失败",
+		s.log(ctx).Error("查询来源失败",
 			zap.Error(err),
 			zap.Int64("source_id", sourceID),
 		)
@@ -217,7 +240,7 @@ func (s *SourceService) UpdateSource(ctx context.Context, sourceID int64, userID
 
 	// 检查来源是否已删除
 	if source.Status == model.SourceStatusDeleted {
-		s.logger.Error("来源已删除",
+		s.log(ctx).Warn("来源已删除",
 			zap.Int64("source_id", sourceID),
 		)
 		return xerr.ErrSourceAlreadyDeleted
@@ -268,14 +291,14 @@ func (s *SourceService) UpdateSource(ctx context.Context, sourceID int64, userID
 		return nil
 	})
 	if err != nil {
-		s.logger.Error("更新来源失败",
+		s.log(ctx).Error("更新来源失败",
 			zap.Error(err),
 			zap.Int64("source_id", sourceID),
 		)
 		return xerr.ErrSourceUpdateFailed.WithInternal(err)
 	}
 
-	s.logger.Info("来源更新成功",
+	s.log(ctx).Info("来源更新成功",
 		zap.Int64("source_id", sourceID),
 		zap.String("name", req.Name),
 		zap.Int("channel_count", len(req.ChannelIDs)),
@@ -298,13 +321,13 @@ func (s *SourceService) GetSourceDetail(ctx context.Context, sourceID int64, use
 		First()
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
-			s.logger.Error("来源不存在",
+			s.log(ctx).Warn("来源不存在",
 				zap.Int64("source_id", sourceID),
 				zap.Int64("user_id", userID),
 			)
 			return nil, xerr.ErrSourceNotFound
 		}
-		s.logger.Error("查询来源详情失败",
+		s.log(ctx).Error("查询来源详情失败",
 			zap.Error(err),
 			zap.Int64("source_id", sourceID),
 		)
@@ -321,7 +344,7 @@ func (s *SourceService) GetSourceDetail(ctx context.Context, sourceID int64, use
 		).
 		Find()
 	if err != nil {
-		s.logger.Error("查询绑定渠道失败",
+		s.log(ctx).Error("查询绑定渠道失败",
 			zap.Error(err),
 			zap.Int64("source_id", sourceID),
 		)
@@ -354,12 +377,14 @@ func (s *SourceService) GetSourceDetail(ctx context.Context, sourceID int64, use
 			UserID:    ch.UserID,
 			Type:      ch.Type,
 			Name:      ch.Name,
+			Config:    dto.FromJSON(ch.Config),
 			Status:    ch.Status,
 			CreatedAt: ch.CreatedAt.UnixMilli(),
+			UpdatedAt: ch.UpdatedAt.UnixMilli(),
 		})
 	}
 
-	s.logger.Info("查询来源详情成功",
+	s.log(ctx).Info("查询来源详情成功",
 		zap.Int64("source_id", sourceID),
 		zap.Int("channel_count", len(channelDTOs)),
 	)
@@ -384,20 +409,20 @@ func (s *SourceService) GetSourceToken(ctx context.Context, sourceID int64, user
 		First()
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
-			s.logger.Error("来源不存在",
+			s.log(ctx).Warn("来源不存在",
 				zap.Int64("source_id", sourceID),
 				zap.Int64("user_id", userID),
 			)
 			return "", xerr.ErrSourceNotFound
 		}
-		s.logger.Error("查询来源令牌失败",
+		s.log(ctx).Error("查询来源令牌失败",
 			zap.Error(err),
 			zap.Int64("source_id", sourceID),
 		)
 		return "", xerr.ErrSourceQueryFailed.WithInternal(err)
 	}
 
-	s.logger.Info("查询来源令牌成功",
+	s.log(ctx).Info("查询来源令牌成功",
 		zap.Int64("source_id", sourceID),
 	)
 
@@ -416,7 +441,7 @@ func (s *SourceService) VerifyPassword(ctx context.Context, userID int64, passwo
 		if err == gorm.ErrRecordNotFound {
 			return xerr.ErrUnauthorized
 		}
-		s.logger.Error("查询用户失败",
+		s.log(ctx).Error("查询用户失败",
 			zap.Error(err),
 			zap.Int64("user_id", userID),
 		)
@@ -424,7 +449,7 @@ func (s *SourceService) VerifyPassword(ctx context.Context, userID int64, passwo
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
-		s.logger.Warn("密码验证失败",
+		s.log(ctx).Warn("密码验证失败",
 			zap.Int64("user_id", userID),
 		)
 		return xerr.ErrUnauthorized
@@ -444,13 +469,13 @@ func (s *SourceService) ResetSourceToken(ctx context.Context, sourceID int64, us
 	).First()
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
-			s.logger.Error("来源不存在",
+			s.log(ctx).Warn("来源不存在",
 				zap.Int64("source_id", sourceID),
 				zap.Int64("user_id", userID),
 			)
 			return "", xerr.ErrSourceNotFound
 		}
-		s.logger.Error("查询来源失败",
+		s.log(ctx).Error("查询来源失败",
 			zap.Error(err),
 			zap.Int64("source_id", sourceID),
 		)
@@ -459,7 +484,7 @@ func (s *SourceService) ResetSourceToken(ctx context.Context, sourceID int64, us
 
 	// 检查来源是否已删除
 	if source.Status == model.SourceStatusDeleted {
-		s.logger.Error("来源已删除",
+		s.log(ctx).Warn("来源已删除",
 			zap.Int64("source_id", sourceID),
 		)
 		return "", xerr.ErrSourceAlreadyDeleted
@@ -482,14 +507,14 @@ func (s *SourceService) ResetSourceToken(ctx context.Context, sourceID int64, us
 		return err
 	})
 	if err != nil {
-		s.logger.Error("重置来源令牌失败",
+		s.log(ctx).Error("重置来源令牌失败",
 			zap.Error(err),
 			zap.Int64("source_id", sourceID),
 		)
 		return "", xerr.ErrSourceTokenFailed.WithInternal(err)
 	}
 
-	s.logger.Info("来源令牌重置成功",
+	s.log(ctx).Info("来源令牌重置成功",
 		zap.Int64("source_id", sourceID),
 	)
 
@@ -507,13 +532,13 @@ func (s *SourceService) DisableSource(ctx context.Context, sourceID int64, userI
 	).First()
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
-			s.logger.Error("来源不存在",
+			s.log(ctx).Warn("来源不存在",
 				zap.Int64("source_id", sourceID),
 				zap.Int64("user_id", userID),
 			)
 			return xerr.ErrSourceNotFound
 		}
-		s.logger.Error("查询来源失败",
+		s.log(ctx).Error("查询来源失败",
 			zap.Error(err),
 			zap.Int64("source_id", sourceID),
 		)
@@ -522,7 +547,7 @@ func (s *SourceService) DisableSource(ctx context.Context, sourceID int64, userI
 
 	// 检查来源是否已删除
 	if source.Status == model.SourceStatusDeleted {
-		s.logger.Error("来源已删除",
+		s.log(ctx).Warn("来源已删除",
 			zap.Int64("source_id", sourceID),
 		)
 		return xerr.ErrSourceAlreadyDeleted
@@ -530,7 +555,7 @@ func (s *SourceService) DisableSource(ctx context.Context, sourceID int64, userI
 
 	// 检查来源是否已停用
 	if source.Status == model.SourceStatusDisabled {
-		s.logger.Error("来源已停用",
+		s.log(ctx).Warn("来源已停用",
 			zap.Int64("source_id", sourceID),
 		)
 		return xerr.ErrSourceAlreadyDisabled
@@ -547,14 +572,14 @@ func (s *SourceService) DisableSource(ctx context.Context, sourceID int64, userI
 		return err
 	})
 	if err != nil {
-		s.logger.Error("停用来源失败",
+		s.log(ctx).Error("停用来源失败",
 			zap.Error(err),
 			zap.Int64("source_id", sourceID),
 		)
 		return xerr.ErrSourceUpdateFailed.WithInternal(err)
 	}
 
-	s.logger.Info("来源已停用",
+	s.log(ctx).Info("来源已停用",
 		zap.Int64("source_id", sourceID),
 	)
 
@@ -572,13 +597,13 @@ func (s *SourceService) EnableSource(ctx context.Context, sourceID int64, userID
 	).First()
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
-			s.logger.Error("来源不存在",
+			s.log(ctx).Warn("来源不存在",
 				zap.Int64("source_id", sourceID),
 				zap.Int64("user_id", userID),
 			)
 			return xerr.ErrSourceNotFound
 		}
-		s.logger.Error("查询来源失败",
+		s.log(ctx).Error("查询来源失败",
 			zap.Error(err),
 			zap.Int64("source_id", sourceID),
 		)
@@ -587,7 +612,7 @@ func (s *SourceService) EnableSource(ctx context.Context, sourceID int64, userID
 
 	// 检查来源是否已删除
 	if source.Status == model.SourceStatusDeleted {
-		s.logger.Error("来源已删除",
+		s.log(ctx).Warn("来源已删除",
 			zap.Int64("source_id", sourceID),
 		)
 		return xerr.ErrSourceAlreadyDeleted
@@ -595,7 +620,7 @@ func (s *SourceService) EnableSource(ctx context.Context, sourceID int64, userID
 
 	// 检查来源是否已启用
 	if source.Status == model.SourceStatusActive {
-		s.logger.Error("来源已启用",
+		s.log(ctx).Warn("来源已启用",
 			zap.Int64("source_id", sourceID),
 		)
 		return xerr.ErrSourceAlreadyEnabled
@@ -612,14 +637,14 @@ func (s *SourceService) EnableSource(ctx context.Context, sourceID int64, userID
 		return err
 	})
 	if err != nil {
-		s.logger.Error("启用来源失败",
+		s.log(ctx).Error("启用来源失败",
 			zap.Error(err),
 			zap.Int64("source_id", sourceID),
 		)
 		return xerr.ErrSourceUpdateFailed.WithInternal(err)
 	}
 
-	s.logger.Info("来源已启用",
+	s.log(ctx).Info("来源已启用",
 		zap.Int64("source_id", sourceID),
 	)
 
@@ -637,13 +662,13 @@ func (s *SourceService) DeleteSource(ctx context.Context, sourceID int64, userID
 	).First()
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
-			s.logger.Error("来源不存在",
+			s.log(ctx).Warn("来源不存在",
 				zap.Int64("source_id", sourceID),
 				zap.Int64("user_id", userID),
 			)
 			return xerr.ErrSourceNotFound
 		}
-		s.logger.Error("查询来源失败",
+		s.log(ctx).Error("查询来源失败",
 			zap.Error(err),
 			zap.Int64("source_id", sourceID),
 		)
@@ -652,7 +677,7 @@ func (s *SourceService) DeleteSource(ctx context.Context, sourceID int64, userID
 
 	// 检查来源是否已删除
 	if source.Status == model.SourceStatusDeleted {
-		s.logger.Error("来源已删除",
+		s.log(ctx).Warn("来源已删除",
 			zap.Int64("source_id", sourceID),
 		)
 		return xerr.ErrSourceAlreadyDeleted
@@ -684,14 +709,14 @@ func (s *SourceService) DeleteSource(ctx context.Context, sourceID int64, userID
 		return nil
 	})
 	if err != nil {
-		s.logger.Error("删除来源失败",
+		s.log(ctx).Error("删除来源失败",
 			zap.Error(err),
 			zap.Int64("source_id", sourceID),
 		)
 		return xerr.ErrSourceDeleteFailed.WithInternal(err)
 	}
 
-	s.logger.Info("来源已删除",
+	s.log(ctx).Info("来源已删除",
 		zap.Int64("source_id", sourceID),
 	)
 

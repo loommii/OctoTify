@@ -1,6 +1,7 @@
 package validator
 
 import (
+	"fmt"
 	"regexp"
 
 	"github.com/gin-gonic/gin/binding"
@@ -35,10 +36,10 @@ func validateUsername(fl validator.FieldLevel) bool {
 }
 
 // validatePassword 验证密码强度
-// 要求：长度8-128个字符，必须同时包含大写字母、小写字母和数字
+// 要求：长度8-64个字符，必须同时包含大写字母、小写字母和数字
 func validatePassword(fl validator.FieldLevel) bool {
 	value := fl.Field().String()
-	if len(value) < 8 || len(value) > 128 {
+	if len(value) < 8 || len(value) > 64 {
 		return false
 	}
 
@@ -55,4 +56,47 @@ func validatePassword(fl validator.FieldLevel) bool {
 	}
 
 	return hasLower && hasUpper && hasDigit
+}
+
+// ValidateChannelConfig 根据渠道类型元数据校验配置必填字段
+func ValidateChannelConfig(channelType string, config map[string]any) error {
+	var meta *dto.ChannelTypeMeta
+	for i := range dto.ChannelTypeMetas {
+		if dto.ChannelTypeMetas[i].Type == channelType {
+			meta = &dto.ChannelTypeMetas[i]
+			break
+		}
+	}
+
+	if meta == nil {
+		return fmt.Errorf("未知的渠道类型: %s", channelType)
+	}
+
+	var missingFields []string
+	for _, field := range meta.ConfigFields {
+		if !field.Required {
+			continue
+		}
+
+		val, exists := config[field.Name]
+		if !exists {
+			missingFields = append(missingFields, field.Name)
+			continue
+		}
+
+		switch v := val.(type) {
+		case string:
+			if v == "" {
+				missingFields = append(missingFields, field.Name)
+			}
+		case nil:
+			missingFields = append(missingFields, field.Name)
+		}
+	}
+
+	if len(missingFields) > 0 {
+		return fmt.Errorf("缺少必填配置字段: %v", missingFields)
+	}
+
+	return nil
 }

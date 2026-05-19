@@ -19,6 +19,7 @@ func setupTestContext() (*gin.Context, *httptest.ResponseRecorder) {
 	gin.SetMode(gin.TestMode)
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
 	return c, w
 }
 
@@ -137,8 +138,8 @@ func TestFail(t *testing.T) {
 		t.Errorf("expected code 100001, got %d", resp.Code)
 	}
 
-	if resp.Msg != "未登录" {
-		t.Errorf("expected msg '未登录', got '%s'", resp.Msg)
+	if resp.Msg != "未登录或Token已过期" {
+		t.Errorf("expected msg '未登录或Token已过期', got '%s'", resp.Msg)
 	}
 
 	// 失败响应中 data 字段应为空
@@ -151,7 +152,7 @@ func TestFail(t *testing.T) {
 func TestUnauthorized(t *testing.T) {
 	c, w := setupTestContext()
 
-	Unauthorized(c, 100001, "Token已过期")
+	Unauthorized(c, xerr.CodeUnauthorized)
 
 	// 鉴权失败返回 HTTP 401
 	if w.Code != http.StatusUnauthorized {
@@ -163,12 +164,12 @@ func TestUnauthorized(t *testing.T) {
 		t.Fatalf("failed to unmarshal response: %v", err)
 	}
 
-	if resp.Code != 100001 {
-		t.Errorf("expected code 100001, got %d", resp.Code)
+	if resp.Code != xerr.CodeUnauthorized {
+		t.Errorf("expected code %d, got %d", xerr.CodeUnauthorized, resp.Code)
 	}
 
-	if resp.Msg != "Token已过期" {
-		t.Errorf("expected msg 'Token已过期', got '%s'", resp.Msg)
+	if resp.Msg != "未登录或Token已过期" {
+		t.Errorf("expected msg '未登录或Token已过期', got '%s'", resp.Msg)
 	}
 }
 
@@ -192,8 +193,8 @@ func TestFailWithData(t *testing.T) {
 		t.Errorf("expected code 100000, got %d", resp.Code)
 	}
 
-	if resp.Msg != "参数错误" {
-		t.Errorf("expected msg '参数错误', got '%s'", resp.Msg)
+	if resp.Msg != "请求参数错误" {
+		t.Errorf("expected msg '请求参数错误', got '%s'", resp.Msg)
 	}
 
 	// 验证附加数据正确返回

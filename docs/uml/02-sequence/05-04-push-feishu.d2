@@ -1,0 +1,110 @@
+vars: {
+  d2-config: {
+    layout-engine: elk
+  }
+}
+
+shape: sequence_diagram
+
+classes: {
+  success: {
+    style.stroke: "#28a745"
+    style.animated: true
+  }
+  error: {
+    style.stroke: "#dc3545"
+    style.stroke-dash: 3
+    style.animated: true
+  }
+}
+
+service: MessageService
+factory: SenderFactory
+feishu: FeishuSender
+feishuAPI: Feishu Webhook API
+db: SQLite
+
+service.a -> service.a: "pushToChannels(ctx, source, channels, req)"
+
+创建发送器: {
+  service.a -> factory.a: "Create(\"feishu\")"
+  factory.a -> factory.a: "senders[\"feishu\"]"
+  factory.a --> service.a: "&FeishuSender{}"
+}
+
+解析渠道配置: {
+  service.a -> feishu.a: "Send(ctx, config, title, content)"
+  feishu.a -> feishu.a: "json.Unmarshal(config) 解析渠道配置"
+  
+  配置解析失败: {
+    feishu.a --> service.a: "error(渠道配置无效)" {
+      class: error
+    }
+    service.a -> db.a: "BEGIN TRANSACTION"
+    service.a -> db.a: "UPDATE messages SET status = 300, updated_at = ? WHERE id = ?"
+    db.a --> service.a: "成功"
+    service.a -> db.a: "COMMIT"
+  }
+  
+  配置解析成功: {
+    feishu.a -> feishu.a: "提取 webhookURL 和 secret"
+    
+    feishu.a -> feishu.a: "构造 text 类型消息体"
+    
+    secret不为空: {
+      feishu.a -> feishu.a: "timestamp = time.Now().Unix()"
+      feishu.a -> feishu.a: "stringToSign = timestamp + \"\\n\" + secret"
+      feishu.a -> feishu.a: "sign = HMAC-SHA256(secret, stringToSign)"
+      feishu.a -> feishu.a: "sign = Base64URLEncoding(sign)"
+      feishu.a -> feishu.a: "拼接 URL 查询参数 ?timestamp=...&sign=..."
+    }
+    
+    secret为空: {
+      feishu.a -> feishu.a: "使用原始 webhookURL（无签名参数）"
+    }
+    
+    feishu.a -> feishuAPI.a: "POST {webhookURL} {msg_type: text, content: {text: ...}}"
+    
+    飞书返回成功: {
+      feishuAPI.a --> feishu.a: "{StatusCode: 0, StatusMessage: success}" {
+        class: success
+      }
+      feishu.a --> service.a: "success" {
+        class: success
+      }
+      service.a -> db.a: "BEGIN TRANSACTION"
+      service.a -> db.a: "UPDATE messages SET status = 200, updated_at = ? WHERE id = ?"
+      db.a --> service.a: "成功" {
+        class: success
+      }
+      service.a -> db.a: "COMMIT"
+    }
+    
+    飞书返回失败: {
+      feishuAPI.a --> feishu.a: "{StatusCode: 19021, StatusMessage: sign match fail}" {
+        class: error
+      }
+      feishu.a --> service.a: "error(飞书推送失败: sign match fail)" {
+        class: error
+      }
+      service.a -> db.a: "BEGIN TRANSACTION"
+      service.a -> db.a: "UPDATE messages SET status = 300, updated_at = ? WHERE id = ?"
+      db.a --> service.a: "成功"
+      service.a -> db.a: "COMMIT"
+    }
+    
+    网络超时: {
+      feishu.a --> service.a: "error(context deadline exceeded)" {
+        class: error
+      }
+      service.a -> db.a: "BEGIN TRANSACTION"
+      service.a -> db.a: "UPDATE messages SET status = 300, updated_at = ? WHERE id = ?"
+      db.a --> service.a: "成功"
+      service.a -> db.a: "COMMIT"
+    }
+  }
+}
+
+note: "签名说明：飞书自定义机器人支持 HMAC-SHA256 签名校验，secret 为空时跳过签名" {
+  near: bottom-center
+}

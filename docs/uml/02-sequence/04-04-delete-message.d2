@@ -1,0 +1,173 @@
+vars: {
+  d2-config: {
+    layout-engine: elk
+  }
+}
+
+shape: sequence_diagram
+
+classes: {
+  success: {
+    style.stroke: "#28a745"
+    style.animated: true
+  }
+  error: {
+    style.stroke: "#dc3545"
+    style.stroke-dash: 3
+    style.animated: true
+  }
+}
+
+user: 用户
+frontend: 前端
+server: HTTPServer
+jwt: JWTAuth 中间件
+handler: MessageHandler
+service: MessageService
+db: SQLite
+
+user -> frontend.a: "点击删除消息"
+frontend.a -> frontend.a: "弹出确认对话框"
+user -> frontend.a: "确认删除"
+frontend.a -> server.a: "DELETE /api/messages/:id"
+server.a -> jwt.a: "JWTAuth(accessToken)"
+
+未提供认证令牌: {
+  jwt.a --> server.a: "{code: 100001, msg: 未提供认证令牌}" {
+    class: error
+  }
+  server.a --> frontend.a: "{code: 100001, msg: 未提供认证令牌}" {
+    class: error
+  }
+  frontend.a --> frontend.a: "使用 Refresh Token 调用刷新接口，刷新成功后重试" {
+    class: error
+  }
+}
+
+令牌无效或已过期: {
+  jwt.a --> server.a: "{code: 100001, msg: 认证令牌无效或已过期}" {
+    class: error
+  }
+  server.a --> frontend.a: "{code: 100001, msg: 认证令牌无效或已过期}" {
+    class: error
+  }
+  frontend.a --> frontend.a: "使用 Refresh Token 调用刷新接口，刷新成功后重试" {
+    class: error
+  }
+}
+
+令牌有效: {
+  jwt.a --> server.a: "userId (从 claims 中提取)"
+  server.a -> handler.a: "DeleteMessage(userId, messageId)"
+  
+  messageId格式错误: {
+    handler.a --> server.a: "{code: 100000, msg: 无效的消息 ID}" {
+      class: error
+    }
+    server.a --> frontend.a: "{code: 100000, msg: 无效的消息 ID}" {
+      class: error
+    }
+    frontend.a --> user: "显示错误提示" {
+      class: error
+    }
+  }
+  
+  参数校验通过: {
+    handler.a -> service.a: "DeleteMessage(ctx, userId, messageId)"
+    
+    service.a -> db.a: "SELECT m.* FROM messages m INNER JOIN sources s ON m.source_id = s.id WHERE s.user_id = ? AND m.id = ?"
+    
+    查询失败: {
+      db.a --> service.a: "查询错误"
+      service.a --> handler.a: "ErrMessageRecordFailed (110704)" {
+        class: error
+      }
+      handler.a --> server.a: "{code: 110704, msg: 查询消息失败}" {
+        class: error
+      }
+      server.a --> frontend.a: "{code: 110704, msg: 查询消息失败}" {
+        class: error
+      }
+      frontend.a --> user: "显示错误提示" {
+        class: error
+      }
+    }
+    
+    消息不存在: {
+      db.a --> service.a: "nil"
+      service.a --> handler.a: "ErrNotFound (100003)" {
+        class: error
+      }
+      handler.a --> server.a: "{code: 100003, msg: 资源不存在}" {
+        class: error
+      }
+      server.a --> frontend.a: "{code: 100003, msg: 资源不存在}" {
+        class: error
+      }
+      frontend.a --> user: "显示消息不存在提示" {
+        class: error
+      }
+    }
+    
+    消息已删除: {
+      db.a --> service.a: "message (status = -1)"
+      service.a --> handler.a: "ErrMessageAlreadyDeleted (110705)" {
+        class: error
+      }
+      handler.a --> server.a: "{code: 110705, msg: 消息已删除}" {
+        class: error
+      }
+      server.a --> frontend.a: "{code: 110705, msg: 消息已删除}" {
+        class: error
+      }
+      frontend.a --> user: "提示消息已删除" {
+        class: error
+      }
+    }
+    
+    消息存在: {
+      db.a --> service.a: "message"
+      
+      service.a -> db.a: "BEGIN TRANSACTION"
+      service.a -> db.a: "UPDATE messages SET status = -1, updated_at = ? WHERE id = ?"
+      
+      删除失败: {
+        db.a --> service.a: "更新失败"
+        service.a -> db.a: "ROLLBACK"
+        service.a --> handler.a: "ErrMessageRecordFailed (110704)" {
+          class: error
+        }
+        handler.a --> server.a: "{code: 110704, msg: 删除消息失败}" {
+          class: error
+        }
+        server.a --> frontend.a: "{code: 110704, msg: 删除消息失败}" {
+          class: error
+        }
+        frontend.a --> user: "显示错误提示" {
+          class: error
+        }
+      }
+      
+      删除成功: {
+        db.a --> service.a: "成功"
+        service.a -> db.a: "COMMIT"
+        service.a --> handler.a: "成功" {
+          class: success
+        }
+        handler.a --> server.a: "{code: 0, msg: 消息已删除}" {
+          class: success
+        }
+        server.a --> frontend.a: "{code: 0, msg: 消息已删除}" {
+          class: success
+        }
+        frontend.a --> user: "消息已删除（软删除）" {
+          class: success
+        }
+      }
+    }
+  }
+}
+
+note: "事务说明：消息软删除在事务中执行，设置 status = -1" {
+  near: bottom-center
+}

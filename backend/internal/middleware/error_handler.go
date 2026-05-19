@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 
+	"octotify/pkg/ctxutil"
 	"octotify/pkg/response"
 	"octotify/pkg/xerr"
 )
@@ -24,10 +25,10 @@ func ErrorHandler(logger *zap.Logger) gin.HandlerFunc {
 		var appErr *xerr.AppError
 		if errors.As(err, &appErr) {
 			if appErr.Internal != "" {
-				rid, _ := c.Get("request_id")
+				rid := ctxutil.GetRequestID(c.Request.Context())
 				logger.Error("[BizError]",
-					zap.Any("request_id", rid),
-					zap.Int("code", appErr.Code),
+					zap.String("request_id", rid),
+					zap.Int("error_code", appErr.Code),
 					zap.String("msg", appErr.Msg),
 					zap.String("internal", appErr.Internal),
 					zap.String("path", c.Request.URL.Path),
@@ -37,9 +38,9 @@ func ErrorHandler(logger *zap.Logger) gin.HandlerFunc {
 			return
 		}
 
-		rid, _ := c.Get("request_id")
+		rid := ctxutil.GetRequestID(c.Request.Context())
 		logger.Error("[UnknownError]",
-			zap.Any("request_id", rid),
+			zap.String("request_id", rid),
 			zap.Error(err),
 			zap.String("path", c.Request.URL.Path),
 		)

@@ -1,0 +1,367 @@
+vars: {
+  layout: elk
+}
+
+direction: right
+
+style: {
+  font-size: 13
+}
+
+classes: {
+  model: {
+    style.fill: "#e8f5e9"
+    style.stroke: "#2e7d32"
+  }
+  service: {
+    style.fill: "#e3f2fd"
+    style.stroke: "#1565c0"
+  }
+  handler: {
+    style.fill: "#fff3e0"
+    style.stroke: "#e65100"
+  }
+  dto: {
+    style.fill: "#f3e5f5"
+    style.stroke: "#7b1fa2"
+  }
+  sender: {
+    style.fill: "#fff8e1"
+    style.stroke: "#f57f17"
+  }
+  client: {
+    style.fill: "#e8eaf6"
+    style.stroke: "#283593"
+  }
+  pkg: {
+    style.fill: "#e0f2f1"
+    style.stroke: "#00695c"
+  }
+  external: {
+    style.fill: "#f5f5f5"
+    style.stroke: "#9e9e9e"
+    style.stroke-dash: 4
+  }
+}
+
+"Message" {
+  shape: class
+  class: model
+  +ID: int64
+  +SourceID: int64
+  +ChannelID: int64
+  +Title: string
+  +Content: string
+  +Status: int
+  +CreatedAt: time.Time
+  +UpdatedAt: time.Time
+}
+
+"Source" {
+  shape: class
+  class: model
+  +ID: int64
+  +UserID: int64
+  +Name: string
+  +Token: string
+  +Status: int
+}
+
+"Channel" {
+  shape: class
+  class: model
+  +ID: int64
+  +UserID: int64
+  +Type: string
+  +Name: string
+  +Config: datatypes.JSON
+  +Status: int
+}
+
+"SourceChannel" {
+  shape: class
+  class: model
+  +SourceID: int64
+  +ChannelID: int64
+  +Status: int
+  +CreatedAt: time.Time
+}
+
+"MessageService" {
+  shape: class
+  class: service
+  -db: "*gorm.DB"
+  -logger: "*zap.Logger"
+  -senderFactory: "*SenderFactory"
+  +PushMessage(ctx, sourceToken string, req *PushMessageReq): (*PushResponse, error)
+  "pushToChannels(ctx, source *Source, channels []*Channel, req *PushMessageReq)": (*PushResponse, error)
+  -updateMessageStatus(ctx, messageID int64, status int)
+}
+
+"PushHandler" {
+  shape: class
+  class: handler
+  -messageService: "*MessageService"
+  +PushMessage(c *gin.Context)
+}
+
+"Sender" {
+  shape: class
+  class: sender
+  "<<interface>>": ""
+  "Send(ctx, config datatypes.JSON, title, content string)": error
+}
+
+"SenderFactory" {
+  shape: class
+  class: sender
+  -mu: sync.RWMutex
+  -senders: "map[string]Sender"
+  -logger: "*zap.Logger"
+  +Create(channelType string): (Sender, error)
+  +Register(channelType string, snd Sender)
+}
+
+"WechatClawbotSender" {
+  shape: class
+  class: sender
+  -logger: "*zap.Logger"
+  -ilinkClient: "*ilink.Client"
+  "Send(ctx, config datatypes.JSON, title, content string)": error
+}
+
+"TelegramSender" {
+  shape: class
+  class: sender
+  -logger: "*zap.Logger"
+  -baseURL: string
+  "Send(ctx, config datatypes.JSON, title, content string)": error
+}
+
+"DingtalkSender" {
+  shape: class
+  class: sender
+  -logger: "*zap.Logger"
+  -client: "*dingtalk.Client"
+  "Send(ctx, config datatypes.JSON, title, content string)": error
+}
+
+"EmailSender" {
+  shape: class
+  class: sender
+  -logger: "*zap.Logger"
+  "Send(ctx, config datatypes.JSON, title, content string)": error
+}
+
+"FeishuSender" {
+  shape: class
+  class: sender
+  -logger: "*zap.Logger"
+  "Send(ctx, config datatypes.JSON, title, content string)": error
+}
+
+"WechatSender" {
+  shape: class
+  class: sender
+  -logger: "*zap.Logger"
+  "Send(ctx, config datatypes.JSON, title, content string)": error
+}
+
+"WebhookSender" {
+  shape: class
+  class: sender
+  -logger: "*zap.Logger"
+  "Send(ctx, config datatypes.JSON, title, content string)": error
+}
+
+"ilink.Client" {
+  shape: class
+  class: client
+  -restyClient: "*resty.Client"
+  -logger: "*zap.Logger"
+  "SendMessage(ctx, req *SendMessageRequest, botToken string)": (*SendMessageResponse, error)
+}
+
+"SendMessageRequest" {
+  shape: class
+  class: client
+  +Msg: SendMsg
+  +BaseInfo: BaseInfo
+}
+
+"SendMsg" {
+  shape: class
+  class: client
+  +FromUserID: string
+  +ToUserID: string
+  +ClientID: string
+  +MessageType: int
+  +MessageState: int
+  "ItemList": "[]MessageItem"
+}
+
+"MessageItem" {
+  shape: class
+  class: client
+  +Type: int
+  +TextItem: "*TextItem"
+}
+
+"TextItem" {
+  shape: class
+  class: client
+  +Text: string
+}
+
+"BaseInfo" {
+  shape: class
+  class: client
+  +ChannelVersion: string
+}
+
+"SendMessageResponse" {
+  shape: class
+  class: client
+  +ErrCode: int
+  +ErrMsg: string
+}
+
+"dingtalk.Client" {
+  shape: class
+  class: client
+  "SendMessage(ctx, webhookURL, secret string, msg)": (*Response, error)
+}
+
+"AppError" {
+  shape: class
+  class: pkg
+  +Code: int
+  +Msg: string
+  +WithInternal(err error): "*AppError"
+}
+
+"Response" {
+  shape: class
+  class: pkg
+  +Success(c *gin.Context, data any)
+  +Fail(c *gin.Context, code int, msg string)
+}
+
+"PushMessageReq" {
+  shape: class
+  class: dto
+  +Title: string
+  +Message: string
+}
+
+"PushResponse" {
+  shape: class
+  class: dto
+  +Total: int
+  +Success: int
+  +Failed: int
+  "Results": "[]*PushResult"
+}
+
+"PushResult" {
+  shape: class
+  class: dto
+  +ChannelID: int64
+  +ChannelName: string
+  +MessageID: int64
+  +Success: bool
+  +Error: string
+}
+
+"gin.Context" {
+  shape: class
+  class: external
+}
+
+"gorm.DB" {
+  shape: class
+  class: external
+}
+
+"zap.Logger" {
+  shape: class
+  class: external
+}
+
+"datatypes.JSON" {
+  shape: class
+  class: external
+}
+
+"query.Query" {
+  shape: class
+  class: external
+}
+
+"errgroup.Group" {
+  shape: class
+  class: external
+  +Go(f func() error)
+  +Wait(): error
+}
+
+"context.Context" {
+  shape: class
+  class: external
+}
+
+"PushHandler" -> "MessageService": uses
+"MessageService" -> "Source": validates
+"MessageService" -> "Channel": queries
+"MessageService" -> "SourceChannel": joins
+"MessageService" -> "Message": creates
+"MessageService" -> "SenderFactory": creates
+"MessageService" -> "errgroup.Group": concurrent
+"MessageService" -> "gorm.DB": uses
+"MessageService" -> "query.Query": uses
+"MessageService" -> "AppError": returns
+"SenderFactory" -> "Sender": creates
+"SenderFactory" -> "WechatClawbotSender": registers
+"SenderFactory" -> "TelegramSender": registers
+"SenderFactory" -> "DingtalkSender": registers
+"SenderFactory" -> "EmailSender": registers
+"SenderFactory" -> "FeishuSender": registers
+"SenderFactory" -> "WechatSender": registers
+"SenderFactory" -> "WebhookSender": registers
+"WechatClawbotSender" -> "Sender": {
+  label: implements
+  style.stroke-dash: 4
+}
+"TelegramSender" -> "Sender": {
+  label: implements
+  style.stroke-dash: 4
+}
+"DingtalkSender" -> "Sender": {
+  label: implements
+  style.stroke-dash: 4
+}
+"EmailSender" -> "Sender": {
+  label: implements
+  style.stroke-dash: 4
+}
+"FeishuSender" -> "Sender": {
+  label: implements
+  style.stroke-dash: 4
+}
+"WechatSender" -> "Sender": {
+  label: implements
+  style.stroke-dash: 4
+}
+"WebhookSender" -> "Sender": {
+  label: implements
+  style.stroke-dash: 4
+}
+"WechatClawbotSender" -> "ilink.Client": uses
+"WechatClawbotSender" -> "SendMessageRequest": builds
+"DingtalkSender" -> "dingtalk.Client": uses
+"PushResponse" -> "PushResult": contains
+"MessageService" -> "context.Context": timeout
+"SendMessageRequest" -> "SendMsg": contains
+"SendMessageRequest" -> "BaseInfo": contains
+"SendMsg" -> "MessageItem": contains
+"MessageItem" -> "TextItem": contains
