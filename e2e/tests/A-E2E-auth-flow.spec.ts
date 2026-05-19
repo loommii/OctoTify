@@ -37,7 +37,8 @@ test.describe('A-E2E: 完整认证流程', () => {
     // 验证点：登录成功后进入 dashboard 页面
     // ═══════════════════════════════════════════════════════════════
     await test.step('A-E2E-02: 登录', async () => {
-      // 使用刚注册的账号登录
+      // 等待注册 API 完成，避免无头模式下注册未完成就登录
+      await loginPage.goto();
       await loginPage.login(username, password);
       // 验证 URL 包含 /dashboard
       await expect(page).toHaveURL(/\/dashboard/);
