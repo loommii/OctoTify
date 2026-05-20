@@ -65,6 +65,7 @@ const (
 	ChannelTypeEmail         = "email"
 	ChannelTypeWebhook       = "webhook"
 	ChannelTypeFeishu        = "feishu"
+	ChannelTypeGotify        = "gotify"
 )
 
 var ValidChannelTypes = map[string]bool{
@@ -75,6 +76,7 @@ var ValidChannelTypes = map[string]bool{
 	ChannelTypeEmail:         true,
 	ChannelTypeWebhook:       true,
 	ChannelTypeFeishu:        true,
+	ChannelTypeGotify:        true,
 }
 
 // ConfigField 渠道配置字段定义
