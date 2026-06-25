@@ -64,8 +64,9 @@ func (s *FeishuSender) Send(ctx context.Context, config datatypes.JSON, title st
 		return fmt.Errorf("解析飞书渠道配置失败: %w", err)
 	}
 
+	// 脱敏处理：Webhook URL 中包含认证凭据，仅记录 host
 	s.logger.Debug("飞书渠道配置",
-		zap.String("webhook_url", cfg.WebhookURL),
+		zap.String("host", maskHost(cfg.WebhookURL)),
 		zap.Bool("has_secret", cfg.Secret != ""),
 	)
 
@@ -132,7 +133,7 @@ func (s *FeishuSender) Send(ctx context.Context, config datatypes.JSON, title st
 	resp, err := feishuHTTPClient.Do(req)
 	if err != nil {
 		s.logger.Error("飞书网络请求失败",
-			zap.String("url", cfg.WebhookURL),
+			zap.String("host", maskHost(cfg.WebhookURL)),
 			zap.Error(err),
 		)
 		return fmt.Errorf("发送飞书请求失败: %w", err)

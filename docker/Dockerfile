@@ -51,6 +51,8 @@ COPY docker/nginx.conf /etc/nginx/http.d/default.conf
 COPY docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
+USER app
+
 EXPOSE 5233
 
 ENTRYPOINT ["/entrypoint.sh"]
