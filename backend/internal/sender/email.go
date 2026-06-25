@@ -29,13 +29,14 @@ func NewEmailSender(logger *zap.Logger) *EmailSender {
 
 // emailConfig Email 渠道配置
 type emailConfig struct {
-	SMTPHost string `json:"smtp_host"` // SMTP 服务器地址
-	SMTPPort int    `json:"smtp_port"` // SMTP 端口（465/587/25）
-	Username string `json:"username"`  // SMTP 登录用户名
-	Password string `json:"password"`  // SMTP 登录密码/授权码
-	To       string `json:"to"`        // 收件人邮箱
-	CC       string `json:"cc"`        // 抄送人邮箱（可选）
-	FromName string `json:"from_name"` // 发件人名称（可选）
+	SMTPHost      string `json:"smtp_host"`       // SMTP 服务器地址
+	SMTPPort      int    `json:"smtp_port"`       // SMTP 端口（465/587/25）
+	Username      string `json:"username"`        // SMTP 登录用户名
+	Password      string `json:"password"`        // SMTP 登录密码/授权码
+	To            string `json:"to"`              // 收件人邮箱
+	CC            string `json:"cc"`              // 抄送人邮箱（可选）
+	FromName      string `json:"from_name"`       // 发件人名称（可选）
+	SkipTLSVerify bool   `json:"skip_tls_verify"` // 跳过 TLS 证书校验（仅自签名证书时启用）
 }
 
 const emailDefaultTimeout = 30 * time.Second
@@ -98,7 +99,7 @@ func (s *EmailSender) Send(ctx context.Context, config datatypes.JSON, title str
 	)
 
 	// 4. 建立 SMTP 连接（支持 context 超时控制）
-	client, err := dialSMTP(ctx, cfg.SMTPHost, cfg.SMTPPort)
+	client, err := dialSMTP(ctx, cfg.SMTPHost, cfg.SMTPPort, cfg.SkipTLSVerify)
 	if err != nil {
 		s.logger.Error("连接 SMTP 服务器失败",
 			zap.String("addr", fmt.Sprintf("%s:%d", cfg.SMTPHost, cfg.SMTPPort)),
@@ -159,13 +160,13 @@ func (s *EmailSender) Send(ctx context.Context, config datatypes.JSON, title str
 }
 
 // dialSMTP 根据端口建立 SMTP 连接（支持 context 超时控制）
-func dialSMTP(ctx context.Context, host string, port int) (*smtp.Client, error) {
+func dialSMTP(ctx context.Context, host string, port int, skipTLSVerify bool) (*smtp.Client, error) {
 	addr := fmt.Sprintf("%s:%d", host, port)
 
 	if port == 465 {
 		// 隐式 TLS（SMTPS）
 		tlsConfig := &tls.Config{
-			InsecureSkipVerify: true,
+			InsecureSkipVerify: skipTLSVerify,
 			MinVersion:         tls.VersionTLS12,
 			ServerName:         host,
 		}
@@ -208,7 +209,7 @@ func dialSMTP(ctx context.Context, host string, port int) (*smtp.Client, error) 
 	// 端口 587：执行 STARTTLS
 	if port == 587 {
 		tlsConfig := &tls.Config{
-			InsecureSkipVerify: true,
+			InsecureSkipVerify: skipTLSVerify,
 			MinVersion:         tls.VersionTLS12,
 			ServerName:         host,
 		}

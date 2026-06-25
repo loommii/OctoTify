@@ -321,7 +321,7 @@ func TestDialSMTP_ContextTimeout_Expired(t *testing.T) {
 			defer cancel()
 
 			start := time.Now()
-			_, err := dialSMTP(ctx, tt.host, tt.port)
+			_, err := dialSMTP(ctx, tt.host, tt.port, false)
 			elapsed := time.Since(start)
 
 			if err == nil {
@@ -372,7 +372,7 @@ func TestDialSMTP_ContextCanceled(t *testing.T) {
 			cancel() // 立即取消
 
 			start := time.Now()
-			_, err := dialSMTP(ctx, tt.host, tt.port)
+			_, err := dialSMTP(ctx, tt.host, tt.port, false)
 			elapsed := time.Since(start)
 
 			if err == nil {
@@ -408,7 +408,7 @@ func TestDialSMTP_WithDeadline(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	client, err := dialSMTP(ctx, host, port)
+	client, err := dialSMTP(ctx, host, port, false)
 	if err != nil {
 		t.Fatalf("dialSMTP with deadline should succeed, got error: %v", err)
 	}
@@ -504,7 +504,7 @@ func TestDialSMTP_Port25_PlainConnection(t *testing.T) {
 	defer cancel()
 
 	// 端口 25 应使用明文连接
-	client, err := dialSMTP(ctx, host, port)
+	client, err := dialSMTP(ctx, host, port, false)
 	if err != nil {
 		t.Fatalf("dialSMTP with port 25 should succeed, got error: %v", err)
 	}

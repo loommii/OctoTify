@@ -258,6 +258,13 @@ var ChannelTypeMetas = []ChannelTypeMeta{
 				Required:    false,
 				Placeholder: "系统通知",
 			},
+			{
+				Name:        "skip_tls_verify",
+				Label:       "跳过 TLS 证书校验",
+				Type:        "boolean",
+				Required:    false,
+				Placeholder: "仅自签名证书时启用",
+			},
 		},
 	},
 	{
