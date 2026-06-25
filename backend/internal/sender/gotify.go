@@ -128,20 +128,18 @@ func (s *GotifySender) Send(ctx context.Context, config datatypes.JSON, title st
 	}
 
 	parsedURL.Path = strings.TrimSuffix(parsedURL.Path, "/") + "/message"
-	q := parsedURL.Query()
-	q.Set("token", cfg.AppToken)
-	parsedURL.RawQuery = q.Encode()
 	apiURL := parsedURL.String()
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, apiURL, bytes.NewReader(bodyBytes))
 	if err != nil {
 		return fmt.Errorf("创建 HTTP 请求失败: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Gotify-Key", cfg.AppToken)
 
 	resp, err := client.Do(req)
 	if err != nil {
 		s.logger.Error("Gotify 网络请求失败",
-			zap.String("url", parsedURL.String()),
+			zap.String("host", parsedURL.Host),
 			zap.Error(err),
 		)
 		return fmt.Errorf("发送 Gotify 请求失败: %w", err)
@@ -183,6 +181,9 @@ func (s *GotifySender) Send(ctx context.Context, config datatypes.JSON, title st
 	return nil
 }
 
+// escapeMarkdown 转义 Markdown 行内格式字符，防止用户内容破坏 Gotify 的 Markdown 渲染。
+// 仅转义会影响行内格式的字符（加粗、斜体、链接、代码等），
+// 保留 #（标题）和 -（列表）等块级语法，因为 Gotify 使用 text/markdown 渲染消息。
 func escapeMarkdown(s string) string {
 	s = strings.ReplaceAll(s, "\\", "\\\\")
 	s = strings.ReplaceAll(s, "*", "\\*")
@@ -191,10 +192,6 @@ func escapeMarkdown(s string) string {
 	s = strings.ReplaceAll(s, "]", "\\]")
 	s = strings.ReplaceAll(s, "(", "\\(")
 	s = strings.ReplaceAll(s, ")", "\\)")
-	s = strings.ReplaceAll(s, "#", "\\#")
-	s = strings.ReplaceAll(s, "+", "\\+")
-	s = strings.ReplaceAll(s, "-", "\\-")
-	s = strings.ReplaceAll(s, "!", "\\!")
 	s = strings.ReplaceAll(s, "`", "\\`")
 	s = strings.ReplaceAll(s, "|", "\\|")
 	return s
