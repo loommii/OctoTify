@@ -7,6 +7,15 @@ Thumbs.db
 !.vscode/extensions.json
 .idea/
 
+# AI / Local tooling
+.agents/
+.apifox/
+.claude/
+.trae/
+CLAUDE.md
+skills-lock.json
+**/.playwright-mcp
+
 # Environment variables
 .env
 .env.local
@@ -95,16 +104,16 @@ frontend/*.sw?
 frontend/.history
 frontend/.cursor
 
-# AI
-.playwright-mcp
-
 # E2E test config (contains sensitive data)
-e2e/test.config.toml
+e2e/config/test.config.toml
 
-# Playwright
-node_modules/
-/test-results/
-/playwright-report/
-/blob-report/
-/playwright/.cache/
-/playwright/.auth/
+# E2E test output
+e2e/playwright-report/
+e2e/test-results/
+
+# Playwright (root-level generated artifacts)
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+playwright/.auth/

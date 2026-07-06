@@ -1,0 +1,19 @@
+# Telegram Bot 配置（至少配置 1 个，建议 3 个用于并发测试）
+
+# Bot-1: 用于渠道创建测试
+[[telegramBots]]
+botToken = "YOUR_BOT_TOKEN_1"
+chatId = "YOUR_CHAT_ID_1"
+proxy = "http://127.0.0.1:10808"
+
+# Bot-2: 用于渠道连接测试
+[[telegramBots]]
+botToken = "YOUR_BOT_TOKEN_2"
+chatId = "YOUR_CHAT_ID_2"
+proxy = "http://127.0.0.1:10808"
+
+# Bot-3: 用于消息推送测试
+[[telegramBots]]
+botToken = "YOUR_BOT_TOKEN_3"
+chatId = "YOUR_CHAT_ID_3"
+proxy = "http://127.0.0.1:10808"
