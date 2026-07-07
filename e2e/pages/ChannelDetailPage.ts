@@ -18,13 +18,13 @@ export class ChannelDetailPage extends BasePage {
   constructor(page: Page) {
     super(page);
     // 渠道名称（从描述表格的"渠道名称"行读取值）
-    this.nameDisplay = page.getByRole('row', { name: '渠道名称' }).getByRole('cell').nth(1);
+    this.nameDisplay = page.locator('.el-descriptions__label').filter({ hasText: '渠道名称' }).locator('..').locator('.el-descriptions__content').first();
     // 渠道类型（从描述表格的"渠道类型"行读取标签）
-    this.typeDisplay = page.getByRole('row', { name: '渠道类型' }).getByRole('cell').nth(1).locator('.el-tag');
+    this.typeDisplay = page.locator('.el-descriptions__label').filter({ hasText: '渠道类型' }).locator('..').locator('.el-descriptions__content .el-tag').first();
     // 渠道配置区域
     this.configDisplay = page.locator('.el-descriptions--border');
     // 状态标签
-    this.statusTag = page.getByRole('row', { name: '状态' }).getByRole('cell').nth(1).locator('.el-tag');
+    this.statusTag = page.locator('.el-descriptions__label').filter({ hasText: '状态' }).locator('..').locator('.el-descriptions__content .el-tag').first();
     // 操作按钮
     this.testButton = page.getByRole('button', { name: '测试连接' });
     this.editButton = page.getByRole('button', { name: '修改' });
