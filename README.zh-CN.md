@@ -183,6 +183,17 @@ Content-Type: application/json
 **界面升级**
 - 前端全面重构，全新 UI 和交互体验
 
+### v1.1.1（安全及稳定性修复）
+
+**安全修复**
+- 飞书 Webhook URL 日志脱敏，避免认证凭据泄露
+- Gotify app_token 改用 `X-Gotify-Key` Header 传递，防止 token 出现在 URL 日志中
+- SMTP TLS 证书校验从硬编码跳过改为用户可配置，消除中间人攻击风险
+
+**稳定性改进**
+- SQLite 启用 WAL 模式 + busy_timeout，解决高并发 `SQLITE_BUSY` 错误
+- 运行容器切换至非 root 用户（`USER app`）
+
 ### v1.1.0
 
 **新增渠道**

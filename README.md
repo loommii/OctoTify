@@ -183,6 +183,17 @@ Backend uses **Go + Gin**, frontend uses **Vue 3 + Vite**, data storage uses **S
 **UI Upgrade**
 - Complete frontend overhaul with brand new UI and interaction experience
 
+### v1.1.1 (Security & Stability Fixes)
+
+**Security Fixes**
+- Feishu webhook URL sanitized in logs to prevent credential leakage
+- Gotify app_token migrated to `X-Gotify-Key` header to avoid token exposure in URL logs
+- SMTP TLS certificate validation changed from hardcoded skip to user-configurable, eliminating MITM risk
+
+**Stability Improvements**
+- SQLite WAL mode + busy_timeout to resolve `SQLITE_BUSY` errors under high concurrency
+- Container runtime switched to non-root user (`USER app`)
+
 ### v1.1.0
 
 **New Channels**

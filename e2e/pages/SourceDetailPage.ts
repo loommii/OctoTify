@@ -33,17 +33,15 @@ export class SourceDetailPage extends BasePage {
     // 状态标签
     this.statusTag = page.locator('.el-tag').first();
     // 操作按钮
-    this.viewTokenButton = page.getByRole('button', { name: '查看Token' });
-    this.resetTokenButton = page.getByRole('button', { name: '重置Token' });
+    this.viewTokenButton = page.getByRole('button', { name: '查看令牌' });
+    this.resetTokenButton = page.getByRole('button', { name: '重置令牌' });
     this.enableButton = page.getByRole('button', { name: '启用' });
     this.disableButton = page.getByRole('button', { name: '停用' });
     this.deleteButton = page.getByRole('button', { name: '删除' });
     this.editButton = page.getByRole('button', { name: '编辑' });
     // 二次密码验证弹窗
     this.stepUpPasswordInput = page.locator('.stepup-auth-dialog-content input[type="password"]');
-    this.stepUpConfirmButton = page.locator('.stepup-auth-dialog-content input[type="password"]')
-      .locator('..').locator('..').locator('..')
-      .locator('.dialog-footer button[type="primary"]');
+    this.stepUpConfirmButton = page.getByRole('button', { name: '确认' });
   }
 
   /** 导航到来源详情页 */

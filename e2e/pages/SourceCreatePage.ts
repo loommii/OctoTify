@@ -71,9 +71,17 @@ export class SourceCreatePage extends BasePage {
 
   /** 获取错误提示文案 */
   async getErrorMessage(): Promise<string> {
-    const toastVisible = await this.errorMessage.isVisible({ timeout: 2000 }).catch(() => false);
+    // 优先检查 toast 消息
+    const toast = this.page.locator('.el-message--error .el-message__content');
+    const toastVisible = await toast.isVisible({ timeout: 2000 }).catch(() => false);
     if (toastVisible) {
-      return (await this.errorMessage.textContent()) ?? '';
+      return (await toast.textContent()) ?? '';
+    }
+    // 回退：检查 Element Plus 表单内联校验错误
+    const inlineError = this.page.locator('.el-form-item__error').first();
+    const inlineVisible = await inlineError.isVisible({ timeout: 1000 }).catch(() => false);
+    if (inlineVisible) {
+      return (await inlineError.textContent()) ?? '';
     }
     return '';
   }

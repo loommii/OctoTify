@@ -65,6 +65,7 @@ const (
 	ChannelTypeEmail         = "email"
 	ChannelTypeWebhook       = "webhook"
 	ChannelTypeFeishu        = "feishu"
+	ChannelTypeGotify        = "gotify"
 )
 
 var ValidChannelTypes = map[string]bool{
@@ -75,6 +76,7 @@ var ValidChannelTypes = map[string]bool{
 	ChannelTypeEmail:         true,
 	ChannelTypeWebhook:       true,
 	ChannelTypeFeishu:        true,
+	ChannelTypeGotify:        true,
 }
 
 // ConfigField 渠道配置字段定义
@@ -255,6 +257,13 @@ var ChannelTypeMetas = []ChannelTypeMeta{
 				Type:        "string",
 				Required:    false,
 				Placeholder: "系统通知",
+			},
+			{
+				Name:        "skip_tls_verify",
+				Label:       "跳过 TLS 证书校验",
+				Type:        "boolean",
+				Required:    false,
+				Placeholder: "仅自签名证书时启用",
 			},
 		},
 	},

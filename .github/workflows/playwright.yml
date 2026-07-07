@@ -1,0 +1,30 @@
+# CI 流水线：Playwright E2E 测试
+# 在推送代码到主分支或创建 Pull Request 时自动运行
+name: Playwright Tests
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+jobs:
+  test:
+    # 单次运行超时 60 分钟
+    timeout-minutes: 60
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: lts/*
+    - name: 安装项目依赖
+      run: npm ci
+    - name: 安装 Playwright 浏览器
+      run: npx playwright install --with-deps
+    - name: 运行 E2E 测试
+      run: npx playwright test
+    - uses: actions/upload-artifact@v4
+      if: ${{ !cancelled() }}
+      with:
+        name: playwright-report
+        path: playwright-report/
+        retention-days: 30

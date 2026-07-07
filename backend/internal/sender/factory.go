@@ -35,6 +35,7 @@ func NewSenderFactory(logger *zap.Logger, ilinkClient *ilink.Client) *SenderFact
 			"email":          NewEmailSender(logger),
 			"webhook":        NewWebhookSender(logger),
 			"feishu":         NewFeishuSender(logger),
+			"gotify":         NewGotifySender(logger),
 		},
 	}
 }

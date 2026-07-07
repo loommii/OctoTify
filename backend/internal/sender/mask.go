@@ -1,6 +1,9 @@
 package sender
 
-import "strings"
+import (
+	"net/url"
+	"strings"
+)
 
 // maskToken 对 Token 进行脱敏处理
 // 仅显示前 4 位 + "..." + 后 4 位
@@ -42,4 +45,13 @@ func maskURL(urlStr string) string {
 		return urlStr[:tokenStart] + "***" + urlStr[tokenStart+tokenEnd:]
 	}
 	return urlStr
+}
+
+// maskHost 从 URL 中提取 host 部分，隐藏路径和 query 中的敏感信息
+func maskHost(rawURL string) string {
+	u, err := url.Parse(rawURL)
+	if err != nil || u.Host == "" {
+		return "***"
+	}
+	return u.Host
 }

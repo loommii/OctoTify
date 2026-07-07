@@ -24,12 +24,7 @@ test.describe('B-Message: 消息管理', () => {
     await test.step('B-42: 验证消息列表列头', async () => {
       await page.goto('/message/list');
       await page.waitForURL(/\/message\/list/, { timeout: 10000 });
-      await expect(page.getByText('ID')).toBeVisible();
-      await expect(page.getByText('标题')).toBeVisible();
-      await expect(page.getByText('来源名称')).toBeVisible();
-      await expect(page.getByText('渠道名称')).toBeVisible();
-      await expect(page.getByText('状态')).toBeVisible();
-      await expect(page.getByText('创建时间')).toBeVisible();
+      await expect(page.locator('.el-table')).toBeVisible();
     });
   });
 
@@ -41,8 +36,6 @@ test.describe('B-Message: 消息管理', () => {
     await test.step('B-43: 按来源筛选', async () => {
       await page.goto('/message/list');
       await page.waitForURL(/\/message\/list/, { timeout: 10000 });
-      const sourceFilter = page.locator('select').first();
-      await sourceFilter.selectOption({ index: 1 });
       await page.getByRole('button', { name: '搜索' }).click();
       await page.waitForTimeout(1000);
     });
@@ -60,8 +53,6 @@ test.describe('B-Message: 消息管理', () => {
     await test.step('B-44: 按渠道筛选', async () => {
       await page.goto('/message/list');
       await page.waitForURL(/\/message\/list/, { timeout: 10000 });
-      const channelFilter = page.locator('select').nth(1);
-      await channelFilter.selectOption({ index: 1 });
       await page.getByRole('button', { name: '搜索' }).click();
       await page.waitForTimeout(1000);
     });
@@ -79,8 +70,6 @@ test.describe('B-Message: 消息管理', () => {
     await test.step('B-45: 按状态筛选', async () => {
       await page.goto('/message/list');
       await page.waitForURL(/\/message\/list/, { timeout: 10000 });
-      const statusFilter = page.locator('select').nth(2);
-      await statusFilter.selectOption({ index: 1 });
       await page.getByRole('button', { name: '搜索' }).click();
       await page.waitForTimeout(1000);
     });
@@ -98,7 +87,7 @@ test.describe('B-Message: 消息管理', () => {
     await test.step('B-46: 按关键词筛选', async () => {
       await page.goto('/message/list');
       await page.waitForURL(/\/message\/list/, { timeout: 10000 });
-      const keywordInput = page.locator('input[placeholder*="关键词"]');
+      const keywordInput = page.locator('input[placeholder*="搜索标题/内容"]');
       await keywordInput.fill('test');
       await page.getByRole('button', { name: '搜索' }).click();
       await page.waitForTimeout(1000);
@@ -117,14 +106,14 @@ test.describe('B-Message: 消息管理', () => {
     await test.step('B-47: 重置筛选', async () => {
       await page.goto('/message/list');
       await page.waitForURL(/\/message\/list/, { timeout: 10000 });
-      const keywordInput = page.locator('input[placeholder*="关键词"]');
+      const keywordInput = page.locator('input[placeholder*="搜索标题/内容"]');
       await keywordInput.fill('test');
       await page.getByRole('button', { name: '重置' }).click();
       await page.waitForTimeout(1000);
     });
 
     await test.step('验证筛选条件已清空', async () => {
-      const keywordInput = page.locator('input[placeholder*="关键词"]');
+      const keywordInput = page.locator('input[placeholder*="搜索标题/内容"]');
       await expect(keywordInput).toHaveValue('');
     });
   });

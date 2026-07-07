@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"go.uber.org/zap/zaptest"
 	"gorm.io/datatypes"
@@ -218,8 +219,8 @@ func TestGotifySender_Send_MessageTruncation(t *testing.T) {
 	if !strings.Contains(capturedBody.Message, "[消息已截断]") {
 		t.Fatalf("expected truncated message to contain '[消息已截断]', got %q", capturedBody.Message)
 	}
-	if len(capturedBody.Message) > gotifyMaxMessageLen {
-		t.Fatalf("expected message length <= %d, got %d", gotifyMaxMessageLen, len(capturedBody.Message))
+	if utf8.RuneCountInString(capturedBody.Message) > gotifyMaxMessageLen {
+		t.Fatalf("expected message rune count <= %d, got %d", gotifyMaxMessageLen, utf8.RuneCountInString(capturedBody.Message))
 	}
 	if capturedBody.Extras.ClientDisplay.ContentType != "text/markdown" {
 		t.Fatalf("expected contentType 'text/markdown', got %q", capturedBody.Extras.ClientDisplay.ContentType)
@@ -262,10 +263,12 @@ func TestGotifySender_Send_RequestPath(t *testing.T) {
 	sender := NewGotifySender(logger)
 
 	var capturedPath string
-	var capturedToken string
+	var capturedHeaderToken string
+	var capturedQueryToken string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		capturedPath = r.URL.Path
-		capturedToken = r.URL.Query().Get("token")
+		capturedHeaderToken = r.Header.Get("X-Gotify-Key")
+		capturedQueryToken = r.URL.Query().Get("token")
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(gotifyResponse{ID: 1})
@@ -280,8 +283,11 @@ func TestGotifySender_Send_RequestPath(t *testing.T) {
 	if capturedPath != "/message" {
 		t.Fatalf("expected request path '/message', got %q", capturedPath)
 	}
-	if capturedToken != "mySecretToken" {
-		t.Fatalf("expected token 'mySecretToken', got %q", capturedToken)
+	if capturedHeaderToken != "mySecretToken" {
+		t.Fatalf("expected X-Gotify-Key header 'mySecretToken', got %q", capturedHeaderToken)
+	}
+	if capturedQueryToken != "" {
+		t.Fatalf("expected no token in URL query, got %q", capturedQueryToken)
 	}
 }
 
@@ -362,14 +368,14 @@ func TestEscapeMarkdown(t *testing.T) {
 		{"下划线转义", "_foo_", "\\_foo\\_"},
 		{"方括号转义", "[bar]", "\\[bar\\]"},
 		{"圆括号转义", "(parens)", "\\(parens\\)"},
-		{"井号转义", "#heading", "\\#heading"},
-		{"加号转义", "+item", "\\+item"},
-		{"减号转义", "-item", "\\-item"},
-		{"感叹号转义", "!important", "\\!important"},
+		{"井号不转义（标题语法）", "#heading", "#heading"},
+		{"加号不转义", "+item", "+item"},
+		{"减号不转义（列表语法）", "-item", "-item"},
+		{"感叹号不转义", "!important", "!important"},
 		{"反引号转义", "`code`", "\\`code\\`"},
 		{"管道符转义", "a|b", "a\\|b"},
 		{"反斜杠转义", "path\\file", "path\\\\file"},
-		{"所有特殊字符同时转义", "*test* _foo_ [bar]", "\\*test\\* \\_foo\\_ \\[bar\\]"},
+		{"所有特殊字符同时转义", "*test* _foo_ [bar] #h -l", "\\*test\\* \\_foo\\_ \\[bar\\] #h -l"},
 		{"空字符串", "", ""},
 	}
 
