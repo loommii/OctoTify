@@ -7,11 +7,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 
-	"octotify/internal/client/ilink"
 	"octotify/internal/handler/dto"
 	"octotify/internal/middleware"
 	"octotify/internal/service"
-	"octotify/pkg/aescipher"
 	"octotify/pkg/response"
 	"octotify/pkg/xerr"
 )
@@ -273,109 +271,3 @@ func (h *ChannelHandler) DeleteChannel(c *gin.Context) {
 }
 
 // StartBind godoc
-// @Security     BearerAuth
-func (h *ChannelHandler) StartBind(c *gin.Context) {
-	userID, ok := h.getUserID(c)
-	if !ok {
-		return
-	}
-
-	// 审计日志：记录用户发起绑定
-	h.logger.Info("发起微信ClawBot绑定",
-		zap.Int64("user_id", userID),
-	)
-
-	qrcode, qrcodeURL, err := h.channelService.StartBind(c.Request.Context(), userID)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	response.Success(c, dto.StartBindResp{
-		QRCodeURL: qrcodeURL,
-		QRCode:    qrcode,
-	})
-}
-
-// GetBindStatus godoc
-// @Security     BearerAuth
-func (h *ChannelHandler) GetBindStatus(c *gin.Context) {
-	userID, ok := h.getUserID(c)
-	if !ok {
-		return
-	}
-
-	var req dto.GetBindStatusReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, xerr.ErrBadRequest.Code, "请求参数格式错误")
-		return
-	}
-
-	// 审计日志：记录用户查询绑定状态
-	h.logger.Info("查询绑定状态",
-		zap.Int64("user_id", userID),
-	)
-
-	// 直接用 qrcode 字符串调用 service，无需构造任何中间结构体
-	// 注意：iLink 的 get_qrcode_status API 本身是长轮询设计（40s 超时），
-	// 后端直接透传 iLink 的原始状态给前端
-	status, credentials, err := h.channelService.PollBindStatus(c.Request.Context(), req.QRCode)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	h.sendBindResponse(c, status, credentials)
-}
-
-// sendBindResponse 统一发送绑定状态响应
-// service 层返回明文凭证，handler 层负责加密后返回前端（API 传输层加密）
-func (h *ChannelHandler) sendBindResponse(c *gin.Context, status string, credentials *ilink.Credentials) {
-	resp := dto.BindStatusResp{Status: status}
-	if status == ilink.StatusConfirmed && credentials != nil {
-		cipherB64, nonceB64, err := aescipher.GlobalEncryptBase64([]byte(credentials.BotToken))
-		if err != nil {
-			h.logger.Error("凭证加密失败", zap.Error(err))
-			response.Fail(c, 500, "凭证加密失败")
-			return
-		}
-		resp.Credential = &dto.BindCredentialsDTO{
-			BotTokenCiphertext: cipherB64,
-			BotTokenNonce:      nonceB64,
-			IlinkBotID:         credentials.IlinkBotID,
-			IlinkUserID:        credentials.IlinkUserID,
-		}
-	}
-
-	response.Success(c, resp)
-}
-
-// CheckActivation godoc
-// @Security     BearerAuth
-func (h *ChannelHandler) CheckActivation(c *gin.Context) {
-	userID, ok := h.getUserID(c)
-	if !ok {
-		return
-	}
-
-	// 审计日志：记录用户检查激活状态
-	h.logger.Info("检查激活状态",
-		zap.Int64("user_id", userID),
-	)
-
-	var req dto.CheckActivationReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, xerr.ErrBadRequest.Code, "请求参数格式错误")
-		return
-	}
-
-	hasActivation, err := h.channelService.CheckActivationMessage(c.Request.Context(), req.BotTokenCiphertext, req.BotTokenNonce)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	response.Success(c, dto.CheckActivationResp{
-		HasActivation: hasActivation,
-	})
-}

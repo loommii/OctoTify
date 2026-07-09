@@ -2,21 +2,16 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/datatypes"
 
-	"octotify/internal/client/ilink"
 	"octotify/internal/handler/dto"
 	"octotify/internal/model"
 	"octotify/internal/sender"
-	"octotify/pkg/aescipher"
 	"octotify/pkg/xerr"
 )
 
@@ -33,8 +28,7 @@ func TestChannelService_CreateChannel(t *testing.T) {
 	ctx := context.Background()
 
 	// 创建 SenderFactory（使用真实工厂，CreateChannel 内部不会调用 senderFactory.Create）
-	ilinkClient := ilink.NewClient(logger)
-	factory := sender.NewSenderFactory(logger, ilinkClient)
+	factory := sender.NewSenderFactory(logger)
 
 	// 预创建测试用户
 	testUser := CreateTestUser(t, db, "create_channel_user", "Password1")
@@ -64,7 +58,7 @@ func TestChannelService_CreateChannel(t *testing.T) {
 			req: &dto.CreateChannelReq{
 				Type:   "dingtalk",
 				Name:   "钉钉-告警群",
-				Config: dto.ChannelConfig{"webhook": "https://oapi.dingtalk.com/robot/send?access_token=test"},
+				Config: dto.ChannelConfig{"webhook_url": "https://oapi.dingtalk.com/robot/send?access_token=test", "secret": "SECtest"},
 			},
 			wantErrCode: 0,
 			wantSuccess: true,
@@ -94,7 +88,7 @@ func TestChannelService_CreateChannel(t *testing.T) {
 				tt.setup()
 			}
 
-			svc := NewChannelService(db, logger, factory, ilinkClient)
+			svc := NewChannelService(db, logger, factory)
 			result, err := svc.CreateChannel(ctx, tt.userID, tt.req)
 
 			if tt.wantSuccess {
@@ -141,8 +135,7 @@ func TestChannelService_ListChannels(t *testing.T) {
 	ctx := context.Background()
 
 	// 创建 SenderFactory（使用真实工厂，测试中不需要调用 Create）
-	ilinkClient := ilink.NewClient(logger)
-	factory := sender.NewSenderFactory(logger, ilinkClient)
+	factory := sender.NewSenderFactory(logger)
 
 	// 预创建测试用户和多个渠道
 	testUser := CreateTestUser(t, db, "list_channels_user", "Password1")
@@ -183,7 +176,7 @@ func TestChannelService_ListChannels(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := NewChannelService(db, logger, factory, ilinkClient)
+			svc := NewChannelService(db, logger, factory)
 			list, total, err := svc.ListChannels(ctx, tt.userID, tt.pageReq)
 
 			if tt.wantSuccess {
@@ -226,8 +219,7 @@ func TestChannelService_UpdateChannel(t *testing.T) {
 	ctx := context.Background()
 
 	// 创建 SenderFactory（使用真实工厂，测试中不需要调用 Create）
-	ilinkClient := ilink.NewClient(logger)
-	factory := sender.NewSenderFactory(logger, ilinkClient)
+	factory := sender.NewSenderFactory(logger)
 
 	// 预创建测试用户和渠道
 	testUser := CreateTestUser(t, db, "update_channel_user", "Password1")
@@ -295,7 +287,7 @@ func TestChannelService_UpdateChannel(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := NewChannelService(db, logger, factory, ilinkClient)
+			svc := NewChannelService(db, logger, factory)
 			err := svc.UpdateChannel(ctx, tt.userID, tt.channelID, tt.req)
 
 			if tt.wantSuccess {
@@ -340,8 +332,7 @@ func TestChannelService_GetChannelByID(t *testing.T) {
 	ctx := context.Background()
 
 	// 创建 SenderFactory（使用真实工厂，测试中不需要调用 Create）
-	ilinkClient := ilink.NewClient(logger)
-	factory := sender.NewSenderFactory(logger, ilinkClient)
+	factory := sender.NewSenderFactory(logger)
 
 	// 预创建测试用户和渠道
 	testUser := CreateTestUser(t, db, "get_channel_user", "Password1")
@@ -383,7 +374,7 @@ func TestChannelService_GetChannelByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := NewChannelService(db, logger, factory, ilinkClient)
+			svc := NewChannelService(db, logger, factory)
 			result, err := svc.GetChannelByID(ctx, tt.userID, tt.channelID)
 
 			if tt.wantSuccess {
@@ -421,8 +412,7 @@ func TestChannelService_DisableChannel(t *testing.T) {
 	ctx := context.Background()
 
 	// 创建 SenderFactory（使用真实工厂，测试中不需要调用 Create）
-	ilinkClient := ilink.NewClient(logger)
-	factory := sender.NewSenderFactory(logger, ilinkClient)
+	factory := sender.NewSenderFactory(logger)
 
 	// 预创建测试用户和渠道
 	testUser := CreateTestUser(t, db, "disable_channel_user", "Password1")
@@ -470,7 +460,7 @@ func TestChannelService_DisableChannel(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := NewChannelService(db, logger, factory, ilinkClient)
+			svc := NewChannelService(db, logger, factory)
 			err := svc.DisableChannel(ctx, tt.userID, tt.channelID)
 
 			if tt.wantSuccess {
@@ -504,8 +494,7 @@ func TestChannelService_EnableChannel(t *testing.T) {
 	ctx := context.Background()
 
 	// 创建 SenderFactory（使用真实工厂，测试中不需要调用 Create）
-	ilinkClient := ilink.NewClient(logger)
-	factory := sender.NewSenderFactory(logger, ilinkClient)
+	factory := sender.NewSenderFactory(logger)
 
 	// 预创建测试用户和渠道
 	testUser := CreateTestUser(t, db, "enable_channel_user", "Password1")
@@ -553,7 +542,7 @@ func TestChannelService_EnableChannel(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := NewChannelService(db, logger, factory, ilinkClient)
+			svc := NewChannelService(db, logger, factory)
 			err := svc.EnableChannel(ctx, tt.userID, tt.channelID)
 
 			if tt.wantSuccess {
@@ -587,8 +576,7 @@ func TestChannelService_DeleteChannel(t *testing.T) {
 	ctx := context.Background()
 
 	// 创建 SenderFactory（使用真实工厂，测试中不需要调用 Create）
-	ilinkClient := ilink.NewClient(logger)
-	factory := sender.NewSenderFactory(logger, ilinkClient)
+	factory := sender.NewSenderFactory(logger)
 
 	// 预创建测试用户、渠道和来源
 	testUser := CreateTestUser(t, db, "delete_channel_user", "Password1")
@@ -634,7 +622,7 @@ func TestChannelService_DeleteChannel(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := NewChannelService(db, logger, factory, ilinkClient)
+			svc := NewChannelService(db, logger, factory)
 			err := svc.DeleteChannel(ctx, tt.userID, tt.channelID)
 
 			if tt.wantSuccess {
@@ -681,10 +669,9 @@ func TestChannelService_GetChannelTypes(t *testing.T) {
 	logger := SetupTestLogger(t)
 
 	// 创建 SenderFactory（使用真实工厂，测试中不需要调用 Create）
-	ilinkClient := ilink.NewClient(logger)
-	factory := sender.NewSenderFactory(logger, ilinkClient)
+	factory := sender.NewSenderFactory(logger)
 
-	svc := NewChannelService(db, logger, factory, ilinkClient)
+	svc := NewChannelService(db, logger, factory)
 	result := svc.GetChannelTypes()
 
 	// 验证返回的渠道类型列表非空
@@ -730,7 +717,6 @@ func TestChannelService_TestChannel(t *testing.T) {
 	testUser := CreateTestUser(t, db, "test_channel_user", "Password1")
 
 	// 创建共享的 ilink client 用于 service 构造
-	ilinkClient := ilink.NewClient(logger)
 
 	// 创建活跃的渠道
 	activeChannel := CreateTestChannel(t, db, testUser.ID, "feishu", "Active Test Channel")
@@ -816,10 +802,10 @@ func TestChannelService_TestChannel(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// 为每个子用例创建独立的发送器工厂
-			testFactory := sender.NewSenderFactory(logger, ilinkClient)
+			testFactory := sender.NewSenderFactory(logger)
 			tt.setupMock(testFactory)
 
-			svc := NewChannelService(db, logger, testFactory, ilinkClient)
+			svc := NewChannelService(db, logger, testFactory)
 			err := svc.TestChannel(ctx, tt.userID, tt.channelID)
 
 			if tt.wantSuccess {
@@ -835,296 +821,3 @@ func TestChannelService_TestChannel(t *testing.T) {
 }
 
 // ============================================================================
-// 微信ClawBot绑定流程测试
-// ============================================================================
-
-// newBindTestService 创建绑定测试用的 ChannelService
-// BaseURL 指向模拟 iLink 服务器
-func newBindTestService(t *testing.T, targetURL string) *ChannelService {
-	t.Helper()
-	db := SetupTestDB(t)
-	logger := SetupTestLogger(t)
-	ilinkClient := ilink.NewClient(logger, ilink.WithBaseURL(targetURL))
-	factory := sender.NewSenderFactory(logger, ilinkClient)
-	return &ChannelService{
-		db:            db,
-		logger:        logger,
-		senderFactory: factory,
-		ilinkClient:   ilinkClient,
-	}
-}
-
-// TestChannelService_StartBind 测试发起微信ClawBot扫码绑定
-// 覆盖场景：成功获取二维码、iLink API 返回错误
-func TestChannelService_StartBind(t *testing.T) {
-	ctx := context.Background()
-
-	tests := []struct {
-		name         string
-		iLinkHandler http.HandlerFunc
-		wantQRCode   string
-		wantURL      string
-		wantErr      bool
-		wantErrCode  int
-	}{
-		{
-			name: "成功：iLink API 返回 QRCode 和 QRCodeImgContent",
-			iLinkHandler: func(w http.ResponseWriter, r *http.Request) {
-				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(map[string]string{
-					"qrcode":             "test-qrcode-abc123",
-					"qrcode_img_content": "data:image/png;base64,iVBORw0KGgo=",
-				})
-			},
-			wantQRCode: "test-qrcode-abc123",
-			wantURL:    "data:image/png;base64,iVBORw0KGgo=",
-			wantErr:    false,
-		},
-		{
-			name: "失败：iLink API 返回 HTTP 500",
-			iLinkHandler: func(w http.ResponseWriter, r *http.Request) {
-				w.WriteHeader(http.StatusInternalServerError)
-				w.Write([]byte("internal server error"))
-			},
-			wantQRCode:  "",
-			wantURL:     "",
-			wantErr:     true,
-			wantErrCode: xerr.ErrQRCodeFetchFailed.Code,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// 创建模拟 iLink 服务器
-			iLinkServer := httptest.NewServer(tt.iLinkHandler)
-			defer iLinkServer.Close()
-
-			svc := newBindTestService(t, iLinkServer.URL)
-			qrcode, qrcodeURL, err := svc.StartBind(ctx, 1)
-
-			if tt.wantErr {
-				assert.Error(t, err)
-				appErr, ok := err.(*xerr.AppError)
-				assert.True(t, ok, "错误类型应为 *xerr.AppError")
-				assert.Equal(t, tt.wantErrCode, appErr.Code, "错误码不匹配")
-				assert.Empty(t, qrcode)
-				assert.Empty(t, qrcodeURL)
-			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, tt.wantQRCode, qrcode)
-				assert.Equal(t, tt.wantURL, qrcodeURL)
-			}
-		})
-	}
-}
-
-// TestChannelService_PollBindStatus 测试轮询微信ClawBot绑定状态
-// 覆盖场景：pending、scanned、confirmed（含加密凭证验证）、expired、iLink API 失败
-func TestChannelService_PollBindStatus(t *testing.T) {
-	ctx := context.Background()
-
-	tests := []struct {
-		name            string
-		iLinkHandler    http.HandlerFunc
-		wantStatus      string
-		wantCreds       bool   // 是否期望返回凭证
-		wantErr         bool   // 是否期望返回错误
-		errContains     string // 错误信息应包含的子串
-		wantILinkBotID  string
-		wantILinkUserID string
-	}{
-		{
-			name: "成功：iLink 返回 wait 状态",
-			iLinkHandler: func(w http.ResponseWriter, r *http.Request) {
-				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(map[string]string{
-					"status": ilink.StatusWait,
-				})
-			},
-			wantStatus: ilink.StatusWait,
-			wantCreds:  false,
-			wantErr:    false,
-		},
-		{
-			name: "成功：iLink 返回 scanned 状态",
-			iLinkHandler: func(w http.ResponseWriter, r *http.Request) {
-				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(map[string]string{
-					"status": ilink.StatusScanned,
-				})
-			},
-			wantStatus: ilink.StatusScanned,
-			wantCreds:  false,
-			wantErr:    false,
-		},
-		{
-			name: "成功：iLink 返回 confirmed 状态，包含加密凭证",
-			iLinkHandler: func(w http.ResponseWriter, r *http.Request) {
-				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(map[string]string{
-					"status":        ilink.StatusConfirmed,
-					"bot_token":     "test-bot-token-xyz",
-					"ilink_bot_id":  "bot-789",
-					"ilink_user_id": "user-012",
-				})
-			},
-			wantStatus:      ilink.StatusConfirmed,
-			wantCreds:       true,
-			wantErr:         false,
-			wantILinkBotID:  "bot-789",
-			wantILinkUserID: "user-012",
-		},
-		{
-			name: "成功：iLink 返回 expired 状态",
-			iLinkHandler: func(w http.ResponseWriter, r *http.Request) {
-				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(map[string]string{
-					"status": ilink.StatusExpired,
-				})
-			},
-			wantStatus: ilink.StatusExpired,
-			wantCreds:  false,
-			wantErr:    false,
-		},
-		{
-			name: "失败：iLink API 返回 HTTP 500，应返回错误和空状态",
-			iLinkHandler: func(w http.ResponseWriter, r *http.Request) {
-				w.WriteHeader(http.StatusInternalServerError)
-				w.Write([]byte("internal server error"))
-			},
-			wantStatus:  "",
-			wantCreds:   false,
-			wantErr:     true,
-			errContains: "HTTP 500",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			iLinkServer := httptest.NewServer(tt.iLinkHandler)
-			defer iLinkServer.Close()
-
-			svc := newBindTestService(t, iLinkServer.URL)
-			status, credentials, err := svc.PollBindStatus(ctx, "test-qrcode")
-
-			// 验证状态
-			assert.Equal(t, tt.wantStatus, status)
-
-			if tt.wantCreds {
-				// 验证凭证结构完整（明文格式）
-				assert.NoError(t, err)
-				require.NotNil(t, credentials)
-				assert.NotEmpty(t, credentials.BotToken, "BotToken 不应为空")
-				assert.Equal(t, tt.wantILinkBotID, credentials.IlinkBotID)
-				assert.Equal(t, tt.wantILinkUserID, credentials.IlinkUserID)
-			} else {
-				assert.Nil(t, credentials)
-			}
-
-			if tt.wantErr {
-				assert.Error(t, err)
-				if tt.errContains != "" {
-					assert.Contains(t, err.Error(), tt.errContains)
-				}
-			} else {
-				assert.NoError(t, err)
-			}
-		})
-	}
-}
-
-// ============================================================================
-// TestChannelService_CheckActivationMessage 测试检查激活消息功能
-// ============================================================================
-
-func TestChannelService_CheckActivationMessage(t *testing.T) {
-	logger := SetupTestLogger(t)
-	ctx := context.Background()
-
-	cipherB64, nonceB64, err := aescipher.GlobalEncryptBase64([]byte("test-bot-token"))
-	require.NoError(t, err, "加密 bot_token 失败")
-
-	invalidCipher := "invalid-cipher"
-	invalidNonce := "invalid-nonce"
-
-	tests := []struct {
-		name             string
-		cipherText       string
-		nonce            string
-		iLinkHandler     http.HandlerFunc
-		wantResult       bool
-		wantErr          bool
-		errContains      string
-	}{
-		{
-			name:       "成功：有激活消息",
-			cipherText: cipherB64,
-			nonce:      nonceB64,
-			iLinkHandler: func(w http.ResponseWriter, r *http.Request) {
-				w.Header().Set("Content-Type", "application/json")
-				w.Write([]byte(`{"ret": 0, "msgs": [{"from_user_id": "user@test.im.wechat", "message_type": 1}]}`))
-			},
-			wantResult:  true,
-			wantErr:     false,
-		},
-		{
-			name:       "成功：无激活消息",
-			cipherText: cipherB64,
-			nonce:      nonceB64,
-			iLinkHandler: func(w http.ResponseWriter, r *http.Request) {
-				w.Header().Set("Content-Type", "application/json")
-				w.Write([]byte(`{"ret": 0, "msgs": []}`))
-			},
-			wantResult:  false,
-			wantErr:     false,
-		},
-		{
-			name:        "失败：凭证解密失败",
-			cipherText:  invalidCipher,
-			nonce:       invalidNonce,
-			iLinkHandler: nil,
-			wantErr:     true,
-			errContains: "凭证解密失败",
-		},
-		{
-			name:       "失败：iLink API 调用失败",
-			cipherText: cipherB64,
-			nonce:      nonceB64,
-			iLinkHandler: func(w http.ResponseWriter, r *http.Request) {
-				w.WriteHeader(http.StatusInternalServerError)
-			},
-			wantErr:     true,
-			errContains: "获取消息失败",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			iLinkHandler := tt.iLinkHandler
-			if iLinkHandler == nil {
-				iLinkHandler = func(w http.ResponseWriter, r *http.Request) {
-					w.WriteHeader(http.StatusOK)
-				}
-			}
-
-			iLinkServer := httptest.NewServer(iLinkHandler)
-			defer iLinkServer.Close()
-
-			ilinkClient := ilink.NewClient(logger, ilink.WithBaseURL(iLinkServer.URL))
-			factory := sender.NewSenderFactory(logger, ilinkClient)
-			svc := NewChannelService(nil, logger, factory, ilinkClient)
-
-			hasActivation, err := svc.CheckActivationMessage(ctx, tt.cipherText, tt.nonce)
-
-			if tt.wantErr {
-				assert.Error(t, err)
-				if tt.errContains != "" {
-					assert.Contains(t, err.Error(), tt.errContains)
-				}
-			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, tt.wantResult, hasActivation)
-			}
-		})
-	}
-}

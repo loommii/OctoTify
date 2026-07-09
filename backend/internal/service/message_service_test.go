@@ -14,7 +14,6 @@ import (
 	"gorm.io/gorm"
 
 	"octotify/internal/handler/dto"
-	"octotify/internal/client/ilink"
 	"octotify/internal/model"
 	"octotify/internal/sender"
 	"octotify/pkg/xerr"
@@ -155,8 +154,7 @@ func TestMessageService_ListMessages(t *testing.T) {
 // newMockSenderFactoryAdapter 创建适配后的 SenderFactory
 func newMockSenderFactoryAdapter() *sender.SenderFactory {
 	nopLogger := zap.NewNop()
-	ilinkClient := ilink.NewClient(nopLogger)
-	factory := sender.NewSenderFactory(nopLogger, ilinkClient)
+	factory := sender.NewSenderFactory(nopLogger)
 	factory.Register("webhook", &sender.MockSender{SendFunc: func(ctx context.Context, config datatypes.JSON, title string, content string) error {
 		return nil
 	}})
@@ -814,8 +812,7 @@ func TestMessageService_PushMessage(t *testing.T) {
 			}
 
 			// 设置 Mock
-			testIlinkClient := ilink.NewClient(testLogger)
-			testFactory := sender.NewSenderFactory(testLogger, testIlinkClient)
+			testFactory := sender.NewSenderFactory(testLogger)
 			tt.setupMock(testFactory)
 
 			svc := NewMessageService(testDB, testLogger, testFactory)

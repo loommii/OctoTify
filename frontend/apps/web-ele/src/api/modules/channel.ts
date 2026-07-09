@@ -48,28 +48,6 @@ export namespace ChannelApi {
     name: string;
     config: Record<string, any>;
   }
-
-  /** 微信绑定响应 */
-  export interface WechatBindResponse {
-    qrcode_url: string;
-    qrcode: string;
-  }
-
-  /** 微信绑定状态 */
-  export interface WechatBindStatus {
-    status: string;
-    credential?: {
-      bot_token_ciphertext: string;
-      bot_token_nonce: string;
-      ilink_bot_id: string;
-      ilink_user_id: string;
-    };
-  }
-
-  /** 检查激活状态响应 */
-  export interface CheckActivationResponse {
-    has_activation: boolean;
-  }
 }
 
 /**
@@ -142,35 +120,4 @@ export async function disableChannelApi(id: number) {
  */
 export async function testChannelApi(id: number) {
   return requestClient.post(`/api/channels/${id}/test`);
-}
-
-/**
- * 微信 ClawBot 发起扫码绑定
- */
-export async function wechatBindBindApi() {
-  return requestClient.post<ChannelApi.WechatBindResponse>('/api/channels/wechat-clawbot/bind');
-}
-
-/**
- * 查询微信绑定状态
- * 注意：后端使用长轮询等待 iLink 响应（40 秒），需要设置更长的超时
- */
-export async function wechatBindStatusApi(qrcode: string) {
-  return requestClient.post<ChannelApi.WechatBindStatus>(
-    '/api/channels/wechat-clawbot/bind/status',
-    { qrcode },
-    { timeout: 60_000 },  // 60 秒超时
-  );
-}
-
-/**
- * 检查微信 ClawBot 激活状态
- * 使用凭证进行长轮询检查用户是否已发送消息
- */
-export async function checkActivationApi(data: { bot_token_ciphertext: string; bot_token_nonce: string }) {
-  return requestClient.post<ChannelApi.CheckActivationResponse>(
-    '/api/channels/wechat-clawbot/check-activation',
-    data,
-    { timeout: 60_000 },  // 60 秒超时
-  );
 }

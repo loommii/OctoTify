@@ -177,7 +177,6 @@ Backend uses **Go + Gin**, frontend uses **Vue 3 + Vite**, data storage uses **S
 ### v1.2.0
 
 **New Features**
-- WeChat ClawBot channel with QR code binding and activation verification
 - Password step-up authentication for sensitive operations
 
 **UI Upgrade**

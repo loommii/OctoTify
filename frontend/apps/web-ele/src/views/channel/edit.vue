@@ -49,7 +49,6 @@
               v-if="field.type === 'url'"
               v-model="configData[field.name]"
               :placeholder="field.placeholder"
-              :disabled="channelDetail.type === 'wechat_clawbot'"
             />
             <!-- 密码类型 -->
             <ElInput
@@ -58,7 +57,6 @@
               type="password"
               :placeholder="field.placeholder"
               show-password
-              :disabled="channelDetail.type === 'wechat_clawbot'"
             />
             <!-- 数字类型 -->
             <ElInputNumber
@@ -66,23 +64,16 @@
               v-model="configData[field.name]"
               :placeholder="field.placeholder"
               style="width: 100%"
-              :disabled="channelDetail.type === 'wechat_clawbot'"
             />
             <!-- 默认文本类型 -->
             <ElInput
               v-else
               v-model="configData[field.name]"
               :placeholder="field.placeholder"
-              :disabled="channelDetail.type === 'wechat_clawbot'"
             />
           </ElFormItem>
         </ElForm>
 
-        <!-- 微信 ClawBot 特殊处理 -->
-        <WechatBindSection
-          v-if="channelDetail.type === 'wechat_clawbot'"
-          @bound="handleWechatBound"
-        />
 
         <!-- 提交按钮 -->
         <ElFormItem class="mt-4">
@@ -120,7 +111,6 @@ import {
   getChannelTypesApi,
   type ChannelApi,
 } from '#/api/modules/channel';
-import WechatBindSection from '#/components/WechatBindSection.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -150,8 +140,6 @@ const configRules = computed<FormRules>(() => {
 const formRef = ref<FormInstance>();
 const configFormRef = ref<FormInstance>();
 
-// 微信绑定后的凭证
-const wechatCredential = ref<any>(null);
 
 const rules: FormRules = {
   name: [
@@ -204,17 +192,6 @@ async function loadTypeMeta() {
     }
   } catch {
     // 不影响主流程
-  }
-}
-
-// 微信绑定成功回调
-function handleWechatBound(credential: any) {
-  wechatCredential.value = credential;
-  if (credential) {
-    configData.bot_token_ciphertext = credential.bot_token_ciphertext || '';
-    configData.bot_token_nonce = credential.bot_token_nonce || '';
-    configData.ilink_bot_id = credential.ilink_bot_id || '';
-    configData.ilink_user_id = credential.ilink_user_id || '';
   }
 }
 

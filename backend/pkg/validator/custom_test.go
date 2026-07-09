@@ -308,17 +308,6 @@ func TestValidateChannelConfig(t *testing.T) {
 			},
 			wantErr: false,
 		},
-		{
-			name:        "wechat_clawbot_合法_必填字段完整",
-			channelType: "wechat_clawbot",
-			config: map[string]any{
-				"bot_token_ciphertext": "encrypted_token",
-				"bot_token_nonce":      "nonce_value",
-				"ilink_bot_id":         "bot_123",
-				"ilink_user_id":        "user_456",
-			},
-			wantErr: false,
-		},
 
 		// === 空配置 ===
 		{
@@ -379,17 +368,7 @@ func TestValidateChannelConfig(t *testing.T) {
 			wantErr:     true,
 			errContains: "smtp_port",
 		},
-		{
-			name:        "wechat_clawbot_缺少ilink_user_id",
-			channelType: "wechat_clawbot",
-			config: map[string]any{
-				"bot_token_ciphertext": "encrypted_token",
-				"bot_token_nonce":      "nonce_value",
-				"ilink_bot_id":         "bot_123",
-			},
-			wantErr:     true,
-			errContains: "ilink_user_id",
-		},
+
 
 		// === 字段值为空字符串 ===
 		{

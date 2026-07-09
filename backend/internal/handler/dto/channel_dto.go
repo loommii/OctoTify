@@ -58,25 +58,23 @@ func FromJSON(j datatypes.JSON) ChannelConfig {
 }
 
 const (
-	ChannelTypeWechat        = "wechat"
-	ChannelTypeWechatClawbot = "wechat_clawbot"
-	ChannelTypeTelegram      = "telegram"
-	ChannelTypeDingtalk      = "dingtalk"
-	ChannelTypeEmail         = "email"
-	ChannelTypeWebhook       = "webhook"
-	ChannelTypeFeishu        = "feishu"
-	ChannelTypeGotify        = "gotify"
+	ChannelTypeWechat   = "wechat"
+	ChannelTypeTelegram = "telegram"
+	ChannelTypeDingtalk = "dingtalk"
+	ChannelTypeEmail    = "email"
+	ChannelTypeWebhook  = "webhook"
+	ChannelTypeFeishu   = "feishu"
+	ChannelTypeGotify   = "gotify"
 )
 
 var ValidChannelTypes = map[string]bool{
-	ChannelTypeWechat:        true,
-	ChannelTypeWechatClawbot: true,
-	ChannelTypeTelegram:      true,
-	ChannelTypeDingtalk:      true,
-	ChannelTypeEmail:         true,
-	ChannelTypeWebhook:       true,
-	ChannelTypeFeishu:        true,
-	ChannelTypeGotify:        true,
+	ChannelTypeWechat:   true,
+	ChannelTypeTelegram: true,
+	ChannelTypeDingtalk: true,
+	ChannelTypeEmail:    true,
+	ChannelTypeWebhook:  true,
+	ChannelTypeFeishu:   true,
+	ChannelTypeGotify:   true,
 }
 
 // ConfigField 渠道配置字段定义
@@ -97,43 +95,7 @@ type ChannelTypeMeta struct {
 }
 
 // ChannelTypeMetas 所有支持的渠道类型元数据
-// 当前仅暴露已实现的渠道类型给前端（飞书、Telegram、邮件、钉钉、Gotify）
 var ChannelTypeMetas = []ChannelTypeMeta{
-	{
-		Type:        ChannelTypeWechatClawbot,
-		Name:        "微信ClawBot",
-		Description: "微信个人号AI助手（基于iLink协议）",
-		ConfigFields: []ConfigField{
-			{
-				Name:        "bot_token_ciphertext",
-				Label:       "Bot Token（加密）",
-				Type:        "password",
-				Required:    true,
-				Placeholder: "扫码绑定后自动填充",
-			},
-			{
-				Name:        "bot_token_nonce",
-				Label:       "Token Nonce（加密）",
-				Type:        "password",
-				Required:    true,
-				Placeholder: "扫码绑定后自动填充",
-			},
-			{
-				Name:        "ilink_bot_id",
-				Label:       "Bot ID",
-				Type:        "string",
-				Required:    true,
-				Placeholder: "扫码绑定后自动填充",
-			},
-			{
-				Name:        "ilink_user_id",
-				Label:       "用户ID",
-				Type:        "string",
-				Required:    true,
-				Placeholder: "扫码绑定后自动填充",
-			},
-		},
-	},
 	{
 		Type:        ChannelTypeFeishu,
 		Name:        "飞书",
@@ -321,15 +283,4 @@ type ChannelDTO struct {
 	CreatedAt  int64         `json:"created_at_ts" example:"1714636800000"`   // 创建时间（Unix 毫秒时间戳）
 	UpdatedAt  int64         `json:"updated_at_ts" example:"1714636800000"`   // 更新时间（Unix 毫秒时间戳）
 	LastUsedAt int64         `json:"last_used_at_ts" example:"1714636800000"` // 最后使用时间（Unix 毫秒时间戳，0 表示未使用）
-}
-
-// CheckActivationReq 检查激活消息请求
-type CheckActivationReq struct {
-	BotTokenCiphertext string `json:"bot_token_ciphertext" binding:"required"` // Bot Token 密文
-	BotTokenNonce      string `json:"bot_token_nonce" binding:"required"`      // 加密 Nonce
-}
-
-// CheckActivationResp 检查激活消息响应
-type CheckActivationResp struct {
-	HasActivation bool `json:"has_activation" example:"true"` // 是否已发送激活消息
 }

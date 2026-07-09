@@ -2,20 +2,16 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
 	"go.uber.org/zap"
-	"gorm.io/datatypes"
 	"gorm.io/gorm"
 
-	"octotify/internal/client/ilink"
 	"octotify/internal/handler/dto"
 	"octotify/internal/model"
 	"octotify/internal/query"
 	"octotify/internal/sender"
-	"octotify/pkg/aescipher"
 	"octotify/pkg/ctxutil"
 	"octotify/pkg/validator"
 	"octotify/pkg/xerr"
@@ -27,7 +23,6 @@ type ChannelService struct {
 	db            *gorm.DB              // 数据库连接
 	logger        *zap.Logger           // 日志记录器
 	senderFactory *sender.SenderFactory // 渠道发送器工厂，用于创建不同渠道的消息发送器
-	ilinkClient   *ilink.Client         // iLink 平台 API 客户端
 }
 
 // NewChannelService 创建推送渠道服务实例
@@ -35,15 +30,13 @@ type ChannelService struct {
 //   - db: 数据库连接
 //   - logger: 日志记录器
 //   - senderFactory: 渠道发送器工厂
-//   - ilinkClient: iLink 平台 API 客户端
 //
 // 返回: 初始化后的 ChannelService 实例
-func NewChannelService(db *gorm.DB, logger *zap.Logger, senderFactory *sender.SenderFactory, ilinkClient *ilink.Client) *ChannelService {
+func NewChannelService(db *gorm.DB, logger *zap.Logger, senderFactory *sender.SenderFactory) *ChannelService {
 	return &ChannelService{
 		db:            db,
 		logger:        logger,
 		senderFactory: senderFactory,
-		ilinkClient:   ilinkClient,
 	}
 }
 
@@ -78,23 +71,17 @@ func (s *ChannelService) CreateChannel(ctx context.Context, userID int64, req *d
 		return nil, xerr.ErrBadRequest.WithInternal(err)
 	}
 
-	// 对微信ClawBot渠道，解密密文并校验，确保配置有效
-	configData, err := s.processChannelConfig(ctx, req.Type, req.Config.ToJSON())
-	if err != nil {
-		return nil, err
-	}
-
 	// 构建渠道模型实例
 	channel := &model.Channel{
 		UserID: userID,
-		Type:   req.Type,                  // 渠道类型（如 feishu, wechat 等）
-		Name:   req.Name,                  // 渠道名称
-		Config: configData,                // 渠道配置（ClawBot 存储密文）
+		Type:   req.Type,
+		Name:   req.Name,
+		Config: req.Config.ToJSON(),
 		Status: model.ChannelStatusActive, // 默认启用状态
 	}
 
 	// 使用事务创建渠道，确保数据一致性
-	err = q.Transaction(func(tx *query.Query) error {
+	err := q.Transaction(func(tx *query.Query) error {
 		if err := tx.Channel.WithContext(ctx).Create(channel); err != nil {
 			return err
 		}
@@ -178,19 +165,14 @@ func (s *ChannelService) UpdateChannel(ctx context.Context, userID int64, channe
 		return xerr.ErrBadRequest.WithInternal(err)
 	}
 
-	// 对微信ClawBot渠道，解密密文并校验，确保配置有效
-	configData, err := s.processChannelConfig(ctx, channel.Type, req.Config.ToJSON())
-	if err != nil {
-		return err
-	}
-
 	// 使用事务更新渠道信息
+	configJSON := req.Config.ToJSON()
 	err = q.Transaction(func(tx *query.Query) error {
 		_, err := tx.Channel.WithContext(ctx).
 			Where(tx.Channel.ID.Eq(channelID), tx.Channel.UserID.Eq(userID)).
 			UpdateSimple(
 				tx.Channel.Name.Value(req.Name),
-				tx.Channel.Config.Value(configData),
+				tx.Channel.Config.Value(configJSON),
 				tx.Channel.UpdatedAt.Value(time.Now()),
 			)
 		return err
@@ -271,12 +253,6 @@ func (s *ChannelService) ListChannels(ctx context.Context, userID int64, pageReq
 		}
 
 		cfg := dto.FromJSON(ch.Config)
-		// wechat_clawbot 类型返回时将 bot_token 加密为前端期望的格式
-		if ch.Type == dto.ChannelTypeWechatClawbot {
-			if encrypted := encryptWechatClawbotToken(cfg); encrypted != nil {
-				cfg = encrypted
-			}
-		}
 
 		list = append(list, &dto.ChannelDTO{
 			ID:         ch.ID,
@@ -350,13 +326,8 @@ func (s *ChannelService) GetChannelByID(ctx context.Context, userID int64, chann
 		lastUsedAt = channel.LastUsedAt.UnixMilli()
 	}
 
-	// 解析配置，wechat_clawbot 类型返回时将 bot_token 加密为前端期望的格式
+	// 解析配置
 	cfg := dto.FromJSON(channel.Config)
-	if channel.Type == dto.ChannelTypeWechatClawbot {
-		if encrypted := encryptWechatClawbotToken(cfg); encrypted != nil {
-			cfg = encrypted
-		}
-	}
 
 	// 将模型转换为 DTO 返回
 	return &dto.ChannelDTO{
@@ -616,189 +587,3 @@ func (s *ChannelService) DeleteChannel(ctx context.Context, userID int64, channe
 	return nil
 }
 
-// StartBind 发起微信ClawBot绑定流程
-// 参数:
-//   - ctx: 上下文
-//   - userID: 用户 ID
-//
-// 返回:
-//   - qrcode: 二维码原始值（用于轮询状态）
-//   - qrcodeURL: 二维码图片内容（用于前端展示）
-//   - err: 错误信息
-func (s *ChannelService) StartBind(ctx context.Context, userID int64) (qrcode string, qrcodeURL string, err error) {
-	s.log(ctx).Info("发起微信ClawBot绑定",
-		zap.Int64("user_id", userID),
-	)
-
-	// 调用 iLink API 获取二维码
-	qrResp, err := s.ilinkClient.GetQRCode(ctx)
-	if err != nil {
-		s.log(ctx).Error("获取二维码失败",
-			zap.Error(err),
-		)
-		return "", "", xerr.ErrQRCodeFetchFailed.WithInternal(err)
-	}
-
-	return qrResp.QRCode, qrResp.QRCodeImgContent, nil
-}
-
-// PollBindStatus 轮询 iLink API 查询绑定状态
-// 参数:
-//   - ctx: 上下文
-//   - qrcode: iLink 返回的二维码原始值
-//
-// 返回:
-//   - status: 当前绑定状态（iLink 原始状态值）
-//   - credentials: 绑定成功时的凭证（仅在 confirmed 时非空）
-//   - err: 错误信息（如果调用失败）
-func (s *ChannelService) PollBindStatus(ctx context.Context, qrcode string) (status string, credentials *ilink.Credentials, err error) {
-	// 调用 iLink API 查询状态
-	statusResp, err := s.ilinkClient.GetQRCodeStatus(ctx, qrcode)
-	if err != nil {
-		return "", nil, xerr.ErrBindStatusFailed.WithInternal(err)
-	}
-
-	// 直接返回 iLink 原始状态，不做映射
-	status = statusResp.Status
-
-	// 如果绑定成功，返回明文凭证（handler 层负责加密后返回前端）
-	if status == ilink.StatusConfirmed {
-		credentials = &ilink.Credentials{
-			BotToken:    statusResp.BotToken,
-			IlinkBotID:  statusResp.ILinkBotID,
-			IlinkUserID: statusResp.ILinkUserID,
-		}
-	}
-
-	return status, credentials, nil
-}
-
-// encryptWechatClawbotToken 将 wechat_clawbot 渠道的 bot_token 明文加密为前端期望的格式
-// 返回加密后的 config map，若不需要加密则返回 nil
-func encryptWechatClawbotToken(config dto.ChannelConfig) dto.ChannelConfig {
-	botToken, ok := config["bot_token"].(string)
-	if !ok || botToken == "" {
-		return nil
-	}
-
-	cipherB64, nonceB64, err := aescipher.GlobalEncryptBase64([]byte(botToken))
-	if err != nil {
-		return nil
-	}
-
-	encrypted := make(dto.ChannelConfig)
-	for k, v := range config {
-		encrypted[k] = v
-	}
-	encrypted["bot_token_ciphertext"] = cipherB64
-	encrypted["bot_token_nonce"] = nonceB64
-	delete(encrypted, "bot_token")
-	return encrypted
-}
-
-// processChannelConfig 处理渠道配置（针对 wechat_clawbot 类型进行解密和校验）
-// 前端提交的 config 中 bot_token 为密文格式（bot_token_ciphertext + bot_token_nonce），
-// 此方法解密后替换为明文 bot_token，存入数据库时为明文格式
-func (s *ChannelService) processChannelConfig(ctx context.Context, channelType string, config datatypes.JSON) (datatypes.JSON, error) {
-	if channelType != dto.ChannelTypeWechatClawbot {
-		return config, nil
-	}
-
-	// 解析配置
-	var cfg map[string]interface{}
-	if err := json.Unmarshal(config, &cfg); err != nil {
-		s.log(ctx).Error("解析渠道配置失败", zap.Error(err))
-		return nil, fmt.Errorf("解析渠道配置失败: %w", err)
-	}
-
-	// 检查是否为密文格式（前端提交时加密传输）
-	cipherText, hasCipher := cfg["bot_token_ciphertext"].(string)
-	nonce, hasNonce := cfg["bot_token_nonce"].(string)
-
-	if hasCipher && hasNonce {
-		// 解密前端传来的密文，提取明文 bot_token
-		plaintext, err := aescipher.GlobalDecryptBase64(cipherText, nonce)
-		if err != nil {
-			s.log(ctx).Error("BotToken 解密失败", zap.Error(err))
-			return nil, fmt.Errorf("凭证解密失败，请重新绑定微信ClawBot: %w", err)
-		}
-		if len(plaintext) == 0 {
-			return nil, fmt.Errorf("解密后的 BotToken 为空")
-		}
-
-		ilinkBotID, _ := cfg["ilink_bot_id"].(string)
-		ilinkUserID, _ := cfg["ilink_user_id"].(string)
-		if ilinkBotID == "" {
-			return nil, fmt.Errorf("ilink_bot_id 不能为空")
-		}
-		if ilinkUserID == "" {
-			return nil, fmt.Errorf("ilink_user_id 不能为空")
-		}
-
-		// 替换为明文格式存入数据库
-		delete(cfg, "bot_token_ciphertext")
-		delete(cfg, "bot_token_nonce")
-		cfg["bot_token"] = string(plaintext)
-
-		result, err := json.Marshal(cfg)
-		if err != nil {
-			s.log(ctx).Error("序列化渠道配置失败", zap.Error(err))
-			return nil, fmt.Errorf("序列化渠道配置失败: %w", err)
-		}
-		return result, nil
-	}
-
-	// 兼容已有明文格式（数据库中直接存储 bot_token 明文）
-	if botToken, hasToken := cfg["bot_token"].(string); hasToken && botToken != "" {
-		ilinkBotID, _ := cfg["ilink_bot_id"].(string)
-		ilinkUserID, _ := cfg["ilink_user_id"].(string)
-		if ilinkBotID == "" {
-			return nil, fmt.Errorf("ilink_bot_id 不能为空")
-		}
-		if ilinkUserID == "" {
-			return nil, fmt.Errorf("ilink_user_id 不能为空")
-		}
-		return config, nil
-	}
-
-	return nil, fmt.Errorf("微信ClawBot配置缺少 bot_token_ciphertext/bot_token_nonce 或 bot_token 字段")
-}
-
-// CheckActivationMessage 检查用户是否已向微信ClawBot发送激活消息
-// 参数:
-//   - ctx: 上下文
-//   - botTokenCiphertext: Bot Token 密文
-//   - botTokenNonce: 加密 Nonce
-//
-// 返回:
-//   - hasActivation: 是否已发送激活消息
-//   - err: 错误信息
-func (s *ChannelService) CheckActivationMessage(ctx context.Context, botTokenCiphertext string, botTokenNonce string) (bool, error) {
-	plaintext, err := aescipher.GlobalDecryptBase64(botTokenCiphertext, botTokenNonce)
-	if err != nil {
-		s.log(ctx).Error("BotToken 解密失败", zap.Error(err))
-		return false, fmt.Errorf("凭证解密失败: %w", err)
-	}
-	if len(plaintext) == 0 {
-		return false, fmt.Errorf("解密后的 BotToken 为空")
-	}
-
-	botToken := string(plaintext)
-
-	resp, err := s.ilinkClient.GetUpdates(ctx, botToken)
-	if err != nil {
-		s.log(ctx).Error("调用 iLink GetUpdates 失败",
-			zap.Error(err),
-		)
-		return false, fmt.Errorf("获取消息失败: %w", err)
-	}
-
-	hasActivation := len(resp.Msgs) > 0
-
-	s.log(ctx).Info("激活消息检查完成",
-		zap.Bool("has_activation", hasActivation),
-		zap.Int("msg_count", len(resp.Msgs)),
-	)
-
-	return hasActivation, nil
-}

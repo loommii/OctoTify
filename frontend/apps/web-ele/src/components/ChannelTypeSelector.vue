@@ -48,7 +48,6 @@ const iconMap: Record<string, string> = {
   dingtalk: 'mdi:message',
   telegram: 'mdi:send',
   email: 'mdi:email',
-  wechat_clawbot: 'mdi:wechat',
   wechat: 'mdi:wechat',
 };
 

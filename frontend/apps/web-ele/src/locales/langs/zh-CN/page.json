@@ -137,7 +137,6 @@
     "dingtalk": "钉钉",
     "telegram": "Telegram",
     "email": "邮件",
-    "wechat_clawbot": "微信ClawBot"
   },
   "message": {
     "title": "消息记录",

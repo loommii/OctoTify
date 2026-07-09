@@ -78,14 +78,6 @@ func (s *Server) setupChannelRoutes(api *gin.RouterGroup) {
 	// 渠道类型元数据接口（在 channels 组外，避免与 :id 路由冲突）
 	api.GET("/channel-types", middleware.JWTAuth(s.accessJWTHelper), s.channelHandler.GetChannelTypes) // 获取渠道类型元数据
 
-	// 微信ClawBot绑定路由
-	wechatClawbot := api.Group("/channels/wechat-clawbot")
-	wechatClawbot.Use(middleware.JWTAuth(s.accessJWTHelper)) // 需 JWT 认证
-	{
-		wechatClawbot.POST("/bind", s.channelHandler.StartBind)            // 发起扫码绑定
-		wechatClawbot.POST("/bind/status", s.channelHandler.GetBindStatus) // 查询绑定状态
-		wechatClawbot.POST("/check-activation", s.channelHandler.CheckActivation) // 检查激活消息
-	}
 }
 
 // setupMessageRoutes 注册消息管理相关路由

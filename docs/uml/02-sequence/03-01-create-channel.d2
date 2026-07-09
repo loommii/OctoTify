@@ -73,7 +73,7 @@ server.a -> jwt.a: "JWTAuth(accessToken)"
   JSON解析通过: {
     handler.a -> service.a: "CreateChannel(ctx, userId, req)"
     
-    service.a -> service.a: "processChannelConfig(解密 wechat_clawbot 配置)"
+    service.a -> service.a: 
     
     配置解析失败: {
       service.a --> handler.a: "error(渠道配置无效)" {
@@ -131,6 +131,6 @@ server.a -> jwt.a: "JWTAuth(accessToken)"
   }
 }
 
-note: "事务说明：渠道插入在事务中执行，配置解密针对 wechat_clawbot 类型" {
+note: "事务说明：渠道插入在事务中执行" {
   near: bottom-center
 }

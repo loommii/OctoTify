@@ -14,7 +14,6 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
-	"octotify/internal/client/ilink"
 	"octotify/internal/model"
 	"octotify/internal/sender"
 	pkgjwtx "octotify/pkg/jwtx"
@@ -195,13 +194,11 @@ func AssertJWTTokenValid(t *testing.T, helper *pkgjwtx.JWTHelper, tokenStr strin
 	return claims
 }
 
-// NewChannelServiceForTest 创建绑定测试用的 ChannelService（可注入自定义 iLink 客户端）
-// 此函数仅供测试使用，允许 Handler 层测试模拟 iLink API
-func NewChannelServiceForTest(db *gorm.DB, logger *zap.Logger, senderFactory *sender.SenderFactory, ilinkClient *ilink.Client) *ChannelService {
+// NewChannelServiceForTest 创建测试用的 ChannelService
+func NewChannelServiceForTest(db *gorm.DB, logger *zap.Logger, senderFactory *sender.SenderFactory) *ChannelService {
 	return &ChannelService{
 		db:            db,
 		logger:        logger,
 		senderFactory: senderFactory,
-		ilinkClient:   ilinkClient,
 	}
 }

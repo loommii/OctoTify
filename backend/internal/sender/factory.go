@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"sync"
 
-	"octotify/internal/client/ilink"
 	"octotify/pkg/xerr"
 
 	"go.uber.org/zap"
@@ -21,21 +20,17 @@ type SenderFactory struct {
 
 // NewSenderFactory 创建发送器工厂
 // 初始化所有内置渠道的发送器实例
-// 参数:
-//   - logger: 日志记录器
-//   - ilinkClient: iLink API 客户端（用于微信ClawBot渠道）
-func NewSenderFactory(logger *zap.Logger, ilinkClient *ilink.Client) *SenderFactory {
+func NewSenderFactory(logger *zap.Logger) *SenderFactory {
 	return &SenderFactory{
 		logger: logger,
 		senders: map[string]Sender{
-			"wechat":         NewWechatSender(logger),
-			"wechat_clawbot": NewWechatClawbotSender(logger, ilinkClient),
-			"telegram":       NewTelegramSender(logger),
-			"dingtalk":       NewDingtalkSender(logger),
-			"email":          NewEmailSender(logger),
-			"webhook":        NewWebhookSender(logger),
-			"feishu":         NewFeishuSender(logger),
-			"gotify":         NewGotifySender(logger),
+			"wechat":   NewWechatSender(logger),
+			"telegram": NewTelegramSender(logger),
+			"dingtalk": NewDingtalkSender(logger),
+			"email":    NewEmailSender(logger),
+			"webhook":  NewWebhookSender(logger),
+			"feishu":   NewFeishuSender(logger),
+			"gotify":   NewGotifySender(logger),
 		},
 	}
 }

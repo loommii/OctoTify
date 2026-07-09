@@ -75,7 +75,6 @@
               v-if="field.type === 'url'"
               v-model="configData[field.name]"
               :placeholder="field.placeholder"
-              :disabled="selectedMeta.type === 'wechat_clawbot'"
             />
             <!-- 密码类型 -->
             <ElInput
@@ -84,7 +83,6 @@
               type="password"
               :placeholder="field.placeholder"
               show-password
-              :disabled="selectedMeta.type === 'wechat_clawbot'"
             />
             <!-- 数字类型 -->
             <ElInputNumber
@@ -92,23 +90,16 @@
               v-model="configData[field.name]"
               :placeholder="field.placeholder"
               style="width: 100%"
-              :disabled="selectedMeta.type === 'wechat_clawbot'"
             />
             <!-- 默认文本类型 -->
             <ElInput
               v-else
               v-model="configData[field.name]"
               :placeholder="field.placeholder"
-              :disabled="selectedMeta.type === 'wechat_clawbot'"
             />
           </ElFormItem>
         </ElForm>
 
-        <!-- 微信 ClawBot 特殊处理：嵌入微信绑定 -->
-        <WechatBindSection
-          v-if="selectedMeta.type === 'wechat_clawbot'"
-          @bound="handleWechatBound"
-        />
 
         <!-- 提交按钮 -->
         <ElFormItem class="mt-4">
@@ -147,7 +138,6 @@ import {
   type ChannelApi,
 } from '#/api/modules/channel';
 import ChannelTypeSelector from '#/components/ChannelTypeSelector.vue';
-import WechatBindSection from '#/components/WechatBindSection.vue';
 
 const router = useRouter();
 
@@ -179,8 +169,6 @@ const formRef = ref<FormInstance>();
 const configFormRef = ref<FormInstance>();
 const submitting = ref(false);
 
-// 微信绑定后的凭证
-const wechatCredential = ref<any>(null);
 
 const rules: FormRules = {
   name: [
@@ -215,24 +203,11 @@ function handleTypeSelect(meta: ChannelApi.ChannelTypeMeta) {
   });
   // 重置表单
   formData.name = '';
-  wechatCredential.value = null;
 }
 
 // 更换类型
 function handleChangeType() {
   selectedMeta.value = null;
-}
-
-// 微信绑定成功回调
-function handleWechatBound(credential: any) {
-  wechatCredential.value = credential;
-  // 自动填充配置字段
-  if (credential) {
-    configData.bot_token_ciphertext = credential.bot_token_ciphertext || '';
-    configData.bot_token_nonce = credential.bot_token_nonce || '';
-    configData.ilink_bot_id = credential.ilink_bot_id || '';
-    configData.ilink_user_id = credential.ilink_user_id || '';
-  }
 }
 
 // 提交表单
@@ -246,12 +221,6 @@ async function handleSubmit() {
   // 校验配置
   const configValid = await configFormRef.value?.validate().catch(() => false);
   if (!configValid) return;
-
-  // 微信 ClawBot 类型必须绑定成功
-  if (selectedMeta.value.type === 'wechat_clawbot' && !wechatCredential.value) {
-    ElMessage.warning($t('page.channel.requireBind'));
-    return;
-  }
 
   submitting.value = true;
   try {

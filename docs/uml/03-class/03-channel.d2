@@ -124,12 +124,6 @@ classes: {
   +Register(channelType string, snd Sender)
 }
 
-"WechatClawbotSender" {
-  shape: class
-  class: sender
-  -logger: "*zap.Logger"
-  -ilinkClient: "*ilink.Client"
-  "Send(ctx, config datatypes.JSON, title, content string)": error
 }
 
 "TelegramSender" {
@@ -367,16 +361,12 @@ classes: {
 "ChannelService" -> "AES Cipher": encrypts
 "ChannelService" -> "AppError": returns
 "SenderFactory" -> "Sender": creates
-"SenderFactory" -> "WechatClawbotSender": registers
 "SenderFactory" -> "TelegramSender": registers
 "SenderFactory" -> "DingtalkSender": registers
 "SenderFactory" -> "EmailSender": registers
 "SenderFactory" -> "FeishuSender": registers
 "SenderFactory" -> "WechatSender": registers
 "SenderFactory" -> "WebhookSender": registers
-"WechatClawbotSender" -> "Sender": {
-  label: implements
-  style.stroke-dash: 4
 }
 "TelegramSender" -> "Sender": {
   label: implements
@@ -402,7 +392,6 @@ classes: {
   label: implements
   style.stroke-dash: 4
 }
-"WechatClawbotSender" -> "ilink.Client": uses
 "ilink.Client" -> "Credentials": returns
 "ilink.Client" -> "QRCodeResponse": returns
 "ilink.Client" -> "QRStatusResponse": returns

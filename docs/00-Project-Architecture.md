@@ -9,7 +9,7 @@
 OctoTify 是一个消息总线平台，核心功能是：
 
 1. **消息来源（Source）**：外部系统通过 Token 向平台推送消息
-2. **推送渠道（Channel）**：平台将消息推送到多种渠道（微信 ClawBot、飞书、Telegram、钉钉、邮件等）
+2. **推送渠道（Channel）**：平台将消息推送到多种渠道（飞书、Telegram、钉钉、邮件等）
 3. **灵活绑定**：一个 Source 可以关联多个 Channel，实现一对多推送
 
 ### 技术栈
@@ -48,7 +48,7 @@ User (用户)
   │       └── 绑定 Channel 1, 2, 3...
   │
   └── 创建 Channel (推送渠道)
-          ├── 类型: 微信 ClawBot / 飞书 / Telegram / 钉钉 / 邮件
+          ├── 类型: 飞书 / Telegram / 钉钉 / 邮件
           └── 配置: 各自的凭证/配置
 ```
 
@@ -85,7 +85,7 @@ OctoTify/
 │   ├── cmd/server/main.go    # 服务入口
 │   ├── internal/             # 私有代码
 │   │   ├── client/           # 第三方 API 客户端
-│   │   │   └── ilink/        # iLink 平台客户端（微信 ClawBot 绑定）
+│   │   │   └── ilink/        # iLink 平台客户端（已废弃）
 │   │   ├── config/           # 配置加载（Viper）
 │   │   ├── database/         # 数据库初始化（GORM + SQLite）
 │   │   ├── handler/          # HTTP 处理器
@@ -97,7 +97,7 @@ OctoTify/
 │   │   ├── sender/           # 推送策略层
 │   │   │   ├── sender.go         # Sender 接口
 │   │   │   ├── factory.go        # Sender 工厂
-│   │   │   ├── wechat_clawbot.go # 微信 ClawBot 实现
+
 │   │   │   ├── telegram.go       # Telegram 实现
 │   │   │   ├── email.go          # 邮件实现
 │   │   │   ├── dingtalk.go       # 钉钉实现

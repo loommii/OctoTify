@@ -89,12 +89,6 @@ func (s *Server) registerComponentSchemas(doc openapi.SwaggerDocBuilder) {
 	_, _ = doc.SchemaFromDTO(&dto.CreateChannelReq{})
 	_, _ = doc.SchemaFromDTO(&dto.UpdateChannelReq{})
 	_, _ = doc.SchemaFromDTO(&dto.ChannelDTO{})
-	_, _ = doc.SchemaFromDTO(&dto.StartBindResp{})
-	_, _ = doc.SchemaFromDTO(&dto.GetBindStatusReq{})
-	_, _ = doc.SchemaFromDTO(&dto.BindStatusResp{})
-	_, _ = doc.SchemaFromDTO(&dto.BindCredentialsDTO{})
-	_, _ = doc.SchemaFromDTO(&dto.CheckActivationReq{})
-	_, _ = doc.SchemaFromDTO(&dto.CheckActivationResp{})
 
 	// 消息相关
 	_, _ = doc.SchemaFromDTO(&dto.PushMessageReq{})
@@ -769,79 +763,7 @@ func (s *Server) registerChannelRoutes(doc openapi.SwaggerDocBuilder) {
 		}).
 		Doc()
 
-	// POST /api/channels/wechat-clawbot/bind
-	var _ = doc.Path("/api/channels/wechat-clawbot/bind").
-		Post(func(op openapi.Operation) {
-			op.Summary("发起微信ClawBot扫码绑定").
-				Description("获取微信ClawBot绑定二维码，用户扫码后完成绑定。").
-				Tag("微信ClawBot绑定").
-				OperationID("StartBind").
-				Security("BearerAuth").
-				Response(http.StatusOK, func(r openapi.Response) {
-					r.Description("获取成功，返回 qrcode_url 和 qrcode").
-						Content(mime.ApplicationJSON, func(mt openapi.MediaType) {
-							mt.SchemaFromDTO(&response.Response{})
-						})
-				})
-		}).
-		Doc()
 
-	// POST /api/channels/wechat-clawbot/bind/status
-	var _ = doc.Path("/api/channels/wechat-clawbot/bind/status").
-		Post(func(op openapi.Operation) {
-			op.Summary("查询微信ClawBot绑定状态").
-				Description("通过 qrcode 调用 iLink API 查询绑定状态（长轮询，40s 超时）。\n\n"+
-					"## 返回状态\n"+
-					"- pending: 仍在等待中（超时返回）\n"+
-					"- scanned: 用户已扫码，待确认\n"+
-					"- confirmed: 绑定成功，返回凭证\n"+
-					"- expired: 二维码已过期").
-				Tag("微信ClawBot绑定").
-				OperationID("GetBindStatus").
-				Security("BearerAuth").
-				RequestBody(func(rb openapi.RequestBody) {
-					rb.Description("查询绑定状态请求参数").
-						Required(true).
-						Content(mime.ApplicationJSON, func(mt openapi.MediaType) {
-							mt.SchemaFromDTO(&dto.GetBindStatusReq{})
-						})
-				}).
-				Response(http.StatusOK, func(r openapi.Response) {
-					r.Description("查询成功，返回绑定状态").
-						Content(mime.ApplicationJSON, func(mt openapi.MediaType) {
-							mt.SchemaFromDTO(&response.Response{})
-						})
-				})
-		}).
-		Doc()
-
-	// POST /api/channels/wechat-clawbot/check-activation
-	var _ = doc.Path("/api/channels/wechat-clawbot/check-activation").
-		Post(func(op openapi.Operation) {
-			op.Summary("检查微信ClawBot激活状态").
-				Description("检查用户是否已向微信ClawBot发送激活消息。扫码绑定成功后调用此接口，传入凭证中的密文即可。\n\n" +
-					"## 长轮询说明\n" +
-					"该接口后端为长轮询设计，服务端最长挂起 45 秒。前端需设置 60 秒超时。\n\n" +
-					"## 使用场景\n" +
-					"用户扫码绑定成功后，前端轮询此接口直到 has_activation=true，才认为渠道激活完成。").
-				Tag("微信ClawBot绑定").
-				OperationID("CheckActivation").
-				Security("BearerAuth").
-				RequestBody(func(rb openapi.RequestBody) {
-					rb.Description("检查激活状态请求参数").
-						Required(true).
-						Content(mime.ApplicationJSON, func(mt openapi.MediaType) {
-							mt.SchemaFromDTO(&dto.CheckActivationReq{})
-						})
-				}).
-				Response(http.StatusOK, func(r openapi.Response) {
-					r.Description("查询成功，返回激活状态").
-						Content(mime.ApplicationJSON, func(mt openapi.MediaType) {
-							mt.SchemaFromDTO(&response.Response{})
-						})
-				})
-		}).
-		Doc()
 }
 
 // registerMessageRoutes 注册消息管理路由

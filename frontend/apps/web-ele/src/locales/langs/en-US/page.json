@@ -137,7 +137,6 @@
     "dingtalk": "DingTalk",
     "telegram": "Telegram",
     "email": "Email",
-    "wechat_clawbot": "WeChat ClawBot"
   },
   "message": {
     "title": "Messages",

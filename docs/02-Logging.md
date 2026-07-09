@@ -103,7 +103,6 @@ HTTP 请求相关的业务日志应额外包含：
 | 操作成功 | INFO | `msg="来源创建成功", sourceId=1, name=xxx` |
 | 关键状态变更 | INFO | `msg="用户登录成功", userId=1, ip=127.0.0.1` |
 | 业务逻辑失败 | ERROR | `msg="创建来源失败", error=来源名称不能为空` |
-| 第三方调用失败 | ERROR | `msg="微信 ClawBot 推送失败", sourceId=1, error=timeout` |
 | 数据库错误 | ERROR | `msg="查询来源列表失败", userId=1, error=connection refused` |
 | 业务拒绝（资源不存在、已删除、已停用等） | WARN | `msg="来源不存在", sourceId=1, userId=100`（待实现） |
 | 非关键错误 | WARN | `msg="请求未携带 X-Request-ID，已自动生成"` |

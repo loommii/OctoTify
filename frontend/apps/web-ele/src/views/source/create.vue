@@ -127,7 +127,6 @@ async function loadChannels() {
 // 渠道类型映射
 const channelTypeMap: Record<string, string> = {
   wechat: '微信',
-  wechat_clawbot: '微信ClawBot',
   telegram: 'Telegram',
   dingtalk: '钉钉',
   email: '邮件',
