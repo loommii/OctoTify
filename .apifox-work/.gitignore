@@ -1,8 +1,0 @@
-# 仅归档可读报告，忽略 AI 抓取的临时 JSON/日志（可随时从 Apifox 重新拉取）
-
-*
-!*/
-!.gitignore
-!**/report.md
-!**/review-report.md
-!**/rubric.md

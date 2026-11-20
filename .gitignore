@@ -10,6 +10,7 @@ Thumbs.db
 # AI / Local tooling
 .agents/
 .apifox/
+.apifox-work/
 .claude/
 .trae/
 CLAUDE.md
